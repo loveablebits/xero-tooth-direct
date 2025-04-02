@@ -1015,14 +1015,14 @@ async function searchInvoices() {
     // Show loading state
     toggleLoading(true);
     
-    // Build query parameters
-    const where = [];
-    if (searchTerm) {
+// Build query parameters
+const where = [];
+if (searchTerm) {
   // Escape quotes in the search term
   const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
   
-  // Use a simple OR for the most common search fields without newlines or extra spaces
-  where.push(`(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`);
+  // Just search invoice number which we know works
+  where.push(`InvoiceNumber.Contains("${safeSearchTerm}")`);
 }
     
     if (statusFilter) {
