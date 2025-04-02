@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xero Invoice Search</title>
+  
+  <style>
+    :root {
+      --primary-color: #13b5ea; /* Xero blue */
+      --primary-dark: #0e95c4;
+      --secondary-color: #273238;
+      --background-color: #f9f9f9;
+      --card-background: #ffffff;
+      --text-color: #333333;
+      --border-color: #e2e2e2;
+      --success-color: #36af47; /* Xero green */
+      --error-color: #d0021b;
+      --info-color: #2d9cdb;
+      --warning-color: #f2c94c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    header {
+      background-color: var(--secondary-color);
+      color: white;
+      padding: 1rem 0;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    header .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    main {
+      padding: 2rem 0;
+      min-height: calc(100vh - 130px);
+    }
+
+    footer {
+      background-color: var(--secondary-color);
+      color: rgba(255, 255, 255, 0.7);
+      padding: 1rem 0;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .btn.primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn.primary:hover {
+      background-color: var(--primary-dark);
+    }
+
+    .btn.secondary {
+      background-color: #f1f1f1;
+      color: var(--secondary-color);
+    }
+
+    .btn.secondary:hover {
+      background-color: #e0e0e0;
+    }
+
+    /* Messages */
+    .message {
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+    }
+
+    .message.info {
+      background-color: rgba(45, 156, 219, 0.1);
+      border: 1px solid var(--info-color);
+      color: var(--info-color);
+    }
+
+    .message.error {
+      background-color: rgba(208, 2, 27, 0.1);
+      border: 1px solid var(--error-color);
+      color: var(--error-color);
+    }
+
+    .message.success {
+      background-color: rgba(54, 175, 71, 0.1);
+      border: 1px solid var(--success-color);
+      color: var(--success-color);
+    }
+
+    /* Search Section */
+    #search-section {
+      background-color: var(--card-background);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+      margin-bottom: 2rem;
+    }
+
+    #search-section h2 {
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+      color: var(--secondary-color);
+    }
+
+    .search-container {
+      display: flex;
+      margin-bottom: 1rem;
+      gap: 0.5rem;
+    }
+
+    .search-container input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+
+    .search-container input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(19, 181, 234, 0.1);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 1rem;
+      background-color: rgba(0, 0, 0, 0.02);
+      border-radius: 4px;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .filter-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--secondary-color);
+    }
+
+    .filter-group select,
+    .filter-group input {
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      min-width: 150px;
+    }
+
+    /* Results Section */
+    #results-section {
+      background-color: var(--card-background);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .results-header h2 {
+      font-size: 1.25rem;
+      color: var(--secondary-color);
+    }
+
+    .sorting {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .sorting select {
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+
+    .result-item {
+      padding: 1.25rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .result-item:hover {
+      border-color: var(--primary-color);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .invoice-number {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--secondary-color);
+    }
+
+    .invoice-status {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-draft {
+      background-color: #f3f4f6;
+      color: #6b7280;
+    }
+
+    .status-submitted {
+      background-color: #fef3c7;
+      color: #d97706;
+    }
+
+    .status-authorised {
+      background-color: #dbeafe;
+      color: #2563eb;
+    }
+
+    .status-paid {
+      background-color: #d1fae5;
+      color: #059669;
+    }
+
+    .result-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .result-details div {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .result-details span:first-child {
+      color: #6b7280;
+      font-size: 0.75rem;
+    }
+
+    /* Invoice Detail Section */
+    #detail-section {
+      background-color: var(--card-background);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    #back-btn {
+      margin-bottom: 1.5rem;
+    }
+
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+
+    .invoice-header h2 {
+      font-size: 1.5rem;
+      color: var(--secondary-color);
+    }
+
+    .invoice-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .invoice-meta-group h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+    }
+
+    .invoice-items table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+
+    .invoice-items th {
+      text-align: left;
+      padding: 0.75rem;
+      background-color: rgba(0, 0, 0, 0.02);
+      font-weight: 600;
+      color: var(--secondary-color);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .invoice-items td {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.875rem;
+    }
+
+    .invoice-items .text-right {
+      text-align: right;
+    }
+
+    .invoice-items tfoot td {
+      font-weight: 600;
+    }
+
+    .invoice-items .total-row {
+      font-size: 1rem;
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    /* Pagination */
+    #pagination {
+      display: flex;
+      justify-content: center;
+      gap: 0.25rem;
+      margin-top: 1.5rem;
+    }
+
+    #pagination button {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border-color);
+      background-color: white;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+
+    #pagination button.active {
+      background-color: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+
+    #pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Loading spinner */
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(19, 181, 234, 0.2);
+      border-radius: 50%;
+      border-top-color: var(--primary-color);
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Utility classes */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      header .container {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+      }
+      
+      .search-container {
+        flex-direction: column;
+      }
+      
+      .results-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .sorting {
+        width: 100%;
+      }
+      
+      .sorting select {
+        flex: 1;
+      }
+      
+      .invoice-meta {
+        grid-template-columns: 1fr;
+      }
+      
+      .invoice-items {
+        overflow-x: auto;
+      }
+    }
+
+    /* Tenant selection dropdown */
+.tenant-select {
+  margin-left: 10px;
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 0.85rem;
+}
+
+.tenant-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+#user-section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  margin-right: 15px;
+}
+
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Xero Invoice Search</h1>
+      <div id="user-section">
+        <div id="tenant-selector" class="hidden" style="margin-right: 15px; display: flex; align-items: center;">
+          <span>Organization: </span>
+          <select id="tenant-dropdown" style="margin-left: 8px; padding: 4px; border-radius: 4px; background-color: #fff; color: #333;">
+            <!-- Options will be added via JavaScript -->
+          </select>
+        </div>
+        <button id="clear-cookies-btn" class="btn secondary" style="margin-right: 10px;">Reset Connection</button>
+        <button id="login-btn" class="btn primary">Connect to Xero</button>
+        <button id="logout-btn" class="btn secondary hidden">Disconnect</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Authentication message -->
+    <div id="auth-message" class="message info">
+      <p>Please connect to Xero to access your invoices.</p>
+    </div>
+
+    <!-- Search Section -->
+    <section id="search-section" class="hidden">
+      <h2>Search Invoices</h2>
+      <div class="search-container">
+        <input 
+          type="text" 
+          id="search-input" 
+          placeholder="Search by invoice number, reference, customer, address, description..."
+        >
+        <button id="search-btn" class="btn primary">Search</button>
+        <button id="get-all-btn" class="btn secondary">Get All Recent</button>
+      </div>
+      
+      <div class="filters">
+        <div class="filter-group">
+          <label for="status-filter">Status:</label>
+          <select id="status-filter">
+            <option value="">All Statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="AUTHORISED">Authorised</option>
+            <option value="PAID">Paid</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label for="date-from">From:</label>
+          <input type="date" id="date-from">
+        </div>
+        
+        <div class="filter-group">
+          <label for="date-to">To:</label>
+          <input type="date" id="date-to">
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="hidden">
+      <div class="spinner"></div>
+      <p>Loading invoices...</p>
+    </div>
+
+    <!-- Results Section -->
+    <section id="results-section" class="hidden">
+      <div class="results-header">
+        <h2>Search Results <span id="results-count">(0)</span></h2>
+        <div class="sorting">
+          <select id="sort-by">
+            <option value="Date">Sort by Date</option>
+            <option value="DueDate">Sort by Due Date</option>
+            <option value="Total">Sort by Amount</option>
+            <option value="Reference">Sort by Reference</option>
+          </select>
+          <select id="sort-order">
+            <option value="desc">Newest First</option>
+            <option value="asc">Oldest First</option>
+          </select>
+        </div>
+      </div>
+      
+      <div id="results-list"></div>
+      <div id="pagination"></div>
+    </section>
+
+    <!-- Invoice Detail View -->
+    <section id="detail-section" class="hidden">
+      <button id="back-btn" class="btn secondary">← Back to Results</button>
+      <div id="invoice-detail"></div>
+    </section>
+
+    <!-- Error Message -->
+    <div id="error-message" class="message error hidden"></div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>Xero Invoice Search App | Powered by Xero API</p>
+    </div>
+  </footer>
+
+  <!-- Main JavaScript -->
+  <script>
+  // Initialize the application
+function initApp() {
+  console.log("Initializing app...");
+  
+  // Check for authentication result in URL parameters
+  checkAuthResult();
+  
+  // Check if we're already authenticated
+  checkAuthStatus();
+  
+  // Set up event listeners
+  setupEventListeners();
+}
+
+// Check for auth result in URL parameters
+function checkAuthResult() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const authStatus = urlParams.get('auth');
+  const errorMessage = urlParams.get('message');
+  const tenantName = urlParams.get('tenantName');
+  const tenantId = urlParams.get('tenantId');
+  const multipleOrgs = urlParams.get('multipleOrgs') === 'true';
+  const tenantsParam = urlParams.get('tenants');
+  
+  // Process auth status from URL
+  if (authStatus === 'success') {
+    console.log("Authentication successful");
+    
+    // Store authentication state in localStorage
+    localStorage.setItem('xero_authenticated', 'true');
+    
+    if (tenantId) {
+      localStorage.setItem('xero_tenant_id', tenantId);
+      localStorage.setItem('xero_tenant_name', tenantName || 'Unknown Organization');
+      
+      // Set window variables for current session
+      window.tenantId = tenantId;
+      window.tenantName = tenantName || 'Unknown Organization';
+    }
+    
+    // Process tenants data if available
+    if (tenantsParam) {
+      try {
+        const tenants = JSON.parse(decodeURIComponent(tenantsParam));
+        console.log('Received tenants data:', tenants);
+        
+        // Store tenants in localStorage
+        localStorage.setItem('xero_tenants', JSON.stringify(tenants));
+        
+        // Set for current session
+        window.xeroTenants = tenants;
+        
+        // Display the tenant dropdown
+        displayTenantDropdown(tenants);
+      } catch (error) {
+        console.error('Error parsing tenants data:', error);
+      }
+    }
+
+    // Process tokens data if available
+const tokensParam = urlParams.get('tokens');
+if (tokensParam) {
+  try {
+    const tokens = JSON.parse(decodeURIComponent(tokensParam));
+    console.log('Received tokens data with expiration at:', new Date(tokens.expires_at).toLocaleString());
+    
+    // Store tokens in localStorage
+    localStorage.setItem('xero_tokens', JSON.stringify(tokens));
+    
+    // Set for current session
+    window.xeroTokens = tokens;
+  } catch (error) {
+    console.error('Error parsing tokens data:', error);
+  }
+}
+    
+    showSuccess(`Successfully connected to Xero${tenantName ? `: ${tenantName}` : ''}`);
+    updateUI(true);
+    
+    // If multiple organizations, show a message
+    if (multipleOrgs) {
+      showMessage("You have access to multiple Xero organizations. Use the dropdown to switch between them.", "info");
+    }
+  } else if (authStatus === 'error' && errorMessage) {
+    console.error("Authentication error:", errorMessage);
+    showError(decodeURIComponent(errorMessage));
+  }
+  
+  // Clean up URL parameters
+  if (authStatus) {
+    // Remove query parameters but keep the path
+    const currentPath = window.location.pathname;
+    window.history.replaceState({}, document.title, currentPath);
+  }
+}
+
+// Check if we're already authenticated - using localStorage approach
+function checkAuthStatus() {
+  console.log("Checking authentication status...");
+  
+  // Check if we're authenticated via localStorage
+  const isAuthenticated = localStorage.getItem('xero_authenticated') === 'true';
+  console.log("Is authenticated (localStorage):", isAuthenticated);
+  
+  if (isAuthenticated) {
+    console.log("User is authenticated");
+    
+    // Get tenant information from localStorage
+    const tenantId = localStorage.getItem('xero_tenant_id');
+    const tenantName = localStorage.getItem('xero_tenant_name');
+    
+    if (tenantId) {
+      console.log(`Using tenant: ${tenantName} (${tenantId})`);
+      window.tenantId = tenantId;
+      window.tenantName = tenantName || 'Your Xero Organization';
+      
+      // Get tenants from localStorage if available
+      const storedTenants = localStorage.getItem('xero_tenants');
+      if (storedTenants) {
+        try {
+          window.xeroTenants = JSON.parse(storedTenants);
+        } catch (e) {
+          window.xeroTenants = [{
+            tenantId: window.tenantId,
+            tenantName: window.tenantName
+          }];
+        }
+      } else {
+        // Fallback to single tenant
+        window.xeroTenants = [{
+          tenantId: window.tenantId,
+          tenantName: window.tenantName
+        }];
+      }
+      
+      displayTenantDropdown(window.xeroTenants);
+      updateUI(true);
+    } else {
+      console.warn("Authenticated but no tenant ID found");
+      showError("No Xero organization found. Please reconnect to Xero.");
+      updateUI(false);
+    }
+  } else {
+    console.log("User is not authenticated");
+    updateUI(false);
+  }
+}
+
+// Display tenant dropdown selector - fixed version
+function displayTenantDropdown(tenants) {
+  console.log('Displaying tenant dropdown with:', tenants);
+  
+  // Get dropdown element
+  const dropdown = document.getElementById('tenant-dropdown');
+  
+  // Clear existing options
+  dropdown.innerHTML = '';
+  
+  // Add options for each tenant
+  tenants.forEach(tenant => {
+    const option = document.createElement('option');
+    option.value = tenant.tenantId;
+    option.textContent = tenant.tenantName || 'Unnamed Organization';
+    dropdown.appendChild(option);
+  });
+  
+  // Always show the selector if we have at least one tenant
+  if (tenants && tenants.length > 0) {
+    document.getElementById('tenant-selector').classList.remove('hidden');
+    
+    // Set up change event to switch between organizations
+    dropdown.addEventListener('change', function() {
+      window.tenantId = this.value;
+      window.tenantName = this.options[this.selectedIndex].textContent;
+      console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
+      
+      // Save selected tenant in cookie
+      document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
+      document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
+    });
+  } else {
+    document.getElementById('tenant-selector').classList.add('hidden');
+  }
+}
+
+// Setup event listeners - simplified
+function setupEventListeners() {
+  // Login button
+  document.getElementById('login-btn').addEventListener('click', () => {
+    console.log("Connect to Xero button clicked");
+    window.location.href = '/.netlify/functions/xero-auth';
+  });
+  
+  
+  // Logout button
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    clearCookies();
+    window.location.reload();
+  });
+  
+  // Clear cookies button
+  document.getElementById('clear-cookies-btn').addEventListener('click', () => {
+    clearCookies();
+    showSuccess('All cookies cleared');
+    updateUI(false);
+  });
+  
+  // Search button
+  document.getElementById('search-btn').addEventListener('click', searchInvoices);
+  
+  // Get All Recent Invoices button
+  document.getElementById('get-all-btn').addEventListener('click', getAllInvoices);
+  
+  // Search input - enter key
+  document.getElementById('search-input').addEventListener('keypress', event => {
+    if (event.key === 'Enter') {
+      searchInvoices();
+    }
+  });
+  
+  // Sort options
+  document.getElementById('sort-by').addEventListener('change', sortResults);
+  document.getElementById('sort-order').addEventListener('change', sortResults);
+  
+  // Back button (invoice details)
+  document.getElementById('back-btn').addEventListener('click', () => {
+    document.getElementById('detail-section').classList.add('hidden');
+    document.getElementById('results-section').classList.remove('hidden');
+  });
+}
+
+// Check if tokens need refreshing
+async function checkAndRefreshTokens() {
+  console.log("Checking if tokens need refreshing...");
+  
+  // Get tokens from localStorage
+  const tokensJson = localStorage.getItem('xero_tokens');
+  if (!tokensJson) {
+    console.warn("No tokens found in localStorage");
+    return null;
+  }
+  
+  try {
+    const tokens = JSON.parse(tokensJson);
+    const currentTime = Date.now();
+    const expiresAt = tokens.expires_at;
+    
+    // If token expiration is less than 5 minutes away, refresh it
+    if (expiresAt - currentTime < 5 * 60 * 1000) {
+      console.log("Token expiring soon, refreshing...");
+      return await refreshTokens(tokens.refresh_token);
+    }
+    
+    // Token is still valid
+    console.log("Token is still valid until:", new Date(expiresAt).toLocaleString());
+    return tokens;
+  } catch (error) {
+    console.error("Error checking tokens:", error);
+    return null;
+  }
+}
+
+// Refresh tokens
+async function refreshTokens(refreshToken) {
+  console.log("Refreshing tokens...");
+  
+  try {
+    const response = await fetch('/api/xero-refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server returned ${response.status}`);
+    }
+    
+    const newTokens = await response.json();
+    console.log("Tokens refreshed successfully");
+    
+    // Update localStorage and window.xeroTokens
+    localStorage.setItem('xero_tokens', JSON.stringify(newTokens));
+    window.xeroTokens = newTokens;
+    
+    return newTokens;
+  } catch (error) {
+    console.error("Error refreshing tokens:", error);
+    showError('Authentication expired. Please reconnect to Xero.');
+    clearCookies();
+    updateUI(false);
+    return null;
+  }
+}
+
+// Get current valid tokens
+async function getValidTokens() {
+  return await checkAndRefreshTokens();
+}
+
+// Clear authentication data (both cookies and localStorage)
+function clearCookies() {
+  // Clear cookies
+  document.cookie = "xero_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
+  document.cookie = "xero_tenant_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
+  document.cookie = "xero_tenant_name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
+  document.cookie = "xero_user_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
+  
+  // Clear localStorage
+  localStorage.removeItem('xero_authenticated');
+  localStorage.removeItem('xero_tenant_id');
+  localStorage.removeItem('xero_tenant_name');
+  localStorage.removeItem('xero_tenants');
+  localStorage.removeItem('xero_tokens');
+  
+  // Clear window variables
+  window.tenantId = null;
+  window.tenantName = null;
+  window.xeroTenants = null;
+  window.xeroTokens = null;
+  
+  console.log('All Xero authentication data cleared');
+}
+
+// Cookie helper functions
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    const cookieValue = parts.pop().split(';').shift();
+    // Check for "undefined" string value
+    return cookieValue === "undefined" ? null : cookieValue;
+  }
+  return null;
+}
+
+// Toggle loading state
+function toggleLoading(show) {
+  document.getElementById('loading').classList.toggle('hidden', !show);
+}
+
+// Enhanced error message display
+function showError(message, autoHide = true) {
+  const messageElement = document.getElementById('error-message');
+  messageElement.textContent = message;
+  messageElement.className = 'message error';
+  messageElement.classList.remove('hidden');
+  
+  if (autoHide) {
+    // Auto-hide after 8 seconds for errors
+    setTimeout(() => {
+      messageElement.classList.add('hidden');
+    }, 8000);
+  }
+  
+  // Log errors to console for debugging
+  console.error("Error:", message);
+}
+
+// Show success message
+function showSuccess(message) {
+  showMessage(message, 'success');
+}
+
+// Show message with type
+function showMessage(message, type = 'info') {
+  const messageElement = document.getElementById('error-message');
+  messageElement.textContent = message;
+  messageElement.className = `message ${type}`;
+  messageElement.classList.remove('hidden');
+  
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    messageElement.classList.add('hidden');
+  }, 5000);
+}
+
+// Update UI based on authentication state - fixed version
+function updateUI(isAuthenticated) {
+  console.log('Updating UI with authentication status:', isAuthenticated);
+  
+  if (isAuthenticated) {
+    document.getElementById('login-btn').classList.add('hidden');
+    document.getElementById('logout-btn').classList.remove('hidden');
+    document.getElementById('auth-message').classList.add('hidden');
+    document.getElementById('search-section').classList.remove('hidden');
+  } else {
+    document.getElementById('login-btn').classList.remove('hidden');
+    document.getElementById('logout-btn').classList.add('hidden');
+    document.getElementById('auth-message').classList.remove('hidden');
+    document.getElementById('search-section').classList.add('hidden');
+  }
+}
+
+// Search Xero invoices directly using Xero API
+async function searchInvoices() {
+  // Get search parameters
+  const searchTerm = document.getElementById('search-input').value.trim();
+  const statusFilter = document.getElementById('status-filter').value;
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+  
+  try {
+    // Get valid tokens
+    const tokens = await getValidTokens();
+    if (!tokens) {
+      throw new Error('No valid authentication tokens available');
+    }
+    
+    // Show loading state
+    toggleLoading(true);
+    
+    // Build query parameters
+    const where = [];
+    if (searchTerm) {
+      where.push(`InvoiceNumber.Contains("${searchTerm}") OR Reference.Contains("${searchTerm}") OR Contact.Name.Contains("${searchTerm}")`);
+    }
+    
+    if (statusFilter) {
+      where.push(`Status=="${statusFilter}"`);
+    }
+    
+    if (dateFrom) {
+      where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
+    }
+    
+    if (dateTo) {
+      where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
+    }
+    
+    const whereClause = where.length > 0 ? where.join(' AND ') : '';
+    
+    // Call the Xero API via our serverless function
+    const endpoint = 'invoices';
+    const params = {
+      where: whereClause,
+      order: 'Date DESC'
+    };
+    
+    // Build URL with parameters
+    const url = new URL(`/api/xero-api/${endpoint}`);
+    if (params.where) url.searchParams.append('where', params.where);
+    if (params.order) url.searchParams.append('order', params.order);
+    
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Xero API response:', data);
+    
+    // Process the response
+    if (data && data.Invoices && Array.isArray(data.Invoices)) {
+      console.log(`Found ${data.Invoices.length} invoices`);
+      currentResults = data.Invoices;
+      currentPage = 1;
+      displayResults();
+    } else {
+      // Show no results message
+      document.getElementById('results-section').classList.add('hidden');
+      showMessage('No invoices found matching your search criteria.', 'info');
+    }
+  } catch (error) {
+    console.error("Error searching invoices:", error);
+    showError('Error searching invoices: ' + (error.message || 'Unknown error'));
+  } finally {
+    toggleLoading(false);
+  }
+}
+
+// Get all recent invoices directly using Xero API
+async function getAllInvoices() {
+  try {
+    // Get valid tokens
+    const tokens = await getValidTokens();
+    if (!tokens) {
+      throw new Error('No valid authentication tokens available');
+    }
+    
+    // Show loading state
+    toggleLoading(true);
+    
+    // Call the Xero API via our serverless function
+    const endpoint = 'invoices';
+    const params = {
+      order: 'Date DESC'
+    };
+    
+    // Build URL with parameters
+    const url = new URL(`/api/xero-api/${endpoint}`);
+    if (params.order) url.searchParams.append('order', params.order);
+    
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Xero API response for all invoices:', data);
+    
+    // Process the response
+    if (data && data.Invoices && Array.isArray(data.Invoices)) {
+      console.log(`Found ${data.Invoices.length} invoices`);
+      currentResults = data.Invoices;
+      currentPage = 1;
+      displayResults();
+    } else {
+      // Show no results message
+      document.getElementById('results-section').classList.add('hidden');
+      showMessage('No invoices found. The organization may not have any invoices.', 'info');
+    }
+  } catch (error) {
+    console.error("Error getting invoices:", error);
+    showError('Error getting invoices: ' + (error.message || 'Unknown error'));
+  } finally {
+    toggleLoading(false);
+  }
+}
+
+// Display search results
+function displayResults() {
+  const resultsList = document.getElementById('results-list');
+  resultsList.innerHTML = '';
+  
+  const resultsSection = document.getElementById('results-section');
+  const resultsCount = document.getElementById('results-count');
+  
+  if (!currentResults || currentResults.length === 0) {
+    resultsSection.classList.add('hidden');
+    showMessage('No invoices found matching your search criteria.', 'info');
+    return;
+  }
+  
+  // Show results section
+  resultsSection.classList.remove('hidden');
+  resultsCount.textContent = `(${currentResults.length})`;
+  
+  // Apply sorting
+  sortResults();
+  
+  // Calculate pagination
+  const startIndex = (currentPage - 1) * resultsPerPage;
+  const endIndex = Math.min(startIndex + resultsPerPage, currentResults.length);
+  const pageResults = currentResults.slice(startIndex, endIndex);
+  
+  // Create result items
+  pageResults.forEach(invoice => {
+    try {
+      const item = document.createElement('div');
+      item.className = 'result-item';
+      
+      // Safety check for invoice ID
+      if (invoice.InvoiceID) {
+        item.dataset.id = invoice.InvoiceID;
+      }
+      
+      // Format dates safely
+      const date = invoice.Date ? new Date(invoice.Date).toLocaleDateString() : 'N/A';
+      const dueDate = invoice.DueDate ? new Date(invoice.DueDate).toLocaleDateString() : 'N/A';
+      
+      // Create HTML safely
+      item.innerHTML = `
+        <div class="result-header">
+          <div class="invoice-number">Invoice #${invoice.InvoiceNumber || 'N/A'}</div>
+          <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
+        </div>
+        <div class="result-details">
+          <div>
+            <span>Customer</span>
+            <span>${invoice.Contact && invoice.Contact.Name ? invoice.Contact.Name : 'N/A'}</span>
+          </div>
+          <div>
+            <span>Reference</span>
+            <span>${invoice.Reference || 'N/A'}</span>
+          </div>
+          <div>
+            <span>Date</span>
+            <span>${date}</span>
+          </div>
+          <div>
+            <span>Due Date</span>
+            <span>${dueDate}</span>
+          </div>
+          <div>
+            <span>Amount</span>
+            <span>${invoice.CurrencyCode || ''} ${invoice.Total ? invoice.Total.toFixed(2) : 'N/A'}</span>
+          </div>
+        </div>
+      `;
+      
+      // Add event listener if we have an invoice ID
+      if (invoice.InvoiceID) {
+        item.addEventListener('click', () => showInvoiceDetail(invoice.InvoiceID));
+      }
+      
+      resultsList.appendChild(item);
+    } catch (error) {
+      console.error("Error rendering invoice:", error, invoice);
+    }
+  });
+  
+  // Update pagination
+  updatePagination();
+}
+
+// Sort the current results
+function sortResults() {
+  if (!currentResults || currentResults.length === 0) return;
+  
+  const sortBy = document.getElementById('sort-by').value;
+  const sortOrder = document.getElementById('sort-order').value;
+  
+  currentResults.sort((a, b) => {
+    let valueA, valueB;
+    
+    try {
+      // Handle nested properties safely
+      if (sortBy.includes('.')) {
+        const parts = sortBy.split('.');
+        valueA = a;
+        valueB = b;
+        
+        // Navigate safely through the object path
+        for (const part of parts) {
+          valueA = valueA && valueA[part];
+          valueB = valueB && valueB[part];
+        }
+      } else {
+        valueA = a[sortBy];
+        valueB = b[sortBy];
+      }
+      
+      // Handle undefined values
+      if (valueA === undefined) return sortOrder === 'asc' ? -1 : 1;
+      if (valueB === undefined) return sortOrder === 'asc' ? 1 : -1;
+      
+      // Handle different data types
+      if (typeof valueA === 'string') {
+        return sortOrder === 'asc' 
+          ? valueA.localeCompare(valueB || '') 
+          : (valueB || '').localeCompare(valueA);
+      } else {
+        return sortOrder === 'asc' 
+          ? (valueA || 0) - (valueB || 0)
+          : (valueB || 0) - (valueA || 0);
+      }
+    } catch (error) {
+      console.error("Error comparing values:", error);
+      return 0; // Return equal if comparison fails
+    }
+  });
+}
+
+// Update pagination controls
+function updatePagination() {
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  
+  const totalPages = Math.ceil(currentResults.length / resultsPerPage);
+  
+  if (totalPages <= 1) return;
+  
+  // Previous button
+  const prevButton = document.createElement('button');
+  prevButton.textContent = '« Previous';
+  prevButton.disabled = currentPage === 1;
+  prevButton.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      displayResults();
+    }
+  });
+  pagination.appendChild(prevButton);
+  
+  // Page numbers
+  const maxButtons = 5; // Maximum number of page buttons to show
+  let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+  
+  // Adjust if we're near the end
+  if (endPage === totalPages) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+  
+  for (let i = startPage; i <= endPage; i++) {
+    const pageButton = document.createElement('button');
+    pageButton.textContent = i;
+    pageButton.classList.toggle('active', i === currentPage);
+    pageButton.addEventListener('click', () => {
+      currentPage = i;
+      displayResults();
+    });
+    pagination.appendChild(pageButton);
+  }
+  
+  // Next button
+  const nextButton = document.createElement('button');
+  nextButton.textContent = 'Next »';
+  nextButton.disabled = currentPage === totalPages;
+  nextButton.addEventListener('click', () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      displayResults();
+    }
+  });
+  pagination.appendChild(nextButton);
+}
+
+// Show invoice detail
+async function showInvoiceDetail(invoiceId) {
+  try {
+    toggleLoading(true);
+    
+    // Get valid tokens
+    const tokens = await getValidTokens();
+    if (!tokens) {
+      throw new Error('No valid authentication tokens available');
+    }
+    
+    // Fetch the invoice details from Xero API
+    const url = `/api/xero-api/invoices/${invoiceId}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Invoice detail:', data);
+    
+    if (data && data.Invoices && data.Invoices.length > 0) {
+      const invoice = data.Invoices[0];
+      
+      // Hide results section and show detail section
+      document.getElementById('results-section').classList.add('hidden');
+      const detailSection = document.getElementById('detail-section');
+      detailSection.classList.remove('hidden');
+      
+      const detailElement = document.getElementById('invoice-detail');
+      
+      // Format dates
+      const date = invoice.Date ? new Date(invoice.Date).toLocaleDateString() : 'N/A';
+      const dueDate = invoice.DueDate ? new Date(invoice.DueDate).toLocaleDateString() : 'N/A';
+      
+      // Build line items HTML safely
+      const lineItemsHtml = (invoice.LineItems || []).map(item => `
+        <tr>
+          <td>${item.Description || 'N/A'}</td>
+          <td>${item.Quantity || 0}</td>
+          <td class="text-right">${invoice.CurrencyCode || ''} ${item.UnitAmount ? item.UnitAmount.toFixed(2) : '0.00'}</td>
+          <td class="text-right">${invoice.CurrencyCode || ''} ${item.LineAmount ? item.LineAmount.toFixed(2) : '0.00'}</td>
+        </tr>
+      `).join('');
+      
+      // Build the detail view HTML
+      detailElement.innerHTML = `
+        <div class="invoice-header">
+          <h2>Invoice #${invoice.InvoiceNumber || 'N/A'}</h2>
+          <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
+        </div>
+        
+        <div class="invoice-meta">
+          <div class="invoice-meta-group">
+            <h3>Details</h3>
+            <div><strong>Date:</strong> ${date}</div>
+            <div><strong>Due Date:</strong> ${dueDate}</div>
+            <div><strong>Reference:</strong> ${invoice.Reference || 'N/A'}</div>
+            <div><strong>Type:</strong> ${invoice.Type || 'N/A'}</div>
+          </div>
+          
+          <div class="invoice-meta-group">
+            <h3>Customer</h3>
+            <div><strong>Name:</strong> ${invoice.Contact && invoice.Contact.Name || 'N/A'}</div>
+          </div>
+        </div>
+        
+        <div class="invoice-items">
+          <h3>Line Items</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th class="text-right">Unit Price</th>
+                <th class="text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lineItemsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" class="text-right"><strong>Subtotal</strong></td>
+                <td class="text-right">${invoice.CurrencyCode || ''} ${invoice.SubTotal ? invoice.SubTotal.toFixed(2) : '0.00'}</td>
+              </tr>
+              <tr>
+                <td colspan="3" class="text-right"><strong>Total Tax</strong></td>
+                <td class="text-right">${invoice.CurrencyCode || ''} ${invoice.TotalTax ? invoice.TotalTax.toFixed(2) : '0.00'}</td>
+              </tr>
+              <tr class="total-row">
+                <td colspan="3" class="text-right"><strong>Total</strong></td>
+                <td class="text-right">${invoice.CurrencyCode || ''} ${invoice.Total ? invoice.Total.toFixed(2) : '0.00'}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+    } else {
+      showError('Invoice not found');
+    }
+  } catch (error) {
+    console.error('Error getting invoice details:', error);
+    showError('Error loading invoice details. Please try again.');
+  } finally {
+    toggleLoading(false);
+  }
+}
+
+// Global variables
+let currentResults = [];
+let currentPage = 1;
+const resultsPerPage = 10;
+
+// Initialize the application when the document is ready
+document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>  

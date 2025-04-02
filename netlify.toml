@@ -1,0 +1,62 @@
+[build]
+  base = "/"
+  functions = "netlify/functions"
+
+[functions]
+  directory = "netlify/functions"
+
+# Handle CORS preflight requests
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, Xero-Tenant-Id"
+
+# Redirect API requests to our functions
+[[redirects]]
+  from = "/api/xero-auth"
+  to = "/.netlify/functions/xero-auth"
+  status = 200
+  
+[[redirects]]
+  from = "/api/xero-connections"
+  to = "/.netlify/functions/xero-connections"
+  status = 200
+  
+[[redirects]]
+  from = "/api/xero-callback"
+  to = "/.netlify/functions/xero-callback"
+  status = 200
+
+
+[[redirects]]
+  from = "/api/xero-api/*"
+  to = "/.netlify/functions/xero-api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/xero-refresh"
+  to = "/.netlify/functions/xero-refresh"
+  status = 200
+
+[[redirects]]
+  from = "/api/make-webhook"
+  to = "/.netlify/functions/make-webhook"
+  status = 200
+
+# Ensure SPA routing works properly
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/api/xero-api/*"
+  to = "/.netlify/functions/xero-api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/xero-refresh"
+  to = "/.netlify/functions/xero-refresh"
+  status = 200
