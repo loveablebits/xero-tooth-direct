@@ -1018,12 +1018,22 @@ async function searchInvoices() {
     // Build query parameters
     const where = [];
     if (searchTerm) {
-      // Escape quotes in the search term
-      const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
-      
-      // For debugging, try just searching invoice number
-      where.push(`InvoiceNumber.Contains("${safeSearchTerm}")`);
-    }
+  // Escape quotes in the search term
+  const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
+  
+  // Search across multiple fields
+  where.push(`(
+    InvoiceNumber.Contains("${safeSearchTerm}") OR 
+    Reference.Contains("${safeSearchTerm}") OR 
+    Contact.Name.Contains("${safeSearchTerm}") OR
+    Contact.EmailAddress.Contains("${safeSearchTerm}") OR
+    Contact.Addresses.AddressLine1.Contains("${safeSearchTerm}") OR
+    Contact.Addresses.AddressLine2.Contains("${safeSearchTerm}") OR
+    Contact.Addresses.City.Contains("${safeSearchTerm}") OR
+    Contact.Addresses.PostalCode.Contains("${safeSearchTerm}") OR
+    LineItems.Description.Contains("${safeSearchTerm}")
+  )`);
+}
     
     if (statusFilter) {
       where.push(`Status=="${statusFilter}"`);
