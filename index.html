@@ -1021,18 +1021,8 @@ async function searchInvoices() {
   // Escape quotes in the search term
   const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
   
-  // Search across multiple fields
-  where.push(`(
-    InvoiceNumber.Contains("${safeSearchTerm}") OR 
-    Reference.Contains("${safeSearchTerm}") OR 
-    Contact.Name.Contains("${safeSearchTerm}") OR
-    Contact.EmailAddress.Contains("${safeSearchTerm}") OR
-    Contact.Addresses.AddressLine1.Contains("${safeSearchTerm}") OR
-    Contact.Addresses.AddressLine2.Contains("${safeSearchTerm}") OR
-    Contact.Addresses.City.Contains("${safeSearchTerm}") OR
-    Contact.Addresses.PostalCode.Contains("${safeSearchTerm}") OR
-    LineItems.Description.Contains("${safeSearchTerm}")
-  )`);
+  // Use a simple OR for the most common search fields without newlines or extra spaces
+  where.push(`(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`);
 }
     
     if (statusFilter) {
