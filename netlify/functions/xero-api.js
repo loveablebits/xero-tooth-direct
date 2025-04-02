@@ -40,14 +40,27 @@ exports.handler = async function(event, context) {
       };
     }
     
-    // Build the Xero API URL
-    const xeroApiUrl = `https://api.xero.com/api.xro/2.0/${path}`;
-    
-    // Add query parameters if present
-    const url = new URL(xeroApiUrl);
-    Object.entries(event.queryStringParameters || {}).forEach(([key, value]) => {
-      url.searchParams.append(key, value);
-    });
+  // Build the Xero API URL
+const xeroApiUrl = `https://api.xero.com/api.xro/2.0/${path}`;
+
+// Add query parameters if present
+const url = new URL(xeroApiUrl);
+const queryParams = event.queryStringParameters || {};
+
+// Special handling for the 'where' parameter
+if (queryParams.where) {
+  // Make sure the where parameter is properly decoded before sending to Xero
+  const decodedWhere = decodeURIComponent(queryParams.where);
+  url.searchParams.append('where', decodedWhere);
+  
+  // Remove the 'where' parameter so we don't add it twice
+  delete queryParams.where;
+}
+
+// Add all other query parameters
+Object.entries(queryParams).forEach(([key, value]) => {
+  url.searchParams.append(key, value);
+});
     
     console.log(`Making request to Xero API: ${url.toString()}`);
     
