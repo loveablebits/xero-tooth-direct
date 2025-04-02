@@ -49,9 +49,22 @@ const queryParams = event.queryStringParameters || {};
 
 // Special handling for the 'where' parameter
 if (queryParams.where) {
-  // Make sure the where parameter is properly decoded before sending to Xero
-  const decodedWhere = decodeURIComponent(queryParams.where);
-  url.searchParams.append('where', decodedWhere);
+  try {
+    // For Xero API, the 'where' parameter needs special handling
+    // First, decode it (it comes in encoded from the browser)
+    const decodedWhere = decodeURIComponent(queryParams.where);
+    
+    // Then append it to the URL - the URL class will encode it properly
+    url.searchParams.append('where', decodedWhere);
+    
+    console.log("Decoded where:", decodedWhere);
+    console.log("Final URL with where:", url.toString());
+  } catch (error) {
+    console.error("Error processing where parameter:", error);
+    
+    // Fallback to direct append if decoding fails
+    url.searchParams.append('where', queryParams.where);
+  }
   
   // Remove the 'where' parameter so we don't add it twice
   delete queryParams.where;

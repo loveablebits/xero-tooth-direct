@@ -997,30 +997,16 @@ function updateUI(isAuthenticated) {
   }
 }
 
-// Search Xero invoices directly using Xero API
-async function searchInvoices() {
-  // Get search parameters
-  const searchTerm = document.getElementById('search-input').value.trim();
-  const statusFilter = document.getElementById('status-filter').value;
-  const dateFrom = document.getElementById('date-from').value;
-  const dateTo = document.getElementById('date-to').value;
-  
-  try {
-    // Get valid tokens
-    const tokens = await getValidTokens();
-    if (!tokens) {
-      throw new Error('No valid authentication tokens available');
-    }
-    
-    // Show loading state
-    toggleLoading(true);
-    
 // Build query parameters
 const where = [];
 if (searchTerm) {
-  // Escape quotes in the search term
+  // Simple approach - use equals instead of Contains for testing
+  // where.push(`InvoiceNumber=="${searchTerm}"`);
+  
+  // More complex approach with proper double encoding
   const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
-  where.push(`(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`);
+  const containsQuery = `(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`;
+  where.push(containsQuery);
 }
 
 if (statusFilter) {
@@ -1036,25 +1022,26 @@ if (dateTo) {
 }
 
 const whereClause = where.length > 0 ? where.join(' AND ') : '';
-    
-    // Call the Xero API via our serverless function
-    const endpoint = 'invoices';
-    const params = {
-      where: whereClause,
-      order: 'Date DESC'
-    };
-    
-// Build URL with parameters - handle 'where' clause differently
+
+// Call the Xero API via our serverless function
+const endpoint = 'invoices';
+const params = {
+  order: 'Date DESC'
+};
+
+// Build base URL without where clause
 const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
 if (params.order) url.searchParams.set('order', params.order);
 
-// Make a cleaner URL with simpler encoding for the 'where' clause
+// Add where clause separately with proper encoding
 let urlString = url.toString();
-if (params.where) {
-  // Append the where clause with minimal encoding
-  const encodedWhere = encodeURIComponent(params.where);
+if (whereClause) {
+  // Double encode the where parameter
+  const encodedWhere = encodeURIComponent(whereClause);
   urlString += urlString.includes('?') ? `&where=${encodedWhere}` : `?where=${encodedWhere}`;
 }
+
+console.log("Final request URL:", urlString);
 
 const response = await fetch(urlString, {
   method: 'GET',
