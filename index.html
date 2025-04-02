@@ -1044,21 +1044,25 @@ const whereClause = where.length > 0 ? where.join(' AND ') : '';
       order: 'Date DESC'
     };
     
-// Build URL with parameters
+// Build URL with parameters - handle 'where' clause differently
 const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
-if (params.where) {
-  // Use set instead of append to avoid duplicate parameters
-  url.searchParams.set('where', params.where);
-}
 if (params.order) url.searchParams.set('order', params.order);
-    
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-        'Xero-Tenant-Id': window.tenantId
-      }
-    });
+
+// Make a cleaner URL with simpler encoding for the 'where' clause
+let urlString = url.toString();
+if (params.where) {
+  // Append the where clause with minimal encoding
+  const encodedWhere = encodeURIComponent(params.where);
+  urlString += urlString.includes('?') ? `&where=${encodedWhere}` : `?where=${encodedWhere}`;
+}
+
+const response = await fetch(urlString, {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${tokens.access_token}`,
+    'Xero-Tenant-Id': window.tenantId
+  }
+});
     
     if (!response.ok) {
       const errorData = await response.json();
