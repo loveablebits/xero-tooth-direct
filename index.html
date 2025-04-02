@@ -1042,8 +1042,8 @@ async function searchInvoices() {
       order: 'Date DESC'
     };
     
-    // Build URL with parameters
-    const url = new URL(`/api/xero-api/${endpoint}`);
+// Build URL with parameters
+const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
     if (params.where) url.searchParams.append('where', params.where);
     if (params.order) url.searchParams.append('order', params.order);
     
@@ -1100,8 +1100,8 @@ async function getAllInvoices() {
       order: 'Date DESC'
     };
     
-    // Build URL with parameters
-    const url = new URL(`/api/xero-api/${endpoint}`);
+// Build URL with parameters
+const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
     if (params.order) url.searchParams.append('order', params.order);
     
     const response = await fetch(url.toString(), {
@@ -1339,8 +1339,8 @@ async function showInvoiceDetail(invoiceId) {
       throw new Error('No valid authentication tokens available');
     }
     
-    // Fetch the invoice details from Xero API
-    const url = `/api/xero-api/invoices/${invoiceId}`;
+    // Fetch the invoice details from Xero API - use absolute URL
+    const url = `${window.location.origin}/api/xero-api/invoices/${invoiceId}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -1348,6 +1348,7 @@ async function showInvoiceDetail(invoiceId) {
         'Xero-Tenant-Id': window.tenantId
       }
     });
+    
     
     if (!response.ok) {
       const errorData = await response.json();
