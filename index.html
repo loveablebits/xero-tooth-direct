@@ -997,60 +997,72 @@ function updateUI(isAuthenticated) {
   }
 }
 
-// Build query parameters
-const where = [];
-if (searchTerm) {
-  // Simple approach - use equals instead of Contains for testing
-  // where.push(`InvoiceNumber=="${searchTerm}"`);
+// Search Xero invoices directly using Xero API
+async function searchInvoices() {
+  // Get search parameters
+  const searchTerm = document.getElementById('search-input').value.trim();
+  const statusFilter = document.getElementById('status-filter').value;
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
   
-  // More complex approach with proper double encoding
-  const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
-  const containsQuery = `(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`;
-  where.push(containsQuery);
-}
-
-if (statusFilter) {
-  where.push(`Status=="${statusFilter}"`);
-}
-
-if (dateFrom) {
-  where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
-}
-
-if (dateTo) {
-  where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
-}
-
-const whereClause = where.length > 0 ? where.join(' AND ') : '';
-
-// Call the Xero API via our serverless function
-const endpoint = 'invoices';
-const params = {
-  order: 'Date DESC'
-};
-
-// Build base URL without where clause
-const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
-if (params.order) url.searchParams.set('order', params.order);
-
-// Add where clause separately with proper encoding
-let urlString = url.toString();
-if (whereClause) {
-  // Double encode the where parameter
-  const encodedWhere = encodeURIComponent(whereClause);
-  urlString += urlString.includes('?') ? `&where=${encodedWhere}` : `?where=${encodedWhere}`;
-}
-
-console.log("Final request URL:", urlString);
-
-// Fix the fetch call syntax
-const response = await fetch(urlString, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${tokens.access_token}`,
-    'Xero-Tenant-Id': window.tenantId
-  }
-});
+  try {
+    // Get valid tokens
+    const tokens = await getValidTokens();
+    if (!tokens) {
+      throw new Error('No valid authentication tokens available');
+    }
+    
+    // Show loading state
+    toggleLoading(true);
+    
+    // Build query parameters
+    const where = [];
+    if (searchTerm) {
+      // Simple approach - use equals instead of Contains for testing
+      where.push(`InvoiceNumber=="${searchTerm}"`);
+      
+      // Comment out the complex approach for now
+      // const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
+      // const containsQuery = `(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`;
+      // where.push(containsQuery);
+    }
+    
+    if (statusFilter) {
+      where.push(`Status=="${statusFilter}"`);
+    }
+    
+    if (dateFrom) {
+      where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
+    }
+    
+    if (dateTo) {
+      where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
+    }
+    
+    const whereClause = where.length > 0 ? where.join(' AND ') : '';
+    
+    // Call the Xero API via our serverless function
+    const endpoint = 'invoices';
+    
+    // Build URL without the where parameter
+    const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
+    url.searchParams.set('order', 'Date DESC');
+    
+    // Add where parameter separately
+    let finalUrl = url.toString();
+    if (whereClause) {
+      finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'where=' + encodeURIComponent(whereClause);
+    }
+    
+    console.log("Making API request to:", finalUrl);
+    
+    const response = await fetch(finalUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
     
     if (!response.ok) {
       const errorData = await response.json();
