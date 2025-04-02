@@ -1015,25 +1015,27 @@ async function searchInvoices() {
     // Show loading state
     toggleLoading(true);
     
-    // Build query parameters
-    const where = [];
-    if (searchTerm) {
-      where.push(`InvoiceNumber.Contains("${searchTerm}") OR Reference.Contains("${searchTerm}") OR Contact.Name.Contains("${searchTerm}")`);
-    }
-    
-    if (statusFilter) {
-      where.push(`Status=="${statusFilter}"`);
-    }
-    
-    if (dateFrom) {
-      where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
-    }
-    
-    if (dateTo) {
-      where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
-    }
-    
-    const whereClause = where.length > 0 ? where.join(' AND ') : '';
+// Build query parameters
+const where = [];
+if (searchTerm) {
+  // Escape quotes in the search term
+  const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
+  where.push(`(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`);
+}
+
+if (statusFilter) {
+  where.push(`Status=="${statusFilter}"`);
+}
+
+if (dateFrom) {
+  where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
+}
+
+if (dateTo) {
+  where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
+}
+
+const whereClause = where.length > 0 ? where.join(' AND ') : '';
     
     // Call the Xero API via our serverless function
     const endpoint = 'invoices';
@@ -1044,8 +1046,11 @@ async function searchInvoices() {
     
 // Build URL with parameters
 const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
-    if (params.where) url.searchParams.append('where', params.where);
-    if (params.order) url.searchParams.append('order', params.order);
+if (params.where) {
+  // Use set instead of append to avoid duplicate parameters
+  url.searchParams.set('where', params.where);
+}
+if (params.order) url.searchParams.set('order', params.order);
     
     const response = await fetch(url.toString(), {
       method: 'GET',
