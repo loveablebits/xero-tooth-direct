@@ -997,7 +997,6 @@ function updateUI(isAuthenticated) {
   }
 }
 
-// Search Xero invoices directly using Xero API
 async function searchInvoices() {
   // Get search parameters
   const searchTerm = document.getElementById('search-input').value.trim();
@@ -1015,16 +1014,58 @@ async function searchInvoices() {
     // Show loading state
     toggleLoading(true);
     
-// Build query parameters
-const where = [];
-if (searchTerm) {
-  // Escape quotes in the search term
-  const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
-  
-  // Just search invoice number which we know works
-  where.push(`InvoiceNumber.Contains("${safeSearchTerm}")`);
-}
+    // Escape quotes in the search term
+    const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
     
+    // Common headers for all requests
+    const headers = {
+      'Authorization': `Bearer ${tokens.access_token}`,
+      'Xero-Tenant-Id': window.tenantId
+    };
+    
+    // STEP 1: First search for contacts matching the search term (if not empty)
+    let contactIds = [];
+    if (searchTerm) {
+      const contactWhereClause = `Name.Contains("${safeSearchTerm}") OR EmailAddress.Contains("${safeSearchTerm}")`;
+      
+      // Build contact search URL
+      const contactUrl = new URL(`/api/xero-api/contacts`, window.location.origin);
+      contactUrl.searchParams.append('where', contactWhereClause);
+      
+      console.log("Searching contacts with:", contactWhereClause);
+      
+      const contactResponse = await fetch(contactUrl.toString(), {
+        method: 'GET',
+        headers: headers
+      });
+      
+      if (contactResponse.ok) {
+        const contactData = await contactResponse.json();
+        if (contactData && contactData.Contacts) {
+          contactIds = contactData.Contacts.map(contact => contact.ContactID);
+          console.log(`Found ${contactIds.length} matching contacts`);
+        }
+      } else {
+        console.warn("Contact search failed:", await contactResponse.text());
+      }
+    }
+    
+    // STEP 2: Build invoice search query
+    const where = [];
+    
+    if (searchTerm) {
+      let invoiceFieldsClause = `InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR LineItems.Any(Description.Contains("${safeSearchTerm}"))`;
+      
+      // If contacts were found, include them in the search
+      if (contactIds.length > 0) {
+        const contactIdFilters = contactIds.map(id => `Contact.ContactID==guid("${id}")`).join(" OR ");
+        invoiceFieldsClause = `(${invoiceFieldsClause} OR (${contactIdFilters}))`;
+      }
+      
+      where.push(`(${invoiceFieldsClause})`);
+    }
+    
+    // Add standard filters (status, date range)
     if (statusFilter) {
       where.push(`Status=="${statusFilter}"`);
     }
@@ -1059,10 +1100,7 @@ if (searchTerm) {
     
     const response = await fetch(finalUrl, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-        'Xero-Tenant-Id': window.tenantId
-      }
+      headers: headers
     });
     
     if (!response.ok) {
