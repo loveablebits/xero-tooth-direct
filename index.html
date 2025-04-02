@@ -1018,13 +1018,11 @@ async function searchInvoices() {
     // Build query parameters
     const where = [];
     if (searchTerm) {
-      // Simple approach - use equals instead of Contains for testing
-      where.push(`InvoiceNumber=="${searchTerm}"`);
+      // Escape quotes in the search term
+      const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
       
-      // Comment out the complex approach for now
-      // const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
-      // const containsQuery = `(InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR Contact.Name.Contains("${safeSearchTerm}"))`;
-      // where.push(containsQuery);
+      // For debugging, try just searching invoice number
+      where.push(`InvoiceNumber.Contains("${safeSearchTerm}")`);
     }
     
     if (statusFilter) {
@@ -1048,10 +1046,13 @@ async function searchInvoices() {
     const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
     
-    // Add where parameter separately
+    // Add where parameter separately with better logging
     let finalUrl = url.toString();
     if (whereClause) {
-      finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'where=' + encodeURIComponent(whereClause);
+      const encodedWhere = encodeURIComponent(whereClause);
+      finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'where=' + encodedWhere;
+      console.log("Where clause before encoding:", whereClause);
+      console.log("Where clause after encoding:", encodedWhere);
     }
     
     console.log("Making API request to:", finalUrl);
