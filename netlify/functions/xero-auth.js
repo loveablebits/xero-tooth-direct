@@ -44,8 +44,13 @@ exports.handler = async function(event, context) {
     ].join(' ');
 
     // Build the redirect URI to Xero authorization endpoint
-    const baseUrl = process.env.URL || 'http://localhost:8888';
-    const redirectUri = `${baseUrl}/.netlify/functions/xero-callback`;
+    const host = event.headers.host;
+    let redirectUri;
+    if (host.includes('toothdirect.netlify.app')) {
+      redirectUri = 'https://toothdirect.netlify.app/.netlify/functions/xero-callback';
+    } else {
+      redirectUri = `${process.env.URL || 'http://localhost:8888'}/.netlify/functions/xero-callback`;
+    }
     console.log("Using redirect URI:", redirectUri);
     
     const xeroAuthUrl = new URL('https://login.xero.com/identity/connect/authorize');

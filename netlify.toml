@@ -29,7 +29,6 @@
   to = "/.netlify/functions/xero-callback"
   status = 200
 
-
 [[redirects]]
   from = "/api/xero-api/*"
   to = "/.netlify/functions/xero-api/:splat"
@@ -49,14 +48,4 @@
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/api/xero-api/*"
-  to = "/.netlify/functions/xero-api/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/api/xero-refresh"
-  to = "/.netlify/functions/xero-refresh"
   status = 200
