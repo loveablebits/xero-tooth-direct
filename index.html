@@ -998,127 +998,81 @@ function updateUI(isAuthenticated) {
 }
 
 async function searchInvoices() {
-  // Get search parameters
   const searchTerm = document.getElementById('search-input').value.trim();
   const statusFilter = document.getElementById('status-filter').value;
   const dateFrom = document.getElementById('date-from').value;
   const dateTo = document.getElementById('date-to').value;
   
   try {
-    // Get valid tokens
     const tokens = await getValidTokens();
-    if (!tokens) {
-      throw new Error('No valid authentication tokens available');
-    }
-    
-    // Show loading state
+    if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
     
-    // Escape quotes in the search term
     const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
-    
-    // Common headers for all requests
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
       'Xero-Tenant-Id': window.tenantId
     };
     
-    // STEP 1: First search for contacts matching the search term (if not empty)
     let contactIds = [];
     if (searchTerm) {
-      const contactWhereClause = `Name.Contains("${safeSearchTerm}") OR EmailAddress.Contains("${safeSearchTerm}")`;
-      
-      // Build contact search URL
+      const contactWhereClause = `Name.Contains(\"${safeSearchTerm}\") OR EmailAddress.Contains(\"${safeSearchTerm}\")`;
       const contactUrl = new URL(`/api/xero-api/contacts`, window.location.origin);
       contactUrl.searchParams.append('where', contactWhereClause);
-      
       console.log("Searching contacts with:", contactWhereClause);
       
-      const contactResponse = await fetch(contactUrl.toString(), {
-        method: 'GET',
-        headers: headers
-      });
-      
-      if (contactResponse.ok) {
-        const contactData = await contactResponse.json();
-        if (contactData && contactData.Contacts) {
-          contactIds = contactData.Contacts.map(contact => contact.ContactID);
+      try {
+        const contactResponse = await fetch(contactUrl.toString(), { method: 'GET', headers });
+        if (contactResponse.ok) {
+          const contactData = await contactResponse.json();
+          contactIds = contactData.Contacts?.map(contact => contact.ContactID) || [];
           console.log(`Found ${contactIds.length} matching contacts`);
         }
-      } else {
-        console.warn("Contact search failed:", await contactResponse.text());
+      } catch (error) {
+        console.warn("Contact search failed:", error);
       }
     }
     
-    // STEP 2: Build invoice search query
     const where = [];
-    
     if (searchTerm) {
-      let invoiceFieldsClause = `InvoiceNumber.Contains("${safeSearchTerm}") OR Reference.Contains("${safeSearchTerm}") OR LineItems.Any(Description.Contains("${safeSearchTerm}"))`;
-      
-      // If contacts were found, include them in the search
+      let invoiceFieldsClause = `InvoiceNumber.Contains(\"${safeSearchTerm}\") OR Reference.Contains(\"${safeSearchTerm}\") OR LineItems.Any(Description.Contains(\"${safeSearchTerm}\"))`;
       if (contactIds.length > 0) {
-        const contactIdFilters = contactIds.map(id => `Contact.ContactID==guid("${id}")`).join(" OR ");
+        const contactIdFilters = contactIds.map(id => `Contact.ContactID==guid(\"${id}\")`).join(" OR ");
         invoiceFieldsClause = `(${invoiceFieldsClause} OR (${contactIdFilters}))`;
       }
-      
       where.push(`(${invoiceFieldsClause})`);
     }
     
-    // Add standard filters (status, date range)
-    if (statusFilter) {
-      where.push(`Status=="${statusFilter}"`);
-    }
-    
-    if (dateFrom) {
-      where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
-    }
-    
-    if (dateTo) {
-      where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
-    }
+    if (statusFilter) where.push(`Status==\"${statusFilter}\"`);
+    if (dateFrom) where.push(`Date>=DateTime(\"${dateFrom}T00:00:00\")`);
+    if (dateTo) where.push(`Date<=DateTime(\"${dateTo}T23:59:59\")`);
     
     const whereClause = where.length > 0 ? where.join(' AND ') : '';
-    
-    // Call the Xero API via our serverless function
     const endpoint = 'invoices';
-    
-    // Build URL without the where parameter
     const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
     
-    // Add where parameter separately with better logging
     let finalUrl = url.toString();
     if (whereClause) {
       const encodedWhere = encodeURIComponent(whereClause);
-      finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'where=' + encodedWhere;
+      finalUrl += `&where=${encodedWhere}`;
       console.log("Where clause before encoding:", whereClause);
       console.log("Where clause after encoding:", encodedWhere);
     }
     
     console.log("Making API request to:", finalUrl);
-    
-    const response = await fetch(finalUrl, {
-      method: 'GET',
-      headers: headers
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Server returned ${response.status}`);
-    }
+    const response = await fetch(finalUrl, { method: 'GET', headers });
+    if (!response.ok) throw new Error(`Server returned ${response.status}: ${await response.text()}`);
     
     const data = await response.json();
     console.log('Xero API response:', data);
     
-    // Process the response
-    if (data && data.Invoices && Array.isArray(data.Invoices)) {
+    if (data?.Invoices?.length) {
       console.log(`Found ${data.Invoices.length} invoices`);
       currentResults = data.Invoices;
       currentPage = 1;
       displayResults();
     } else {
-      // Show no results message
       document.getElementById('results-section').classList.add('hidden');
       showMessage('No invoices found matching your search criteria.', 'info');
     }
@@ -1129,6 +1083,7 @@ async function searchInvoices() {
     toggleLoading(false);
   }
 }
+
 
 // Get all recent invoices directly using Xero API
 async function getAllInvoices() {
