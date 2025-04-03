@@ -1049,15 +1049,12 @@ function updateUI(isAuthenticated) {
     
     // Add search term conditions if a search term is provided
     if (searchTerm) {
-      // Build the core search clause for invoice fields AND associated contact address fields
-      let invoiceFieldsClause = `(
-        (InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
-        (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
-        (LineItems.Any(Description!=null AND Description.ToLower().Contains("${lowerCaseSearchTerm}"))) OR
-        (Contact.Addresses.Any(City!=null AND City.ToLower().Contains("${lowerCaseSearchTerm}"))) OR
-        (Contact.Addresses.Any(PostalCode!=null AND PostalCode.ToLower()=="${lowerCaseSearchTerm}")) OR
-        (Contact.Addresses.Any(Region!=null AND Region.ToLower().Contains("${lowerCaseSearchTerm}")))
-      )`;
+  // Build a simpler search clause that focuses on the most reliable fields
+  let invoiceFieldsClause = `(
+    (InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
+    (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
+    (Contact.Name!=null AND Contact.Name.ToLower().Contains("${lowerCaseSearchTerm}"))
+  )`;
 
       // If the separate contact search found potential matches by name/email, add them as an alternative
       if (contactIds.length > 0) {
@@ -1112,11 +1109,67 @@ function updateUI(isAuthenticated) {
     console.log('Xero API response:', data);
 
     if (data?.Invoices?.length) {
-      console.log(`Found ${data.Invoices.length} invoices/bills`);
-      currentResults = data.Invoices;
-      currentPage = 1;
-      displayResults();
+  console.log(`Found ${data.Invoices.length} invoices/bills initially`);
+  
+  // If searching for line items, do a client-side filter
+  if (searchTerm) {
+    // Get all invoices that match the search term
+    let matchedInvoices = [...data.Invoices];
+    
+    // If we didn't get too many invoices (below API limit), fetch all invoices to search line items
+    if (matchedInvoices.length < 100 && searchTerm) {
+      try {
+        // Fetch all recent invoices without filtering
+        const allUrl = new URL(`/api/xero-api/invoices`, window.location.origin);
+        allUrl.searchParams.set('order', 'Date DESC');
+        
+        const allResponse = await fetch(allUrl.toString(), { 
+          method: 'GET', 
+          headers
+        });
+        
+        if (allResponse.ok) {
+          const allData = await allResponse.json();
+          if (allData?.Invoices?.length) {
+            // Replace with the full set for client-side filtering
+            matchedInvoices = allData.Invoices;
+          }
+        }
+      } catch (error) {
+        console.warn("Error fetching all invoices for line item search:", error);
+        // Continue with what we already have
+      }
+    }
+    
+    // Client-side search for line items matching the search term
+    const lowerSearch = searchTerm.toLowerCase();
+    const filteredResults = matchedInvoices.filter(invoice => {
+      // Check invoice line items
+      if (invoice.LineItems && Array.isArray(invoice.LineItems)) {
+        return invoice.LineItems.some(item => 
+          item.Description && item.Description.toLowerCase().includes(lowerSearch)
+        );
+      }
+      return false;
+    });
+    
+    console.log(`Found ${filteredResults.length} invoices with matching line items after client-side filtering`);
+    
+    // If we found matches in line items, use those results
+    if (filteredResults.length > 0) {
+      currentResults = filteredResults;
     } else {
+      // Otherwise stick with the original API results
+      currentResults = data.Invoices;
+    }
+  } else {
+    // No search term, just use all results
+    currentResults = data.Invoices;
+  }
+  
+  currentPage = 1;
+  displayResults();
+} else {
       if (data && data.hasOwnProperty('Invoices')) {
         document.getElementById('results-section').classList.add('hidden');
         showMessage('No invoices or bills found matching your search criteria.', 'info');
