@@ -526,7 +526,6 @@
           placeholder="Search by invoice number, reference, customer, address, description..."
         >
         <button id="search-btn" class="btn primary">Search</button>
-        <button id="get-all-btn" class="btn secondary">Get All Recent</button>
       </div>
       
       <div class="filters">
@@ -792,7 +791,6 @@ function setupEventListeners() {
     window.location.href = '/.netlify/functions/xero-auth';
   });
   
-  
   // Logout button
   document.getElementById('logout-btn').addEventListener('click', () => {
     clearCookies();
@@ -808,9 +806,6 @@ function setupEventListeners() {
   
   // Search button
   document.getElementById('search-btn').addEventListener('click', searchInvoices);
-  
-  // Get All Recent Invoices button
-  document.getElementById('get-all-btn').addEventListener('click', getAllInvoices);
   
   // Search input - enter key
   document.getElementById('search-input').addEventListener('keypress', event => {
@@ -1014,7 +1009,7 @@ function updateUI(isAuthenticated) {
     toggleLoading(true);
 
     // Escape quotes AND convert search term to lowercase for case-insensitive matching
-    const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
+    const safeSearchTerm = searchTerm ? searchTerm.replace(/"/g, '\\"') : '';
     const lowerCaseSearchTerm = safeSearchTerm.toLowerCase();
 
     const headers = {
@@ -1023,14 +1018,11 @@ function updateUI(isAuthenticated) {
     };
 
     let contactIds = [];
-    // OPTIONAL: Still perform contact search first for efficiency if term clearly matches name/email
-    // This helps if a contact matches but none of the address/invoice fields do.
+    // Only perform contact search if a search term is provided
     if (searchTerm) {
       const contactWhereClause = `
         (Name!=null AND Name.ToLower().Contains("${lowerCaseSearchTerm}")) OR
         (EmailAddress!=null AND EmailAddress.ToLower().Contains("${lowerCaseSearchTerm}"))`;
-      // Note: We are NOT searching address here, only name/email for pre-filtering contacts.
-      // The main address search happens in the invoice query below.
 
       const contactUrl = new URL(`/api/xero-api/contacts`, window.location.origin);
       contactUrl.searchParams.append('where', contactWhereClause);
@@ -1054,6 +1046,8 @@ function updateUI(isAuthenticated) {
 
     // --- Main Invoice Search Logic ---
     const where = [];
+    
+    // Add search term conditions if a search term is provided
     if (searchTerm) {
       // Build the core search clause for invoice fields AND associated contact address fields
       let invoiceFieldsClause = `(
@@ -1066,23 +1060,27 @@ function updateUI(isAuthenticated) {
       )`;
 
       // If the separate contact search found potential matches by name/email, add them as an alternative
-      // This ensures invoices for contacts found by name/email are included, even if other fields don't match the term.
       if (contactIds.length > 0) {
         const contactIdFilters = contactIds.map(id => `Contact.ContactID==guid("${id}")`).join(" OR ");
         // Combine: EITHER invoice/address fields match OR the contact ID matches
         invoiceFieldsClause = `(${invoiceFieldsClause} OR (${contactIdFilters}))`;
       }
+      
       where.push(invoiceFieldsClause);
     }
 
-    // Add Status and Date filters (ANDed with the search term clause if present)
-    if (statusFilter) where.push(`Status=="${statusFilter}"`);
+    // Always add Status filter if it's selected, regardless of search term or dates
+    if (statusFilter) {
+      where.push(`Status=="${statusFilter}"`);
+    }
+    
+    // Add date filters if provided
     if (dateFrom) where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
     if (dateTo) where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
 
     // Construct the final WHERE clause
     const whereClause = where.length ? where.join(' AND ') : '';
-    const url = new URL(`/api/xero-api/invoices`, window.location.origin); // Targeting /invoices (includes ACCPAY/ACCREC)
+    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
 
     let finalUrl = url.toString();
@@ -1092,52 +1090,45 @@ function updateUI(isAuthenticated) {
       console.log("Where clause before encoding:", whereClause);
       console.log("Where clause after encoding:", encodedWhere);
     } else {
-       console.log("No search term or filters applied, fetching recent invoices/bills.");
+      console.log("No search criteria applied, fetching all recent invoices/bills.");
     }
-
 
     console.log("Making API request to:", finalUrl);
     const response = await fetch(finalUrl, { method: 'GET', headers });
 
     // --- Response Handling ---
     if (!response.ok) {
-       const errorText = await response.text(); // Get raw error text
-       try {
-           // Try to parse Xero's specific JSON error format
-           const errorData = JSON.parse(errorText);
-           // Use specific fields if available, otherwise fall back
-           const detail = errorData.Detail || errorData.message || (errorData.Elements && errorData.Elements[0]?.ValidationErrors?.[0]?.Message);
-           throw new Error(detail || errorText || `Server returned ${response.status}`);
-       } catch (parseError) {
-           // If parsing fails, use the raw text
-           throw new Error(errorText || `Server returned ${response.status}`);
-       }
+      const errorText = await response.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        const detail = errorData.Detail || errorData.message || (errorData.Elements && errorData.Elements[0]?.ValidationErrors?.[0]?.Message);
+        throw new Error(detail || errorText || `Server returned ${response.status}`);
+      } catch (parseError) {
+        throw new Error(errorText || `Server returned ${response.status}`);
+      }
     }
 
     const data = await response.json();
     console.log('Xero API response:', data);
 
-    // Check specifically for the Invoices array in the response
     if (data?.Invoices?.length) {
       console.log(`Found ${data.Invoices.length} invoices/bills`);
-      currentResults = data.Invoices; // Assuming currentResults holds the data
-      currentPage = 1; // Assuming pagination variables
-      displayResults(); // Assuming this function displays the results
+      currentResults = data.Invoices;
+      currentPage = 1;
+      displayResults();
     } else {
-       // Check if the response structure itself is valid but just empty
-       if (data && data.hasOwnProperty('Invoices')) {
-           document.getElementById('results-section').classList.add('hidden'); // Adjust if needed
-           showMessage('No invoices or bills found matching your search criteria.', 'info'); // Adjust UI functions
-       } else {
-           // Handle unexpected response structure
-           throw new Error("Received unexpected data structure from Xero API.");
-       }
+      if (data && data.hasOwnProperty('Invoices')) {
+        document.getElementById('results-section').classList.add('hidden');
+        showMessage('No invoices or bills found matching your search criteria.', 'info');
+      } else {
+        throw new Error("Received unexpected data structure from Xero API.");
+      }
     }
   } catch (error) {
     console.error("Error searching invoices:", error);
-    showError(`Error searching invoices/bills: ${error.message || 'Unknown error'}`); // Adjust UI function
+    showError(`Error searching invoices/bills: ${error.message || 'Unknown error'}`);
   } finally {
-    toggleLoading(false); // Adjust UI function
+    toggleLoading(false);
   }
 }
 
