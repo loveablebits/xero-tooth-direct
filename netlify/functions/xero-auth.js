@@ -40,7 +40,8 @@ exports.handler = async function(event, context) {
       'email',
       'offline_access',
       'accounting.transactions.read',
-      'accounting.settings.read'
+      'accounting.settings.read',
+      'accounting.contacts.read'  // Add this line
     ].join(' ');
 
     // Build the redirect URI to Xero authorization endpoint
