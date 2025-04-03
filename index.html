@@ -1007,57 +1007,50 @@ function updateUI(isAuthenticated) {
     const tokens = await getValidTokens();
     if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
-    
-    // Create a clean search term without special characters
+
+    // Remove special characters from search term
     const safeSearchTerm = searchTerm ? searchTerm.replace(/"/g, '') : '';
-    
+
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
       'Xero-Tenant-Id': window.tenantId
     };
 
-    // Build the WHERE clause following the exact syntax from documentation
+    // Build the WHERE clause
     const where = [];
-    
-    if (searchTerm) {
-      // Use the exact syntax from the documentation
-      let searchClause = `(
-        InvoiceNumber.Contains("${safeSearchTerm}") OR 
-        Reference.Contains("${safeSearchTerm}") OR 
-        Contact.Name.Contains("${safeSearchTerm}") OR
-        LineItems.Any(Description.Contains("${safeSearchTerm}"))
-      )`;
-      where.push(searchClause);
+
+    if (safeSearchTerm) {
+      where.push(`InvoiceNumber.Contains("${safeSearchTerm}")`);
+      where.push(`Reference.Contains("${safeSearchTerm}")`);
+      where.push(`Contact.Name.ToLower().Contains("${safeSearchTerm.toLowerCase()}")`);
+      where.push(`LineItems.Any(Description.ToLower().Contains("${safeSearchTerm.toLowerCase()}"))`);
     }
 
-    // Add status filter if selected
     if (statusFilter) {
       where.push(`Status=="${statusFilter}"`);
     }
-    
-    // Add date filters if provided
-    if (dateFrom) where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
-    if (dateTo) where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
 
-    // Construct the WHERE clause
-    const whereClause = where.length ? where.join(' AND ') : '';
-    
+    if (dateFrom) {
+      where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
+    }
+    if (dateTo) {
+      where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
+    }
+
+    const whereClause = where.length ? where.join('&&') : '';
+
     // Build the URL
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
     url.searchParams.set('pageSize', '100');
-    
-    // Include parameters to get complete invoice data
     url.searchParams.set('includeArchived', 'true');
     url.searchParams.set('summaryOnly', 'false');
 
     let finalUrl = url.toString();
     if (whereClause) {
-      // URL encode the where clause
       const encodedWhere = encodeURIComponent(whereClause);
       finalUrl += `&where=${encodedWhere}`;
       console.log("Where clause before encoding:", whereClause);
-      console.log("Where clause after encoding:", encodedWhere);
     }
 
     console.log("Making API request:", finalUrl);
@@ -1065,6 +1058,7 @@ function updateUI(isAuthenticated) {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error("API Error Response:", errorText);
       try {
         const errorData = JSON.parse(errorText);
         const detail = errorData.Detail || errorData.message || 
@@ -1077,8 +1071,7 @@ function updateUI(isAuthenticated) {
 
     const data = await response.json();
     console.log('Xero API response:', data);
-    
-    // Process the results
+
     if (data?.Invoices?.length) {
       console.log(`Found ${data.Invoices.length} matching invoices`);
       currentResults = data.Invoices;
@@ -1095,6 +1088,7 @@ function updateUI(isAuthenticated) {
     toggleLoading(false);
   }
 }
+
 
 // --- Helper functions assumed to exist ---
 // async function getValidTokens() { /* ... returns { access_token } or null ... */ }
