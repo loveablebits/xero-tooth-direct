@@ -1017,20 +1017,20 @@ function updateUI(isAuthenticated) {
       'Xero-Tenant-Id': window.tenantId
     };
 
-    // --- Two-phase search approach ---
-    // First, get invoices matching basic fields
+    // --- Main search logic ---
     const where = [];
     
+    // Add search term conditions if provided
     if (searchTerm) {
-      let basicSearchClause = `(
+      let searchClause = `(
         (InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
         (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
         (Contact.Name!=null AND Contact.Name.ToLower().Contains("${lowerCaseSearchTerm}"))
       )`;
-      where.push(basicSearchClause);
+      where.push(searchClause);
     }
 
-    // Always add Status filter if it's selected
+    // Add status filter if selected
     if (statusFilter) {
       where.push(`Status=="${statusFilter}"`);
     }
@@ -1039,13 +1039,19 @@ function updateUI(isAuthenticated) {
     if (dateFrom) where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
     if (dateTo) where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
 
-    // Construct the WHERE clause for basic search
+    // Construct the WHERE clause
     const whereClause = where.length ? where.join(' AND ') : '';
+    
+    // KEY CHANGE: Use a direct call to get line items by using includeArchived=true
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
-    
-    // Add a reasonable page size for better performance
     url.searchParams.set('pageSize', '100');
+    
+    // CRITICAL: Add this parameter to include line item details
+    url.searchParams.set('includeArchived', 'true');
+    
+    // Also add summaryOnly=false to ensure we get full invoice details
+    url.searchParams.set('summaryOnly', 'false');
 
     let finalUrl = url.toString();
     if (whereClause) {
@@ -1054,7 +1060,7 @@ function updateUI(isAuthenticated) {
       console.log("Where clause before encoding:", whereClause);
     }
 
-    console.log("Making API request for basic fields search:", finalUrl);
+    console.log("Making API request:", finalUrl);
     const response = await fetch(finalUrl, { method: 'GET', headers });
 
     if (!response.ok) {
@@ -1070,101 +1076,80 @@ function updateUI(isAuthenticated) {
     }
 
     const data = await response.json();
-    console.log('Xero API response for basic search:', data);
+    console.log('Xero API response:', data);
     
-    // Store the results from basic search
+    // Store initial results
     let matchedInvoices = data?.Invoices || [];
     
-    // Second phase: Search for line items if we have a search term
-    if (searchTerm) {
-      // Fetch all recent invoices to search line items
-      // Apply only status and date filters, not the text search
-      const lineItemWhere = [];
+    // If searching by text, filter for line item matches client-side
+    if (searchTerm && matchedInvoices.length > 0) {
+      console.log("Checking for line item matches in", matchedInvoices.length, "invoices");
       
-      if (statusFilter) {
-        lineItemWhere.push(`Status=="${statusFilter}"`);
-      }
-      
-      if (dateFrom) lineItemWhere.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
-      if (dateTo) lineItemWhere.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
-      
-      const lineItemWhereClause = lineItemWhere.length ? lineItemWhere.join(' AND ') : '';
-      const lineItemUrl = new URL(`/api/xero-api/invoices`, window.location.origin);
-      lineItemUrl.searchParams.set('order', 'Date DESC');
-      lineItemUrl.searchParams.set('pageSize', '100'); // Limit to avoid rate limits
-      
-      if (lineItemWhereClause) {
-        lineItemUrl.searchParams.append('where', lineItemWhereClause);
-      }
-      
-      console.log("Making API request for line item search:", lineItemUrl.toString());
-      const lineItemResponse = await fetch(lineItemUrl.toString(), { method: 'GET', headers });
-      
-      if (lineItemResponse.ok) {
-        const lineItemData = await lineItemResponse.json();
-        console.log('Xero API response for line item search:', lineItemData);
+      // Debug: Print a sample invoice structure
+      if (matchedInvoices.length > 0) {
+        const sampleInvoice = matchedInvoices[0];
+        console.log("Sample invoice structure:", JSON.stringify(sampleInvoice, null, 2).substring(0, 1000) + "...");
         
-        if (lineItemData?.Invoices?.length) {
-          // Enhanced debugging - print the first 3 invoice structures
-          console.log("Sample invoice structures for debugging:");
-          for (let i = 0; i < Math.min(3, lineItemData.Invoices.length); i++) {
-            const inv = lineItemData.Invoices[i];
-            console.log(`Invoice #${i+1} - ID: ${inv.InvoiceID}, Number: ${inv.InvoiceNumber}`);
-            console.log("Line items:", inv.LineItems ? JSON.stringify(inv.LineItems).substring(0, 200) + "..." : "none");
+        // Check if line items are present in the API response
+        if (sampleInvoice.LineItems && sampleInvoice.LineItems.length > 0) {
+          console.log("Sample line item:", JSON.stringify(sampleInvoice.LineItems[0], null, 2));
+        } else {
+          console.warn("No line items in the API response. Will need different approach.");
+        }
+      }
+      
+      // Filter for line item matches
+      const lineItemMatches = matchedInvoices.filter(invoice => {
+        // Skip if no line items
+        if (!invoice.LineItems || !Array.isArray(invoice.LineItems)) {
+          return false;
+        }
+        
+        // Check each line item for the search term
+        return invoice.LineItems.some(item => {
+          if (!item) return false;
+          
+          // Check Description
+          if (item.Description && item.Description.toLowerCase().includes(lowerCaseSearchTerm)) {
+            console.log(`Found match in invoice ${invoice.InvoiceNumber} - Line item: "${item.Description}"`);
+            return true;
           }
           
-          // Client-side filtering for line items with more robust approach
-          const lowerSearch = lowerCaseSearchTerm;
-          let lineItemsFound = 0;
+          // Check other possible fields
+          if (item.AccountCode && item.AccountCode.toLowerCase().includes(lowerCaseSearchTerm)) {
+            console.log(`Found match in invoice ${invoice.InvoiceNumber} - Account: "${item.AccountCode}"`);
+            return true;
+          }
           
-          const lineItemMatches = lineItemData.Invoices.filter(invoice => {
-            // First check if LineItems exists and is non-empty
-            if (!invoice.LineItems || !Array.isArray(invoice.LineItems) || invoice.LineItems.length === 0) {
-              return false;
-            }
-            
-            // Enhanced check for line items - log matches for debugging
-            for (const item of invoice.LineItems) {
-              // Check if Description exists and contains the search term
-              if (item && item.Description && 
-                  item.Description.toLowerCase().includes(lowerSearch)) {
-                console.log(`Found match in invoice ${invoice.InvoiceNumber} - Line item: "${item.Description}"`);
-                lineItemsFound++;
-                return true;
-              }
-              
-              // Also check AccountCode and ItemCode as fallbacks
-              if (item.AccountCode && item.AccountCode.toLowerCase().includes(lowerSearch)) {
-                console.log(`Found match in invoice ${invoice.InvoiceNumber} - Account code: "${item.AccountCode}"`);
-                lineItemsFound++;
-                return true;
-              }
-              
-              if (item.ItemCode && item.ItemCode.toLowerCase().includes(lowerSearch)) {
-                console.log(`Found match in invoice ${invoice.InvoiceNumber} - Item code: "${item.ItemCode}"`);
-                lineItemsFound++;
-                return true;
-              }
-            }
-            
-            return false;
-          });
+          if (item.ItemCode && item.ItemCode.toLowerCase().includes(lowerCaseSearchTerm)) {
+            console.log(`Found match in invoice ${invoice.InvoiceNumber} - Item code: "${item.ItemCode}"`);
+            return true;
+          }
           
-          console.log(`Found ${lineItemMatches.length} invoices with ${lineItemsFound} matching line items`);
-          
-          // Combine results from both searches, avoiding duplicates
-          const allInvoiceIds = new Set(matchedInvoices.map(inv => inv.InvoiceID));
-          const uniqueLineItemMatches = lineItemMatches.filter(inv => !allInvoiceIds.has(inv.InvoiceID));
-          
-          matchedInvoices = [...matchedInvoices, ...uniqueLineItemMatches];
-          console.log(`Combined total: ${matchedInvoices.length} unique matching invoices`);
-        }
-      } else {
-        console.warn("Line item search failed, using only basic search results");
-      }
+          return false;
+        });
+      });
+      
+      console.log(`Found ${lineItemMatches.length} invoices with line item matches for "${searchTerm}"`);
+      
+      // Add text matches to the beginning of results
+      const basicSearchMatches = matchedInvoices.filter(inv => {
+        // Match InvoiceNumber, Reference, or Contact.Name directly
+        return (inv.InvoiceNumber && inv.InvoiceNumber.toLowerCase().includes(lowerCaseSearchTerm)) ||
+               (inv.Reference && inv.Reference.toLowerCase().includes(lowerCaseSearchTerm)) ||
+               (inv.Contact && inv.Contact.Name && inv.Contact.Name.toLowerCase().includes(lowerCaseSearchTerm));
+      });
+      
+      // Combine basic matches and line item matches without duplicates
+      const basicIds = new Set(basicSearchMatches.map(inv => inv.InvoiceID));
+      const uniqueLineItemMatches = lineItemMatches.filter(inv => !basicIds.has(inv.InvoiceID));
+      
+      // Final result set
+      matchedInvoices = [...basicSearchMatches, ...uniqueLineItemMatches];
+      console.log(`Final result: ${matchedInvoices.length} matching invoices`);
     }
     
-    // Process and display final results
+    // Process and display results
     if (matchedInvoices.length > 0) {
       currentResults = matchedInvoices;
       currentPage = 1;
