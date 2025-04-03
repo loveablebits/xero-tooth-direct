@@ -1008,7 +1008,10 @@ async function searchInvoices() {
     if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
 
+    // Escape quotes AND convert search term to lowercase for case-insensitive matching
     const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
+    const lowerCaseSearchTerm = safeSearchTerm.toLowerCase(); // Use this in .Contains()
+
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
       'Xero-Tenant-Id': window.tenantId
@@ -1016,30 +1019,42 @@ async function searchInvoices() {
 
     let contactIds = [];
     if (searchTerm) {
-      const contactWhereClause = `(Name!=null AND Name.Contains("${safeSearchTerm}")) OR (EmailAddress!=null AND EmailAddress.Contains("${safeSearchTerm}"))`;
+      // Use ToLower() for case-insensitive contact search
+      const contactWhereClause = `(Name!=null AND Name.ToLower().Contains("${lowerCaseSearchTerm}")) OR (EmailAddress!=null AND EmailAddress.ToLower().Contains("${lowerCaseSearchTerm}"))`;
       const contactUrl = new URL(`/api/xero-api/contacts`, window.location.origin);
       contactUrl.searchParams.append('where', contactWhereClause);
-      
+
       console.log("Searching contacts with:", contactWhereClause);
       const contactResponse = await fetch(contactUrl.toString(), { method: 'GET', headers });
-      
+
+      // Keep existing contact handling logic...
       if (contactResponse.ok) {
         const contactData = await contactResponse.json();
         if (contactData && contactData.Contacts) {
           contactIds = contactData.Contacts.map(contact => contact.ContactID);
           console.log(`Found ${contactIds.length} matching contacts`);
+        } else {
+           // Handle case where Contacts array might be missing or empty even on OK response
+           console.log("Contact search returned OK, but no contacts found in response data.");
         }
-      } else {
-        console.warn("Contact search failed:", await contactResponse.text());
+      } else if (contactResponse.status === 400) { // Handle potential bad request errors for contacts
+         const errorData = await contactResponse.text();
+         console.warn("Contact search failed (400 Bad Request):", errorData);
+         // Optionally inform the user or decide not to block invoice search
+      }
+       else {
+        // Keep the original warning for other errors
+        console.warn("Contact search failed:", contactResponse.status, await contactResponse.text());
       }
     }
 
     const where = [];
     if (searchTerm) {
-      let invoiceFieldsClause = `((InvoiceNumber!=null AND InvoiceNumber.Contains("${safeSearchTerm}")) OR 
-        (Reference!=null AND Reference.Contains("${safeSearchTerm}")) OR 
-        (LineItems.Any(Description!=null AND Description.Contains("${safeSearchTerm}"))))`;
-      
+      // Use ToLower() for case-insensitive invoice field search
+      let invoiceFieldsClause = `((InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
+        (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
+        (LineItems.Any(Description!=null AND Description.ToLower().Contains("${lowerCaseSearchTerm}"))))`; // <--- Apply ToLower() here too
+
       if (contactIds.length > 0) {
         const contactIdFilters = contactIds.map(id => `Contact.ContactID==guid("${id}")`).join(" OR ");
         invoiceFieldsClause = `(${invoiceFieldsClause} OR (${contactIdFilters}))`;
@@ -1047,9 +1062,12 @@ async function searchInvoices() {
       where.push(invoiceFieldsClause);
     }
 
+    // Keep status and date filters as they are
     if (statusFilter) where.push(`Status=="${statusFilter}"`);
     if (dateFrom) where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
     if (dateTo) where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
+
+    // ... rest of the function remains the same ...
 
     const whereClause = where.length ? where.join(' AND ') : '';
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
@@ -1057,6 +1075,7 @@ async function searchInvoices() {
 
     let finalUrl = url.toString();
     if (whereClause) {
+      // Encoding should handle ToLower() correctly
       const encodedWhere = encodeURIComponent(whereClause);
       finalUrl += `&where=${encodedWhere}`;
       console.log("Where clause before encoding:", whereClause);
@@ -1067,8 +1086,14 @@ async function searchInvoices() {
     const response = await fetch(finalUrl, { method: 'GET', headers });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Server returned ${response.status}`);
+      const errorText = await response.text(); // Get raw error text
+       try {
+           const errorData = JSON.parse(errorText); // Try to parse as JSON
+           throw new Error(errorData.message || errorData.Detail || `Server returned ${response.status}`);
+       } catch (parseError) {
+           // If not JSON, throw the raw text
+           throw new Error(errorText || `Server returned ${response.status}`);
+       }
     }
 
     const data = await response.json();
@@ -1080,8 +1105,14 @@ async function searchInvoices() {
       currentPage = 1;
       displayResults();
     } else {
-      document.getElementById('results-section').classList.add('hidden');
-      showMessage('No invoices found matching your search criteria.', 'info');
+       // Check if the response structure itself is valid but just empty
+       if (data && data.hasOwnProperty('Invoices')) {
+           document.getElementById('results-section').classList.add('hidden');
+           showMessage('No invoices found matching your search criteria.', 'info');
+       } else {
+           // Handle unexpected response structure
+           throw new Error("Received unexpected data structure from Xero API.");
+       }
     }
   } catch (error) {
     console.error("Error searching invoices:", error);
