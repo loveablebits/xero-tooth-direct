@@ -1105,18 +1105,52 @@ function updateUI(isAuthenticated) {
         console.log('Xero API response for line item search:', lineItemData);
         
         if (lineItemData?.Invoices?.length) {
-          // Client-side filtering for line items
+          // Enhanced debugging - print the first 3 invoice structures
+          console.log("Sample invoice structures for debugging:");
+          for (let i = 0; i < Math.min(3, lineItemData.Invoices.length); i++) {
+            const inv = lineItemData.Invoices[i];
+            console.log(`Invoice #${i+1} - ID: ${inv.InvoiceID}, Number: ${inv.InvoiceNumber}`);
+            console.log("Line items:", inv.LineItems ? JSON.stringify(inv.LineItems).substring(0, 200) + "..." : "none");
+          }
+          
+          // Client-side filtering for line items with more robust approach
           const lowerSearch = lowerCaseSearchTerm;
+          let lineItemsFound = 0;
+          
           const lineItemMatches = lineItemData.Invoices.filter(invoice => {
-            if (invoice.LineItems && Array.isArray(invoice.LineItems)) {
-              return invoice.LineItems.some(item => 
-                item.Description && item.Description.toLowerCase().includes(lowerSearch)
-              );
+            // First check if LineItems exists and is non-empty
+            if (!invoice.LineItems || !Array.isArray(invoice.LineItems) || invoice.LineItems.length === 0) {
+              return false;
             }
+            
+            // Enhanced check for line items - log matches for debugging
+            for (const item of invoice.LineItems) {
+              // Check if Description exists and contains the search term
+              if (item && item.Description && 
+                  item.Description.toLowerCase().includes(lowerSearch)) {
+                console.log(`Found match in invoice ${invoice.InvoiceNumber} - Line item: "${item.Description}"`);
+                lineItemsFound++;
+                return true;
+              }
+              
+              // Also check AccountCode and ItemCode as fallbacks
+              if (item.AccountCode && item.AccountCode.toLowerCase().includes(lowerSearch)) {
+                console.log(`Found match in invoice ${invoice.InvoiceNumber} - Account code: "${item.AccountCode}"`);
+                lineItemsFound++;
+                return true;
+              }
+              
+              if (item.ItemCode && item.ItemCode.toLowerCase().includes(lowerSearch)) {
+                console.log(`Found match in invoice ${invoice.InvoiceNumber} - Item code: "${item.ItemCode}"`);
+                lineItemsFound++;
+                return true;
+              }
+            }
+            
             return false;
           });
           
-          console.log(`Found ${lineItemMatches.length} invoices with matching line items`);
+          console.log(`Found ${lineItemMatches.length} invoices with ${lineItemsFound} matching line items`);
           
           // Combine results from both searches, avoiding duplicates
           const allInvoiceIds = new Set(matchedInvoices.map(inv => inv.InvoiceID));
