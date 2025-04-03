@@ -997,49 +997,100 @@ function updateUI(isAuthenticated) {
   }
 }
 
-async function searchInvoices(query) {
-    try {
-        if (!query || query.trim() === '') {
-            throw new Error('Search query cannot be empty');
+async function searchInvoices() {
+  const searchTerm = document.getElementById('search-input').value.trim();
+  const statusFilter = document.getElementById('status-filter').value;
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+
+  try {
+    const tokens = await getValidTokens();
+    if (!tokens) throw new Error('No valid authentication tokens available');
+    toggleLoading(true);
+
+    const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
+    const headers = {
+      'Authorization': `Bearer ${tokens.access_token}`,
+      'Xero-Tenant-Id': window.tenantId
+    };
+
+    let contactIds = [];
+    if (searchTerm) {
+      const contactWhereClause = `(Name!=null AND Name.Contains("${safeSearchTerm}")) OR (EmailAddress!=null AND EmailAddress.Contains("${safeSearchTerm}"))`;
+      const contactUrl = new URL(`/api/xero-api/contacts`, window.location.origin);
+      contactUrl.searchParams.append('where', contactWhereClause);
+      
+      console.log("Searching contacts with:", contactWhereClause);
+      const contactResponse = await fetch(contactUrl.toString(), { method: 'GET', headers });
+      
+      if (contactResponse.ok) {
+        const contactData = await contactResponse.json();
+        if (contactData && contactData.Contacts) {
+          contactIds = contactData.Contacts.map(contact => contact.ContactID);
+          console.log(`Found ${contactIds.length} matching contacts`);
         }
-
-        const encodedQuery = encodeURIComponent(query);
-        const invoicesUrl = `https://toothdirect.netlify.app/api/xero-api/invoices?order=Date DESC&where=` +
-            `(InvoiceNumber != null AND InvoiceNumber.Contains("${encodedQuery}")) OR ` +
-            `(Reference != null AND Reference.Contains("${encodedQuery}")) OR ` +
-            `(LineItems.Any(Description != null AND Description.Contains("${encodedQuery}")))`;
-
-        const contactsUrl = `https://toothdirect.netlify.app/api/xero-api/contacts?where=` +
-            `(Name != null AND Name.Contains("${encodedQuery}")) OR ` +
-            `(EmailAddress != null AND EmailAddress.Contains("${encodedQuery}"))`;
-
-        console.log("Fetching invoices from:", invoicesUrl);
-        console.log("Fetching contacts from:", contactsUrl);
-
-        const [invoicesResponse, contactsResponse] = await Promise.all([
-            fetch(invoicesUrl),
-            fetch(contactsUrl)
-        ]);
-
-        if (!invoicesResponse.ok) {
-            throw new Error(`Error fetching invoices: ${invoicesResponse.status} ${invoicesResponse.statusText}`);
-        }
-        if (!contactsResponse.ok) {
-            throw new Error(`Error fetching contacts: ${contactsResponse.status} ${contactsResponse.statusText}`);
-        }
-
-        const invoicesData = await invoicesResponse.json();
-        const contactsData = await contactsResponse.json();
-
-        console.log("Invoices Data:", invoicesData);
-        console.log("Contacts Data:", contactsData);
-
-        displaySearchResults(invoicesData, contactsData);
-    } catch (error) {
-        console.error("Error searching invoices:", error);
-        showError(`Error searching invoices: ${error.message}`);
+      } else {
+        console.warn("Contact search failed:", await contactResponse.text());
+      }
     }
+
+    const where = [];
+    if (searchTerm) {
+      let invoiceFieldsClause = `((InvoiceNumber!=null AND InvoiceNumber.Contains("${safeSearchTerm}")) OR 
+        (Reference!=null AND Reference.Contains("${safeSearchTerm}")) OR 
+        (LineItems.Any(Description!=null AND Description.Contains("${safeSearchTerm}"))))`;
+      
+      if (contactIds.length > 0) {
+        const contactIdFilters = contactIds.map(id => `Contact.ContactID==guid("${id}")`).join(" OR ");
+        invoiceFieldsClause = `(${invoiceFieldsClause} OR (${contactIdFilters}))`;
+      }
+      where.push(invoiceFieldsClause);
+    }
+
+    if (statusFilter) where.push(`Status=="${statusFilter}"`);
+    if (dateFrom) where.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
+    if (dateTo) where.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
+
+    const whereClause = where.length ? where.join(' AND ') : '';
+    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+    url.searchParams.set('order', 'Date DESC');
+
+    let finalUrl = url.toString();
+    if (whereClause) {
+      const encodedWhere = encodeURIComponent(whereClause);
+      finalUrl += `&where=${encodedWhere}`;
+      console.log("Where clause before encoding:", whereClause);
+      console.log("Where clause after encoding:", encodedWhere);
+    }
+
+    console.log("Making API request to:", finalUrl);
+    const response = await fetch(finalUrl, { method: 'GET', headers });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Xero API response:', data);
+
+    if (data?.Invoices?.length) {
+      console.log(`Found ${data.Invoices.length} invoices`);
+      currentResults = data.Invoices;
+      currentPage = 1;
+      displayResults();
+    } else {
+      document.getElementById('results-section').classList.add('hidden');
+      showMessage('No invoices found matching your search criteria.', 'info');
+    }
+  } catch (error) {
+    console.error("Error searching invoices:", error);
+    showError(`Error searching invoices: ${error.message || 'Unknown error'}`);
+  } finally {
+    toggleLoading(false);
+  }
 }
+
 
 function displaySearchResults(invoices, contacts) {
     const resultsContainer = document.getElementById("search-results");
