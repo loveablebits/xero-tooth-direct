@@ -635,6 +635,12 @@
   function initApp() {
   console.log("Initializing app...");
   
+  // Remove the load more container entirely at app initialization
+  const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    loadMoreContainer.remove();
+  }
+  
   // Check for authentication result in URL parameters
   checkAuthResult();
   
@@ -816,8 +822,17 @@ dropdown.addEventListener('change', function() {
   document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
   document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
   
-  // Clear current results
+  // Reset all pagination state
   currentResults = [];
+  currentPage = 1;
+  loadedPages = {};
+  window.filteredResults = null;
+  
+  // Remove the load more container if it exists
+  const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    loadMoreContainer.remove();
+  }
   
   // Reload invoices for the new organization
   loadInitialInvoices();
@@ -897,9 +912,11 @@ document.getElementById('sort-by').addEventListener('change', () => {
     document.getElementById('results-section').classList.remove('hidden');
   });
   
-  // Load more button
-  document.getElementById('load-more-btn').addEventListener('click', loadMoreInvoices);
-}
+// Remove the "Load more" button and its container 
+const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    loadMoreContainer.remove();
+  }
 
 // Check if tokens need refreshing
 async function checkAndRefreshTokens() {
@@ -1184,6 +1201,68 @@ function displayCurrentPage() {
   
   // Update pagination controls
   updatePaginationControls();
+}
+
+// Create pagination controls
+function updatePaginationControls() {
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  
+  // Remove the load more container entirely
+  const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    loadMoreContainer.remove();
+  }
+  
+  const currentInvoices = loadedPages[currentPage] || [];
+  const hasMorePages = currentInvoices.length === resultsPerPage;
+  
+  // Create container for buttons
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.display = 'flex';
+  buttonContainer.style.justifyContent = 'center';
+  buttonContainer.style.gap = '10px';
+  buttonContainer.style.marginTop = '20px';
+  
+  // Previous button if not on first page
+  if (currentPage > 1) {
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous Page';
+    prevButton.className = 'btn secondary';
+    prevButton.addEventListener('click', () => {
+      currentPage--;
+      displayCurrentPage();
+    });
+    buttonContainer.appendChild(prevButton);
+  }
+  
+  // Next button if likely more pages
+  if (hasMorePages) {
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next Page';
+    nextButton.className = 'btn primary';
+    nextButton.addEventListener('click', async () => {
+      try {
+        toggleLoading(true);
+        
+        // Try to load next page if not already cached
+        if (!loadedPages[currentPage + 1]) {
+          await loadPage(currentPage + 1);
+        }
+        
+        currentPage++;
+        displayCurrentPage();
+      } catch (error) {
+        console.error("Error loading next page:", error);
+        showError("Error loading next page: " + error.message);
+      } finally {
+        toggleLoading(false);
+      }
+    });
+    buttonContainer.appendChild(nextButton);
+  }
+  
+  pagination.appendChild(buttonContainer);
 }
 
 function applyJobStatusFilter(statusFilter) {
