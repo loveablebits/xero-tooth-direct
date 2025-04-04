@@ -1087,63 +1087,52 @@ async function loadInitialInvoices() {
       return;
     }
     
-    // Calculate date 14 days ago
-    const fourteenDaysAgo = new Date();
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-    const formattedDate = fourteenDaysAgo.toISOString().split('T')[0];
+    // Calculate date 45 days ago (extended to ensure we catch most overdue invoices)
+    const daysAgo = new Date();
+    daysAgo.setDate(daysAgo.getDate() - 45);
+    const formattedDate = daysAgo.toISOString().split('T')[0];
     
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    // Add date filter to only get last 14 days AND only ACCREC invoices
+    // Add date filter to only get last 45 days AND only ACCREC invoices
     url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC"`);
     url.searchParams.set('order', 'Date DESC');
-    url.searchParams.set('page', '1');
-    url.searchParams.set('pageSize', '50');
     
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-        'Xero-Tenant-Id': window.tenantId
-      }
-    });
+    // Fetch all pages of results
+    const allInvoices = await fetchAllPages(url.toString(), tokens.access_token);
     
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.Invoices?.length) {
-        currentResults = data.Invoices;
-        currentPage = 1;
-        
-        // Display the results section
-        document.getElementById('results-section').classList.remove('hidden');
-        document.getElementById('results-count').textContent = `(${currentResults.length})`;
-        
-        // Apply any active job status filter
-        const jobStatusFilter = document.getElementById('job-status-filter').value;
-        if (jobStatusFilter) {
-          applyJobStatusFilter(jobStatusFilter);
-        } else {
-          // Count items in each category
-          const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
-          const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
-          const recent = currentResults.filter(invoice => getJobStatus(invoice) === 'recent').length;
-          
-          // Display counts in a message
-          showMessage(`Found ${currentResults.length} sales invoices from last 14 days: ${overdue} overdue, ${approaching} approaching deadline, ${recent} recently created`, 'info');
-          
-          // Sort and display results
-          sortResults();
-        }
-        
-        // Show or hide "Load More" based on results
-        document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 50);
+    if (allInvoices.length > 0) {
+      currentResults = allInvoices;
+      currentPage = 1;
+      
+      // Count items in each category (excluding PAID invoices for status counts)
+      const unpaidInvoices = currentResults.filter(inv => inv.Status !== 'PAID');
+      const overdue = unpaidInvoices.filter(invoice => getJobStatus(invoice) === 'overdue').length;
+      const approaching = unpaidInvoices.filter(invoice => getJobStatus(invoice) === 'approaching').length;
+      const recent = unpaidInvoices.filter(invoice => getJobStatus(invoice) === 'recent').length;
+      
+      // Display the results section
+      document.getElementById('results-section').classList.remove('hidden');
+      document.getElementById('results-count').textContent = `(${currentResults.length})`;
+      
+      // Display counts in a message
+      showMessage(`Found ${currentResults.length} sales invoices from last 45 days: ${overdue} overdue, ${approaching} approaching deadline, ${recent} recently created`, 'info');
+      
+      // Apply any active job status filter
+      const jobStatusFilter = document.getElementById('job-status-filter').value;
+      if (jobStatusFilter) {
+        window.filteredResults = unpaidInvoices.filter(invoice => getJobStatus(invoice) === jobStatusFilter);
+        displayFilteredResults();
       } else {
-        console.log("No invoices returned from API");
-        showMessage("No sales invoices found for the last 14 days", 'info');
+        // Sort and display all results
+        sortResults();
       }
     } else {
-      console.error("API response not OK:", response.status);
+      console.log("No invoices returned from API");
+      showMessage("No sales invoices found for the last 45 days", 'info');
     }
   } catch (error) {
     console.error("Error loading initial invoices:", error);
+    showError("Error loading invoices: " + error.message);
   } finally {
     toggleLoading(false);
   }
@@ -1170,12 +1159,19 @@ function displayFilteredResults() {
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
   
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  
+  // Hide the standard load more button
+  document.getElementById('load-more-container').classList.add('hidden');
+  
   // Update count
   const resultsCount = document.getElementById('results-count');
-  resultsCount.textContent = `(${window.filteredResults.length})`;
+  const filteredCount = window.filteredResults ? window.filteredResults.length : 0;
+  resultsCount.textContent = `(${filteredCount})`;
   
   // If no results after filtering
-  if (window.filteredResults.length === 0) {
+  if (!window.filteredResults || window.filteredResults.length === 0) {
     resultsList.innerHTML = `<div class="message info">No matching invoices found.</div>`;
     return;
   }
@@ -1191,8 +1187,18 @@ function displayFilteredResults() {
     resultsList.appendChild(item);
   });
   
-  // Update pagination
-  updatePagination(window.filteredResults.length);
+  // Create a single load more button
+  if (endIndex < window.filteredResults.length) {
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.textContent = `Load More (${endIndex} of ${window.filteredResults.length})`;
+    loadMoreBtn.className = 'btn secondary';
+    loadMoreBtn.addEventListener('click', () => {
+      currentPage++;
+      displayFilteredResults();
+    });
+    
+    pagination.appendChild(loadMoreBtn);
+  }
 }
 
 async function loadInvoicesByStatus(status) {
@@ -1202,13 +1208,13 @@ async function loadInvoicesByStatus(status) {
     
     let daysToLookBack;
     
-    // Determine how far back to look based on status
+    // Adjust calendar days to ensure we catch all relevant invoices based on business days
     if (status === 'overdue') {
-      daysToLookBack = 30; // Look back 30 days for overdue jobs
+      daysToLookBack = 90; // Look back 90 calendar days for overdue jobs (>10 business days)
     } else if (status === 'approaching') {
-      daysToLookBack = 15; // Look back 15 days for approaching deadline jobs
+      daysToLookBack = 30; // Look back 30 calendar days for approaching deadline jobs (8-10 business days)
     } else {
-      daysToLookBack = 10; // Recent jobs within 10 days
+      daysToLookBack = 21; // Recent jobs within 21 calendar days (to ensure we get all <8 business day jobs)
     }
     
     // Calculate the date to look back to
@@ -1223,34 +1229,21 @@ async function loadInvoicesByStatus(status) {
     
     url.searchParams.set('where', whereClause);
     url.searchParams.set('order', 'Date DESC');
-    url.searchParams.set('page', '1');
-    url.searchParams.set('pageSize', '100'); // Increase to get more historical data
     
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-        'Xero-Tenant-Id': window.tenantId
-      }
-    });
+    // Use a paged approach to handle large result sets
+    const allInvoices = await fetchAllPages(url.toString(), tokens.access_token);
     
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    if (data?.Invoices?.length) {
+    if (allInvoices.length > 0) {
       // Store the full results
-      const allResults = data.Invoices;
-      
-      // Filter by job status
-      window.filteredResults = allResults.filter(invoice => {
+      const filteredResults = allInvoices.filter(invoice => {
         return getJobStatus(invoice) === status;
       });
       
+      window.filteredResults = filteredResults;
       currentPage = 1;
       displayFilteredResults();
       
-      showMessage(`Found ${window.filteredResults.length} ${status} sales invoices from the last ${daysToLookBack} days.`, 'info');
+      showMessage(`Found ${filteredResults.length} ${status} sales invoices from the last ${daysToLookBack} days.`, 'info');
     } else {
       window.filteredResults = [];
       const resultsList = document.getElementById('results-list');
@@ -1261,6 +1254,69 @@ async function loadInvoicesByStatus(status) {
     console.error("Error loading invoices by status:", error);
     throw error;
   }
+}
+
+// Function to fetch all pages of results while respecting rate limits
+async function fetchAllPages(baseUrl, accessToken) {
+  let page = 1;
+  const pageSize = 100;
+  let allResults = [];
+  let hasMorePages = true;
+  
+  // Show progress message
+  showMessage("Fetching invoices, please wait...", "info");
+  
+  while (hasMorePages) {
+    try {
+      // Add page parameters
+      const url = new URL(baseUrl);
+      url.searchParams.set('page', page.toString());
+      url.searchParams.set('pageSize', pageSize.toString());
+      
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Xero-Tenant-Id': window.tenantId
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const invoices = data?.Invoices || [];
+      
+      if (invoices.length > 0) {
+        allResults = [...allResults, ...invoices];
+        
+        // Update progress message
+        showMessage(`Fetched ${allResults.length} invoices so far...`, "info");
+        
+        // Check if we need to continue paging
+        hasMorePages = invoices.length === pageSize;
+        page++;
+        
+        // Add a small delay to respect rate limits
+        if (hasMorePages) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      } else {
+        hasMorePages = false;
+      }
+      
+      // Safety limit - don't fetch more than 500 invoices total to avoid rate limits
+      if (allResults.length >= 500) {
+        showMessage(`Limiting results to 500 invoices to respect Xero's rate limits`, "info");
+        hasMorePages = false;
+      }
+    } catch (error) {
+      console.error(`Error fetching page ${page}:`, error);
+      hasMorePages = false;
+    }
+  }
+  
+  return allResults;
 }
 
 function updatePagination(totalItems) {
@@ -1645,7 +1701,6 @@ const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
   }
 }
 
-// Display search results
 function displayResults() {
   const resultsList = document.getElementById('results-list');
   
@@ -1675,6 +1730,9 @@ function displayResults() {
     // Just display items for current page
     displayResultItems();
   }
+  
+  // IMPORTANT: Hide standard pagination controls - we'll use only the Load More button
+  document.getElementById('pagination').innerHTML = '';
 }
 
 // Sort the current results
