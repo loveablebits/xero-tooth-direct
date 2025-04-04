@@ -524,6 +524,21 @@
   border-left: 3px solid #d46b08;
 }
 
+/* Add this CSS inside your <style> tag */
+  #results-section {
+  transition: opacity 0.3s ease;
+}
+
+#results-list {
+  transition: opacity 0.2s ease;
+}
+
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
   </style>
 </head>
 <body>
@@ -632,7 +647,8 @@
   <!-- Main JavaScript -->
   <script>
   // Initialize the application
-  function initApp() {
+ // NEW CODE - Add this function
+function initApp() {
   console.log("Initializing app...");
   
   // Check for authentication result in URL parameters
@@ -643,6 +659,11 @@
   
   // Set up event listeners
   setupEventListeners();
+  
+  // Initialize caching variables
+  cachedPages = {};
+  window.lastPageViewed = 1;
+  window.lastScrollPosition = 0;
   
   // Load initial invoices if authenticated
   if (localStorage.getItem('xero_authenticated') === 'true') {
@@ -1308,6 +1329,7 @@ async function fetchAllPages(baseUrl, accessToken) {
   return allResults;
 }
 
+// NEW CODE - Replace with this updated function
 function updatePagination() {
   const pagination = document.getElementById('pagination');
   pagination.innerHTML = '';
@@ -1319,40 +1341,62 @@ function updatePagination() {
   
   if (totalPages <= 1) return;
   
+  // Create the pagination container with a flex layout
+  pagination.style.display = 'flex';
+  pagination.style.justifyContent = 'center';
+  pagination.style.gap = '10px';
+  pagination.style.marginTop = '20px';
+  
   // Add Previous button if not on first page
   if (currentPage > 1) {
     const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous Page';
+    prevButton.textContent = 'Previous';
     prevButton.className = 'btn secondary';
     prevButton.addEventListener('click', () => {
+      // Save current scroll position before changing page
+      window.lastScrollPosition = window.scrollY;
+      
       currentPage--;
       if (window.filteredResults) {
         displayFilteredResults();
       } else {
         displayResultItems();
       }
+      
+      // Add a subtle transition effect
+      const resultsSection = document.getElementById('results-section');
+      resultsSection.style.opacity = '0.7';
+      setTimeout(() => {
+        resultsSection.style.opacity = '1';
+      }, 300);
     });
     pagination.appendChild(prevButton);
   }
   
-  // Add page indicator
-  const pageIndicator = document.createElement('span');
-  pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
-  pageIndicator.style.margin = '0 10px';
-  pagination.appendChild(pageIndicator);
-  
-  // Simple Next Page button
+  // Next Page button
   if (currentPage < totalPages) {
     const nextButton = document.createElement('button');
     nextButton.textContent = 'Next Page';
-    nextButton.className = 'btn secondary';
+    nextButton.className = 'btn primary';
     nextButton.addEventListener('click', () => {
+      // Save current scroll position before changing page
+      window.lastScrollPosition = window.scrollY;
+      
       currentPage++;
       if (window.filteredResults) {
         displayFilteredResults();
       } else {
         displayResultItems();
       }
+      
+      // Add a subtle transition effect
+      const resultsSection = document.getElementById('results-section');
+      resultsSection.style.opacity = '0.7';
+      setTimeout(() => {
+        resultsSection.style.opacity = '1';
+        // Scroll to top of results on next page
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
     });
     pagination.appendChild(nextButton);
   }
@@ -1812,9 +1856,16 @@ function sortResults() {
   updatePagination();
 }
 
+// NEW CODE - Replace with this updated function
 function displayResultItems() {
   const resultsList = document.getElementById('results-list');
   const jobStatusFilter = document.getElementById('job-status-filter').value;
+  
+  // Add a small loading indicator
+  const loadingElement = document.createElement('div');
+  loadingElement.className = 'loading-indicator';
+  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div>';
+  resultsList.appendChild(loadingElement);
   
   // Filter results by job status if needed
   let filteredResults = currentResults;
@@ -1834,12 +1885,46 @@ function displayResultItems() {
     return;
   }
   
+  // Generate a cache key
+  const cacheKey = `${currentPage}_${jobStatusFilter || 'all'}`;
+  
+  // Check if we already have this page cached
+  if (cachedPages[cacheKey]) {
+    console.log('Using cached page:', cacheKey);
+    resultsList.innerHTML = cachedPages[cacheKey];
+    
+    // Re-attach click event listeners
+    const items = resultsList.querySelectorAll('.result-item[data-id]');
+    items.forEach(item => {
+      const invoiceId = item.dataset.id;
+      if (invoiceId) {
+        item.addEventListener('click', () => showInvoiceDetail(invoiceId));
+      }
+    });
+    
+    // Restore scroll position if going back
+    if (window.lastScrollPosition && currentPage < window.lastPageViewed) {
+      setTimeout(() => {
+        window.scrollTo(0, window.lastScrollPosition);
+      }, 100);
+    }
+    
+    // Update last page viewed
+    window.lastPageViewed = currentPage;
+    return;
+  }
+  
   // Calculate pagination
   const startIndex = (currentPage - 1) * resultsPerPage;
   const endIndex = Math.min(startIndex + resultsPerPage, filteredResults.length);
   const pageResults = filteredResults.slice(startIndex, endIndex);
   
+  // Clear the results list
+  resultsList.innerHTML = '';
+  
   // Create result items
+  const pageContent = document.createDocumentFragment();
+  
   pageResults.forEach(invoice => {
     try {
       const item = document.createElement('div');
@@ -1868,9 +1953,9 @@ function displayResultItems() {
       let jobAgeHtml = '';
       if (businessDays !== null) {
         if (businessDays > 10) {
-          jobAgeHtml = `<div class="job-age job-overdue">Overdue: ${businessDays} business days</div>`;
-        } else if (businessDays >= 8) {
-          jobAgeHtml = `<div class="job-age job-approaching">Due soon: ${businessDays} business days</div>`;
+          jobAgeHtml = `<div class="job-age job-overdue">Deadline: ${businessDays} business days</div>`;
+        } else if (businessDays >= 7) {
+          jobAgeHtml = `<div class="job-age job-approaching">Borderline: ${businessDays} business days</div>`;
         } else {
           jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
         }
@@ -1912,11 +1997,26 @@ function displayResultItems() {
         item.addEventListener('click', () => showInvoiceDetail(invoice.InvoiceID));
       }
       
-      resultsList.appendChild(item);
+      pageContent.appendChild(item);
     } catch (error) {
       console.error("Error rendering invoice:", error, invoice);
     }
   });
+  
+  // Add content to the results list
+  resultsList.appendChild(pageContent);
+  
+  // Cache this page
+  cachedPages[cacheKey] = resultsList.innerHTML;
+  
+  // Update last page viewed
+  window.lastPageViewed = currentPage;
+  
+  // Add a simple transition in
+  resultsList.style.opacity = '0';
+  setTimeout(() => {
+    resultsList.style.opacity = '1';
+  }, 50);
 }
 
 // Update pagination controls
@@ -2095,6 +2195,7 @@ const dueDate = formatDate(invoice.DueDate);
 // Global variables
 let currentResults = [];
 let currentPage = 1;
+let cachedPages = {}; // Cache for previously loaded pages
 const resultsPerPage = 20;
 
 // Helper function to parse Xero date format
