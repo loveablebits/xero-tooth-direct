@@ -869,12 +869,18 @@ function setupEventListeners() {
   });
 
 // Job status filter change
-document.getElementById('job-status-filter').addEventListener('change', () => {
-  // Re-render results with the new filter
-  const resultsList = document.getElementById('results-list');
-  resultsList.innerHTML = '';
-  displayResultItems();
-});  
+document.getElementById('job-status-filter').addEventListener('change', function() {
+  const selectedStatus = this.value;
+  
+  if (selectedStatus) {
+    // Apply the filter to current results
+    applyJobStatusFilter(selectedStatus);
+  } else {
+    // Show all results
+    document.getElementById('results-count').textContent = `(${currentResults.length})`;
+    sortResults(); // This will redisplay all results
+  }
+});
   
  // Sort options
 document.getElementById('sort-by').addEventListener('change', () => {
@@ -1063,7 +1069,6 @@ function updateUI(isAuthenticated) {
   }
 }
 
-// Load initial invoices on page load
 async function loadInitialInvoices() {
   try {
     toggleLoading(true);
@@ -1073,10 +1078,18 @@ async function loadInitialInvoices() {
       return;
     }
     
+    // Calculate date 14 days ago
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    const formattedDate = fourteenDaysAgo.toISOString().split('T')[0];
+    
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+    // Add date filter to only get last 14 days
+    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
     url.searchParams.set('order', 'Date DESC');
+    // Increase page size to reduce number of API calls needed
     url.searchParams.set('page', '1');
-    url.searchParams.set('pageSize', '10');
+    url.searchParams.set('pageSize', '50');
     
     const response = await fetch(url.toString(), {
       headers: {
@@ -1093,15 +1106,32 @@ async function loadInitialInvoices() {
         
         // Display the results section
         document.getElementById('results-section').classList.remove('hidden');
-        document.getElementById('results-count').textContent = `(${data.Invoices.length})`;
         
-        // Sort and display results
-        sortResults();
+        // Apply any active job status filter
+        const jobStatusFilter = document.getElementById('job-status-filter').value;
+        if (jobStatusFilter) {
+          applyJobStatusFilter(jobStatusFilter);
+        } else {
+          // Count items in each category
+          const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
+          const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
+          const recent = currentResults.filter(invoice => getJobStatus(invoice) === 'recent').length;
+          
+          // Display counts in a message
+          showMessage(`Found ${currentResults.length} invoices from last 14 days: ${overdue} overdue, ${approaching} approaching deadline, ${recent} recently created`, 'info');
+          
+          // Update count
+          document.getElementById('results-count').textContent = `(${currentResults.length})`;
+          
+          // Sort and display results
+          sortResults();
+        }
         
         // Show or hide "Load More" based on results
-        document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
+        document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 50);
       } else {
         console.log("No invoices returned from API");
+        showMessage("No invoices found for the last 14 days", 'info');
       }
     } else {
       console.error("API response not OK:", response.status);
@@ -1111,6 +1141,143 @@ async function loadInitialInvoices() {
   } finally {
     toggleLoading(false);
   }
+}
+
+function applyJobStatusFilter(statusFilter) {
+  // Filter the current results by job status
+  const filteredResults = currentResults.filter(invoice => {
+    return getJobStatus(invoice) === statusFilter;
+  });
+  
+  // Update the display with filtered results
+  const resultsList = document.getElementById('results-list');
+  resultsList.innerHTML = '';
+  
+  // Update count
+  document.getElementById('results-count').textContent = `(${filteredResults.length})`;
+  
+  // If no results after filtering
+  if (filteredResults.length === 0) {
+    resultsList.innerHTML = `<div class="message info">No ${statusFilter} invoices found in the last 14 days.</div>`;
+    return;
+  }
+  
+  // Process the filtered results for display
+  const pageSize = 10;
+  const pageResults = filteredResults.slice(0, pageSize);
+  
+  // Display the filtered items
+  pageResults.forEach(invoice => {
+    // Your existing display logic for a single invoice
+    const item = createInvoiceItem(invoice);
+    resultsList.appendChild(item);
+  });
+  
+  // Store filtered results for pagination
+  window.filteredResults = filteredResults;
+  
+  // Update pagination if needed
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  
+  if (filteredResults.length > pageSize) {
+    // Create simple "Show More" button instead of pagination
+    const showMoreBtn = document.createElement('button');
+    showMoreBtn.textContent = `Show More (${pageSize} of ${filteredResults.length})`;
+    showMoreBtn.className = 'btn secondary';
+    showMoreBtn.addEventListener('click', () => {
+      const currentlyShown = resultsList.children.length;
+      const nextBatch = filteredResults.slice(currentlyShown, currentlyShown + pageSize);
+      
+      nextBatch.forEach(invoice => {
+        const item = createInvoiceItem(invoice);
+        resultsList.appendChild(item);
+      });
+      
+      // Update button text or hide if all shown
+      if (currentlyShown + nextBatch.length >= filteredResults.length) {
+        showMoreBtn.style.display = 'none';
+      } else {
+        showMoreBtn.textContent = `Show More (${currentlyShown + nextBatch.length} of ${filteredResults.length})`;
+      }
+    });
+    
+    pagination.appendChild(showMoreBtn);
+  }
+}
+
+function createInvoiceItem(invoice) {
+  const item = document.createElement('div');
+  item.className = 'result-item';
+  
+  // Get job status and add appropriate class
+  const jobStatus = getJobStatus(invoice);
+  if (jobStatus) {
+    item.classList.add(jobStatus);
+  }
+  
+  // Safety check for invoice ID
+  if (invoice.InvoiceID) {
+    item.dataset.id = invoice.InvoiceID;
+  }
+  
+  // Format dates safely
+  const date = formatDate(invoice.Date);
+  const dueDate = formatDate(invoice.DueDate);
+  
+  // Calculate business days from invoice date to now
+  const invoiceDate = parseXeroDate(invoice.Date);
+  const businessDays = invoiceDate ? getBusinessDaysDifference(invoiceDate, new Date()) : null;
+  
+  // Create status badge based on age
+  let jobAgeHtml = '';
+  if (businessDays !== null) {
+    if (businessDays > 10) {
+      jobAgeHtml = `<div class="job-age job-overdue">Overdue: ${businessDays} business days</div>`;
+    } else if (businessDays >= 8) {
+      jobAgeHtml = `<div class="job-age job-approaching">Due soon: ${businessDays} business days</div>`;
+    } else {
+      jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
+    }
+  }
+
+  // Create HTML safely
+  item.innerHTML = `
+    <div class="result-header">
+      <div class="invoice-number">Invoice #${invoice.InvoiceNumber || 'N/A'}</div>
+      <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
+    </div>
+    <div class="result-details">
+      <div>
+        <span>Customer</span>
+        <span>${invoice.Contact && invoice.Contact.Name ? invoice.Contact.Name : 'N/A'}</span>
+      </div>
+      <div>
+        <span>Reference</span>
+        <span>${invoice.Reference || 'N/A'}</span>
+      </div>
+      <div>
+        <span>Date</span>
+        <span>${date}</span>
+        ${jobAgeHtml}
+      </div>
+      <div>
+        <span>Due Date</span>
+        <span>${dueDate}</span>
+      </div>
+      <div>
+        <span>Amount</span>
+        <span>${invoice.CurrencyCode || ''} ${invoice.Total ? invoice.Total.toFixed(2) : 'N/A'}</span>
+      </div>
+    </div>
+  `;
+  
+  // Add event listener if we have an invoice ID
+  if (invoice.InvoiceID) {
+    item.addEventListener('click', () => showInvoiceDetail(invoice.InvoiceID));
+  }
+  
+  return item;
 }
 
 // Load more invoices when "Load More" button is clicked
