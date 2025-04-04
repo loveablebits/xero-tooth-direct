@@ -889,10 +889,7 @@ document.getElementById('sort-by').addEventListener('change', () => {
   console.log('Sort by changed');
   sortResults();
 });
-document.getElementById('sort-order').addEventListener('change', () => {
-  console.log('Sort order changed');  
-  sortResults();
-});
+
   
   // Back button (invoice details)
   document.getElementById('back-btn').addEventListener('click', () => {
@@ -1322,6 +1319,28 @@ function updatePagination() {
   
   if (totalPages <= 1) return;
   
+  // Add Previous button if not on first page
+  if (currentPage > 1) {
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous Page';
+    prevButton.className = 'btn secondary';
+    prevButton.addEventListener('click', () => {
+      currentPage--;
+      if (window.filteredResults) {
+        displayFilteredResults();
+      } else {
+        displayResultItems();
+      }
+    });
+    pagination.appendChild(prevButton);
+  }
+  
+  // Add page indicator
+  const pageIndicator = document.createElement('span');
+  pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  pageIndicator.style.margin = '0 10px';
+  pagination.appendChild(pageIndicator);
+  
   // Simple Next Page button
   if (currentPage < totalPages) {
     const nextButton = document.createElement('button');
@@ -1335,9 +1354,9 @@ function updatePagination() {
         displayResultItems();
       }
     });
-    
     pagination.appendChild(nextButton);
   }
+}
   
   // Add page indicator
   const pageIndicator = document.createElement('span');
@@ -1388,16 +1407,18 @@ function createInvoiceItem(invoice) {
   const businessDays = invoiceDate ? getBusinessDaysDifference(invoiceDate, new Date()) : null;
   
   // Create status badge based on age
-  let jobAgeHtml = '';
-  if (businessDays !== null) {
-    if (businessDays > 10) {
-      jobAgeHtml = `<div class="job-age job-overdue">Overdue: ${businessDays} business days</div>`;
-    } else if (businessDays >= 8) {
-      jobAgeHtml = `<div class="job-age job-approaching">Due soon: ${businessDays} business days</div>`;
-    } else {
-      jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
-    }
+// Find this in your displayResultItems function
+// Create status badge based on age
+let jobAgeHtml = '';
+if (businessDays !== null) {
+  if (businessDays > 10) {
+    jobAgeHtml = `<div class="job-age job-overdue">Deadline: ${businessDays} business days</div>`;
+  } else if (businessDays >= 7) {
+    jobAgeHtml = `<div class="job-age job-approaching">Borderline: ${businessDays} business days</div>`;
+  } else {
+    jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
   }
+}
 
   // Create HTML safely
   item.innerHTML = `
@@ -2173,6 +2194,7 @@ function getBusinessDaysDifference(startDate, endDate) {
 }
 
 // Determine job status based on age (business days)
+// Update the getJobStatus function to log details for debugging
 function getJobStatus(invoice) {
   // Skip paid invoices for job status categorization
   if (invoice.Status === 'PAID') {
@@ -2186,19 +2208,28 @@ function getJobStatus(invoice) {
   
   // Use invoice date as start date
   const startDate = parseXeroDate(invoice.Date);
-  if (!startDate) return null;
+  if (!startDate) {
+    console.log("Invalid date for invoice:", invoice.InvoiceNumber);
+    return null;
+  }
   
   // Use current date as end date
   const endDate = new Date();
   
   // Calculate business days difference
   const businessDays = getBusinessDaysDifference(startDate, endDate);
-  if (businessDays === null) return null;
+  if (businessDays === null) {
+    console.log("Couldn't calculate business days for invoice:", invoice.InvoiceNumber);
+    return null;
+  }
+  
+  // Log for debugging
+  console.log(`Invoice ${invoice.InvoiceNumber}: ${businessDays} business days`);
   
   // Determine status based on business days
   if (businessDays > 10) {
     return 'overdue';
-  } else if (businessDays >= 7) { // Changed from 8 to 7
+  } else if (businessDays >= 7) {
     return 'approaching';
   } else {
     return 'recent';
