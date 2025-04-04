@@ -635,11 +635,12 @@
   function initApp() {
   console.log("Initializing app...");
   
-  // Remove the load more container entirely at app initialization
-  const loadMoreContainer = document.getElementById('load-more-container');
+// Remove the "Load more" button and its container 
+const loadMoreContainer = document.getElementById('load-more-container');
   if (loadMoreContainer) {
     loadMoreContainer.remove();
   }
+}
   
   // Check for authentication result in URL parameters
   checkAuthResult();
@@ -1094,15 +1095,10 @@ async function loadInitialInvoices() {
       return;
     }
     
-    // Reset pagination state
+    // Reset pagination state and clear any previous results
     currentPage = 1;
-    loadedPages = {};
+    loadedPages = {}; // Clear the cache
     currentResults = [];
-    
-    // Calculate date 45 days ago
-    const daysAgo = new Date();
-    daysAgo.setDate(daysAgo.getDate() - 45);
-    const formattedDate = daysAgo.toISOString().split('T')[0];
     
     // Load just the first page
     await loadPage(1);
@@ -1164,17 +1160,29 @@ async function loadPage(pageNumber) {
   const data = await response.json();
   const invoices = data?.Invoices || [];
   
-  // Store in cache
-  loadedPages[pageNumber] = invoices;
+  // Create a map of existing invoices for deduplication
+  const existingInvoiceIds = new Set();
+  Object.values(loadedPages).flat().forEach(invoice => {
+    if (invoice.InvoiceID) {
+      existingInvoiceIds.add(invoice.InvoiceID);
+    }
+  });
   
-  return invoices;
+  // Filter out any duplicates before storing
+  const uniqueInvoices = invoices.filter(invoice => 
+    !existingInvoiceIds.has(invoice.InvoiceID)
+  );
+  
+  // Store in cache
+  loadedPages[pageNumber] = uniqueInvoices;
+  
+  return uniqueInvoices;
 }
 
-// Display results for the current page
 function displayCurrentPage() {
   const invoices = loadedPages[currentPage] || [];
   
-  // Get all loaded invoices
+  // Get all loaded invoices for count display only
   const allLoadedInvoices = Object.values(loadedPages).flat();
   
   // Show total loaded items in counter
@@ -1192,11 +1200,18 @@ function displayCurrentPage() {
   
   // Clear and display current page items
   const resultsList = document.getElementById('results-list');
-  resultsList.innerHTML = '';
+  resultsList.innerHTML = ''; // Clear previous results
+  
+  // Create a Set to track unique invoice IDs
+  const addedInvoiceIds = new Set();
   
   invoices.forEach(invoice => {
-    const item = createInvoiceItem(invoice);
-    resultsList.appendChild(item);
+    // Only add if we haven't added this invoice already
+    if (invoice.InvoiceID && !addedInvoiceIds.has(invoice.InvoiceID)) {
+      addedInvoiceIds.add(invoice.InvoiceID);
+      const item = createInvoiceItem(invoice);
+      resultsList.appendChild(item);
+    }
   });
   
   // Update pagination controls
