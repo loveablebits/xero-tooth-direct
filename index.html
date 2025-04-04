@@ -523,7 +523,7 @@
         <input 
           type="text" 
           id="search-input" 
-          placeholder="Search by invoice number, reference, customer, address, description..."
+          placeholder="Search by invoice number, reference, or customer name..."
         >
         <button id="search-btn" class="btn primary">Search</button>
       </div>
@@ -575,6 +575,10 @@
           </select>
         </div>
       </div>
+
+      <div id="load-more-container" class="hidden" style="text-align: center; margin-top: 1.5rem;">
+        <button id="load-more-btn" class="btn secondary">Load More Invoices</button>
+      </div>
       
       <div id="results-list"></div>
       <div id="pagination"></div>
@@ -599,7 +603,7 @@
   <!-- Main JavaScript -->
   <script>
   // Initialize the application
-function initApp() {
+  function initApp() {
   console.log("Initializing app...");
   
   // Check for authentication result in URL parameters
@@ -610,6 +614,11 @@ function initApp() {
   
   // Set up event listeners
   setupEventListeners();
+  
+  // Load initial invoices if authenticated
+  if (localStorage.getItem('xero_authenticated') === 'true') {
+    loadInitialInvoices();
+  }
 }
 
 // Check for auth result in URL parameters
@@ -823,6 +832,9 @@ function setupEventListeners() {
     document.getElementById('detail-section').classList.add('hidden');
     document.getElementById('results-section').classList.remove('hidden');
   });
+  
+  // Load more button
+  document.getElementById('load-more-btn').addEventListener('click', loadMoreInvoices);
 }
 
 // Check if tokens need refreshing
@@ -1008,20 +1020,21 @@ function updateUI(isAuthenticated) {
     if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
     
-    // Create base URL and headers for all API calls
+    // Create base query and headers
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
-    url.searchParams.set('pageSize', '50'); // Reasonable page size
+    url.searchParams.set('page', '1');
+    url.searchParams.set('pageSize', '10');
     
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
       'Xero-Tenant-Id': window.tenantId
     };
     
-    // Build where conditions for filtering
+    // Build where conditions
     const whereConditions = [];
     
-    // Always add Status filter if selected
+    // Add status filter if selected
     if (statusFilter) {
       whereConditions.push(`Status=="${statusFilter}"`);
     }
@@ -1030,10 +1043,10 @@ function updateUI(isAuthenticated) {
     if (dateFrom) {
       whereConditions.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
     } else {
-      // Default to last 3 months if no date provided
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      const formattedDate = threeMonthsAgo.toISOString().split('T')[0];
+      // Default to last 14 days if no date provided
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const formattedDate = fourteenDaysAgo.toISOString().split('T')[0];
       whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
     }
     
@@ -1041,112 +1054,56 @@ function updateUI(isAuthenticated) {
       whereConditions.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
     }
     
-    // If search term is provided, add it to the where conditions
-    // We'll create individual queries for each field
-    let results = [];
-    
-    if (searchTerm && searchTerm.length > 0) {
+    // Add search term if provided - focus on invoice number, reference, contact name
+    if (searchTerm) {
       const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
       const lowerCaseSearchTerm = safeSearchTerm.toLowerCase();
       
-      // Create separate search queries for different fields to avoid OR operators
-      const searchQueries = [
-        // Invoice Number search
-        [...whereConditions, `InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")`],
-        
-        // Reference search
-        [...whereConditions, `Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")`],
-        
-        // Contact Name search
-        [...whereConditions, `Contact.Name!=null AND Contact.Name.ToLower().Contains("${lowerCaseSearchTerm}")`]
-      ];
-      
-      // Execute each search query
-      for (const query of searchQueries) {
-        const queryUrl = new URL(url.toString());
-        queryUrl.searchParams.set('where', query.join(' AND '));
-        
-        console.log("Making API request:", queryUrl.toString());
-        const response = await fetch(queryUrl.toString(), { method: 'GET', headers });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.Invoices?.length) {
-            // Add new invoices, avoiding duplicates
-            for (const invoice of data.Invoices) {
-              if (!results.some(r => r.InvoiceID === invoice.InvoiceID)) {
-                results.push(invoice);
-              }
-            }
-          }
-        }
-      }
-      
-      // For line item search, we need to get invoices and search them client-side
-      // But we'll limit this to the most recent ones matching date/status filters
-      const lineItemUrl = new URL(url.toString());
-      if (whereConditions.length > 0) {
-        lineItemUrl.searchParams.set('where', whereConditions.join(' AND '));
-      }
-      
-      console.log("Making API request for line item search:", lineItemUrl.toString());
-      const lineItemResponse = await fetch(lineItemUrl.toString(), { method: 'GET', headers });
-      
-      if (lineItemResponse.ok) {
-        const lineItemData = await lineItemResponse.json();
-        
-        if (lineItemData?.Invoices?.length) {
-          console.log(`Checking ${lineItemData.Invoices.length} invoices for line item matches`);
-          
-          // Client-side filtering for line items
-          const lowerSearch = lowerCaseSearchTerm;
-          const lineItemMatches = lineItemData.Invoices.filter(invoice => {
-            if (invoice.LineItems && Array.isArray(invoice.LineItems)) {
-              return invoice.LineItems.some(item => 
-                item.Description && 
-                item.Description.toLowerCase().includes(lowerSearch)
-              );
-            }
-            return false;
-          });
-          
-          if (lineItemMatches.length > 0) {
-            console.log(`Found ${lineItemMatches.length} invoices with matching line items`);
-            
-            // Add new matches, avoiding duplicates
-            for (const invoice of lineItemMatches) {
-              if (!results.some(r => r.InvoiceID === invoice.InvoiceID)) {
-                results.push(invoice);
-              }
-            }
-          }
-        }
-      }
-    } else {
-      // No search term, just get invoices based on filters
-      if (whereConditions.length > 0) {
-        url.searchParams.set('where', whereConditions.join(' AND '));
-      }
-      
-      console.log("Making API request for filtered invoices:", url.toString());
-      const response = await fetch(url.toString(), { method: 'GET', headers });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data?.Invoices?.length) {
-          results = data.Invoices;
-        }
+      // Add search condition for the three main fields
+      whereConditions.push(`(
+        (InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
+        (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
+        (Contact.Name!=null AND Contact.Name.ToLower().Contains("${lowerCaseSearchTerm}"))
+      )`);
+    }
+    
+    // Combine all conditions with AND
+    if (whereConditions.length > 0) {
+      const whereClause = whereConditions.join(' AND ');
+      url.searchParams.append('where', whereClause);
+    }
+    
+    // Make the API call
+    console.log("Making API request:", url.toString());
+    const response = await fetch(url.toString(), { method: 'GET', headers });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        const detail = errorData.Detail || errorData.message || 
+          (errorData.Elements && errorData.Elements[0]?.ValidationErrors?.[0]?.Message);
+        throw new Error(detail || errorText || `Server returned ${response.status}`);
+      } catch (parseError) {
+        throw new Error(errorText || `Server returned ${response.status}`);
       }
     }
     
-    // Display results
-    if (results.length > 0) {
-      console.log(`Found ${results.length} total matching invoices`);
-      currentResults = results;
+    const data = await response.json();
+    console.log('Xero API response:', data);
+    
+    // Process results
+    if (data?.Invoices?.length) {
+      console.log(`Found ${data.Invoices.length} invoices`);
+      currentResults = data.Invoices;
       currentPage = 1;
       displayResults();
+      
+      // Show/hide load more button
+      document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
     } else {
       document.getElementById('results-section').classList.add('hidden');
+      document.getElementById('load-more-container').classList.add('hidden');
       showMessage('No invoices or bills found matching your search criteria.', 'info');
     }
   } catch (error) {
@@ -1269,7 +1226,11 @@ const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
 // Display search results
 function displayResults() {
   const resultsList = document.getElementById('results-list');
-  resultsList.innerHTML = '';
+  
+  // Clear results only if it's the first page
+  if (currentPage === 1) {
+    resultsList.innerHTML = '';
+  }
   
   const resultsSection = document.getElementById('results-section');
   const resultsCount = document.getElementById('results-count');
@@ -1287,13 +1248,14 @@ function displayResults() {
   // Apply sorting
   sortResults();
   
-  // Calculate pagination
+  // Calculate pagination - only show current page's worth
   const startIndex = (currentPage - 1) * resultsPerPage;
   const endIndex = Math.min(startIndex + resultsPerPage, currentResults.length);
   const pageResults = currentResults.slice(startIndex, endIndex);
   
   // Create result items
   pageResults.forEach(invoice => {
+    // Rest of your display code remains the same
     try {
       const item = document.createElement('div');
       item.className = 'result-item';
@@ -1347,9 +1309,6 @@ function displayResults() {
       console.error("Error rendering invoice:", error, invoice);
     }
   });
-  
-  // Update pagination
-  updatePagination();
 }
 
 // Sort the current results
@@ -1580,6 +1539,9 @@ const resultsPerPage = 10;
 
 // Initialize the application when the document is ready
 document.addEventListener('DOMContentLoaded', initApp);
+
+
+
   </script>
 </body>
 </html>  
