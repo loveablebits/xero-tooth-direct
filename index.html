@@ -621,6 +621,9 @@
       
       <div id="results-list"></div>
       
+      <div id="load-more-container" class="hidden" style="text-align: center; margin-top: 1.5rem;">
+        <button id="load-more-btn" class="btn secondary">Load More Invoices</button>
+      </div>
       
       <div id="pagination"></div>
     </section>
@@ -644,7 +647,7 @@
   <!-- Main JavaScript -->
   <script>
   // Initialize the application
- // NEW CODE - Add this function
+// NEW CODE - Add this function
 function initApp() {
   console.log("Initializing app...");
   
@@ -826,52 +829,22 @@ function displayTenantDropdown(tenants) {
     
 // Set up change event to switch between organizations
 dropdown.addEventListener('change', function() {
-  // Store the new tenant ID and name
-  const newTenantId = this.value;
-  const newTenantName = this.options[this.selectedIndex].textContent;
+  window.tenantId = this.value;
+  window.tenantName = this.options[this.selectedIndex].textContent;
+  console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
   
-  // Only proceed if actually changing tenants
-  if (newTenantId !== window.tenantId) {
-    console.log(`Switching organization from ${window.tenantName} to ${newTenantName}`);
-    
-    // Update window variables
-    window.tenantId = newTenantId;
-    window.tenantName = newTenantName;
-    
-    // Save selected tenant in localStorage and cookies
-    localStorage.setItem('xero_tenant_id', window.tenantId);
-    localStorage.setItem('xero_tenant_name', window.tenantName);
-    
-    document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
-    document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
-    
-    // Completely reset all data
-    currentResults = [];
-    currentPage = 1;
-    cachedPages = {}; // Clear the page cache
-    window.filteredResults = null;
-    
-    // Clear the results list and show loading
-    const resultsList = document.getElementById('results-list');
-    if (resultsList) resultsList.innerHTML = '';
-    
-    // Hide results section until new data is loaded
-    const resultsSection = document.getElementById('results-section');
-    if (resultsSection) resultsSection.classList.add('hidden');
-    
-    // Clear any shown messages
-    const errorMessage = document.getElementById('error-message');
-    if (errorMessage) errorMessage.classList.add('hidden');
-    
-    // Show loading indicator
-    toggleLoading(true);
-    
-    // Show a message to the user
-    showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
-    
-    // Reload invoices for the new organization - with a slight delay to ensure UI updates first
-    setTimeout(() => loadInitialInvoices(), 100);
-  }
+  // Save selected tenant in cookie
+  document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
+  document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
+  
+  // Clear current results
+  currentResults = [];
+  
+  // Reload invoices for the new organization
+  loadInitialInvoices();
+  
+  // Show a message to the user
+  showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
 });
   } else {
     document.getElementById('tenant-selector').classList.add('hidden');
@@ -945,6 +918,8 @@ document.getElementById('sort-by').addEventListener('change', () => {
     document.getElementById('results-section').classList.remove('hidden');
   });
   
+  // Load more button
+  document.getElementById('load-more-btn').addEventListener('click', loadMoreInvoices);
 }
 
 // Check if tokens need refreshing
@@ -1194,6 +1169,12 @@ function displayFilteredResults() {
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
   
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  
+  // Hide the standard load more button
+  document.getElementById('load-more-container').classList.add('hidden');
+  
   // Update count
   const resultsCount = document.getElementById('results-count');
   const filteredCount = window.filteredResults ? window.filteredResults.length : 0;
@@ -1216,8 +1197,18 @@ function displayFilteredResults() {
     resultsList.appendChild(item);
   });
   
-  // Update pagination with Previous/Next buttons
-  updatePagination();
+  // Create a single load more button
+  if (endIndex < window.filteredResults.length) {
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.textContent = `Load More (${endIndex} of ${window.filteredResults.length})`;
+    loadMoreBtn.className = 'btn secondary';
+    loadMoreBtn.addEventListener('click', () => {
+      currentPage++;
+      displayFilteredResults();
+    });
+    
+    pagination.appendChild(loadMoreBtn);
+  }
 }
 
 async function loadInvoicesByStatus(status) {
@@ -1339,7 +1330,77 @@ async function fetchAllPages(baseUrl, accessToken) {
 }
 
 // NEW CODE - Replace with this updated function
-
+function updatePagination() {
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  
+  // Get the right set of results depending on whether we have a filter applied
+  const resultsToUse = window.filteredResults || currentResults;
+  
+  const totalPages = Math.ceil(resultsToUse.length / resultsPerPage);
+  
+  if (totalPages <= 1) return;
+  
+  // Create the pagination container with a flex layout
+  pagination.style.display = 'flex';
+  pagination.style.justifyContent = 'center';
+  pagination.style.gap = '10px';
+  pagination.style.marginTop = '20px';
+  
+  // Add Previous button if not on first page
+  if (currentPage > 1) {
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous';
+    prevButton.className = 'btn secondary';
+    prevButton.addEventListener('click', () => {
+      // Save current scroll position before changing page
+      window.lastScrollPosition = window.scrollY;
+      
+      currentPage--;
+      if (window.filteredResults) {
+        displayFilteredResults();
+      } else {
+        displayResultItems();
+      }
+      
+      // Add a subtle transition effect
+      const resultsSection = document.getElementById('results-section');
+      resultsSection.style.opacity = '0.7';
+      setTimeout(() => {
+        resultsSection.style.opacity = '1';
+      }, 300);
+    });
+    pagination.appendChild(prevButton);
+  }
+  
+  // Next Page button
+  if (currentPage < totalPages) {
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next Page';
+    nextButton.className = 'btn primary';
+    nextButton.addEventListener('click', () => {
+      // Save current scroll position before changing page
+      window.lastScrollPosition = window.scrollY;
+      
+      currentPage++;
+      if (window.filteredResults) {
+        displayFilteredResults();
+      } else {
+        displayResultItems();
+      }
+      
+      // Add a subtle transition effect
+      const resultsSection = document.getElementById('results-section');
+      resultsSection.style.opacity = '0.7';
+      setTimeout(() => {
+        resultsSection.style.opacity = '1';
+        // Scroll to top of results on next page
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    });
+    pagination.appendChild(nextButton);
+  }
+}
 
 function createInvoiceItem(invoice) {
   const item = document.createElement('div');
@@ -1417,6 +1478,49 @@ if (businessDays !== null) {
   return item;
 }
 
+async function loadMoreInvoices() {
+  try {
+    toggleLoading(true);
+    currentPage++;
+    
+    const tokens = await getValidTokens();
+    if (!tokens) return;
+    
+    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+    url.searchParams.set('order', 'Date DESC');
+    url.searchParams.set('page', currentPage.toString());
+    url.searchParams.set('pageSize', '10');
+    
+    // Filter for ACCREC only
+    url.searchParams.append('where', `Type=="ACCREC"`);
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.Invoices?.length) {
+        // Append new invoices to existing results
+        currentResults = [...currentResults, ...data.Invoices];
+        displayResults();
+        
+        // Hide "Load More" if fewer results than requested
+        document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
+      } else {
+        // No more results
+        document.getElementById('load-more-container').classList.add('hidden');
+      }
+    }
+  } catch (error) {
+    console.error("Error loading more invoices:", error);
+  } finally {
+    toggleLoading(false);
+  }
+}
 
 /**
  * Searches Xero for invoices and bills based on various criteria including
@@ -1517,9 +1621,8 @@ if (businessDays !== null) {
       
       displayResults();
       
-// Update pagination for search results
-updatePagination();
-
+      // Show/hide load more button
+      document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 50);
     } else {
       document.getElementById('results-section').classList.add('hidden');
       document.getElementById('load-more-container').classList.add('hidden');
@@ -1645,8 +1748,10 @@ const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
 function displayResults() {
   const resultsList = document.getElementById('results-list');
   
-  // Always clear results when displaying a page
-  resultsList.innerHTML = '';
+  // Clear results only if it's the first page
+  if (currentPage === 1) {
+    resultsList.innerHTML = '';
+  }
   
   const resultsSection = document.getElementById('results-section');
   const resultsCount = document.getElementById('results-count');
@@ -1670,8 +1775,8 @@ function displayResults() {
     displayResultItems();
   }
   
-  // Update pagination to show Previous/Next buttons
-  updatePagination();
+  // IMPORTANT: Hide standard pagination controls - we'll use only the Load More button
+  document.getElementById('pagination').innerHTML = '';
 }
 
 // Sort the current results
@@ -2090,7 +2195,7 @@ const dueDate = formatDate(invoice.DueDate);
 // Global variables
 let currentResults = [];
 let currentPage = 1;
-let cachedPages = {}; // Cache for previously loaded pages
+let cachedPages = {};
 const resultsPerPage = 20;
 
 // Helper function to parse Xero date format
