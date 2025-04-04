@@ -370,33 +370,49 @@
       background-color: rgba(0, 0, 0, 0.02);
     }
 
-    /* Pagination */
-    #pagination {
-      display: flex;
-      justify-content: center;
-      gap: 0.25rem;
-      margin-top: 1.5rem;
-    }
+/* NEW CODE - Updated pagination styles for Previous/Next buttons */
+#pagination {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
 
-    #pagination button {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid var(--border-color);
-      background-color: white;
-      cursor: pointer;
-      border-radius: 4px;
-      font-size: 0.875rem;
-    }
+#pagination button {
+  padding: 0.625rem 1.25rem;
+  border: 1px solid var(--border-color);
+  background-color: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  min-width: 120px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
 
-    #pagination button.active {
-      background-color: var(--primary-color);
-      color: white;
-      border-color: var(--primary-color);
-    }
+#pagination button:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
 
-    #pagination button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+#pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#pagination button:first-child {
+  border-color: var(--border-color);
+}
+
+#pagination button:last-child {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+#pagination button:last-child:hover {
+  background-color: var(--primary-dark);
+}
 
     /* Loading spinner */
     #loading {
@@ -621,11 +637,8 @@
       
       <div id="results-list"></div>
       
-      <div id="load-more-container" class="hidden" style="text-align: center; margin-top: 1.5rem;">
-        <button id="load-more-btn" class="btn secondary">Load More Invoices</button>
-      </div>
-      
-      <div id="pagination"></div>
+<!-- NEW CODE - Replace with this section -->
+<div id="pagination" style="display: flex; justify-content: center; margin-top: 1.5rem;"></div>
     </section>
 
     <!-- Invoice Detail View -->
@@ -828,6 +841,7 @@ function displayTenantDropdown(tenants) {
     document.getElementById('tenant-selector').classList.remove('hidden');
     
 // Set up change event to switch between organizations
+// NEW CODE - Replace with this updated event listener
 dropdown.addEventListener('change', function() {
   window.tenantId = this.value;
   window.tenantName = this.options[this.selectedIndex].textContent;
@@ -837,8 +851,22 @@ dropdown.addEventListener('change', function() {
   document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
   document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
   
-  // Clear current results
+  // Reset all data and caches
   currentResults = [];
+  currentPage = 1;
+  cachedPages = {};
+  window.filteredResults = null;
+  
+  // Clear results display
+  document.getElementById('results-list').innerHTML = '';
+  document.getElementById('results-count').textContent = '(0)';
+  
+  // Show a loading indicator while fetching new data
+  toggleLoading(true);
+  
+  // Reset any active filters
+  document.getElementById('job-status-filter').value = '';
+  document.getElementById('search-input').value = '';
   
   // Reload invoices for the new organization
   loadInitialInvoices();
@@ -918,8 +946,6 @@ document.getElementById('sort-by').addEventListener('change', () => {
     document.getElementById('results-section').classList.remove('hidden');
   });
   
-  // Load more button
-  document.getElementById('load-more-btn').addEventListener('click', loadMoreInvoices);
 }
 
 // Check if tokens need refreshing
@@ -1161,19 +1187,19 @@ function applyJobStatusFilter(statusFilter) {
   // Display the filtered results
   displayFilteredResults();
   
-  // Hide the standard "Load More" button when using a filter
-  document.getElementById('load-more-container').classList.add('hidden');
 }
 
+// NEW CODE - Replace with this updated function
 function displayFilteredResults() {
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
   
-  const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
+  // Add a small loading indicator
+  const loadingElement = document.createElement('div');
+  loadingElement.className = 'loading-indicator';
+  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div>';
+  resultsList.appendChild(loadingElement);
   
-  // Hide the standard load more button
-  document.getElementById('load-more-container').classList.add('hidden');
   
   // Update count
   const resultsCount = document.getElementById('results-count');
@@ -1186,10 +1212,35 @@ function displayFilteredResults() {
     return;
   }
   
+  // Generate a cache key for filtered results
+  const cacheKey = `filtered_${currentPage}_${document.getElementById('job-status-filter').value || 'all'}`;
+  
+  // Check if we already have this page cached
+  if (cachedPages[cacheKey]) {
+    console.log('Using cached filtered page:', cacheKey);
+    resultsList.innerHTML = cachedPages[cacheKey];
+    
+    // Re-attach click event listeners
+    const items = resultsList.querySelectorAll('.result-item[data-id]');
+    items.forEach(item => {
+      const invoiceId = item.dataset.id;
+      if (invoiceId) {
+        item.addEventListener('click', () => showInvoiceDetail(invoiceId));
+      }
+    });
+    
+    // Update pagination controls
+    updatePagination();
+    return;
+  }
+  
   // Calculate pagination
   const startIndex = (currentPage - 1) * resultsPerPage;
   const endIndex = Math.min(startIndex + resultsPerPage, window.filteredResults.length);
   const pageResults = window.filteredResults.slice(startIndex, endIndex);
+  
+  // Clear loading indicator
+  resultsList.innerHTML = '';
   
   // Display the filtered items
   pageResults.forEach(invoice => {
@@ -1197,18 +1248,17 @@ function displayFilteredResults() {
     resultsList.appendChild(item);
   });
   
-  // Create a single load more button
-  if (endIndex < window.filteredResults.length) {
-    const loadMoreBtn = document.createElement('button');
-    loadMoreBtn.textContent = `Load More (${endIndex} of ${window.filteredResults.length})`;
-    loadMoreBtn.className = 'btn secondary';
-    loadMoreBtn.addEventListener('click', () => {
-      currentPage++;
-      displayFilteredResults();
-    });
-    
-    pagination.appendChild(loadMoreBtn);
-  }
+  // Cache this filtered page
+  cachedPages[cacheKey] = resultsList.innerHTML;
+  
+  // Use our standard pagination function
+  updatePagination();
+  
+  // Add a simple transition in
+  resultsList.style.opacity = '0';
+  setTimeout(() => {
+    resultsList.style.opacity = '1';
+  }, 50);
 }
 
 async function loadInvoicesByStatus(status) {
@@ -1745,6 +1795,7 @@ const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
   }
 }
 
+// NEW CODE - Replace with this updated function
 function displayResults() {
   const resultsList = document.getElementById('results-list');
   
@@ -1775,8 +1826,8 @@ function displayResults() {
     displayResultItems();
   }
   
-  // IMPORTANT: Hide standard pagination controls - we'll use only the Load More button
-  document.getElementById('pagination').innerHTML = '';
+  // Hide "Load More" button - we'll use our prev/next pagination instead
+  document.getElementById('load-more-container').classList.add('hidden');
 }
 
 // Sort the current results
@@ -1845,16 +1896,16 @@ function sortResults() {
     }
   });
   
+
   // Clear and redisplay the results
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
   
-  // Display all current results
+  // Display results for current page
   displayResultItems();
   
-  // Update pagination if needed
+  // Update pagination using our new system
   updatePagination();
-}
 
 // NEW CODE - Replace with this updated function
 function displayResultItems() {
