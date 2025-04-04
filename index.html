@@ -868,27 +868,17 @@ function setupEventListeners() {
     }
   });
 
-  document.getElementById('job-status-filter').addEventListener('change', async function() {
+// Job status filter change
+document.getElementById('job-status-filter').addEventListener('change', async function() {
   const selectedStatus = this.value;
   toggleLoading(true);
   
   try {
-    if (selectedStatus === 'overdue' || selectedStatus === 'approaching') {
-      // For overdue or approaching, we need to load more historical data
+    if (selectedStatus) {
+      // For any job status filter, we'll load specific data
       await loadInvoicesByStatus(selectedStatus);
-    } else if (selectedStatus === 'recent') {
-      // For recent invoices, we can filter from current results
-      if (currentResults.length > 0) {
-        window.filteredResults = currentResults.filter(invoice => {
-          return getJobStatus(invoice) === 'recent';
-        });
-        currentPage = 1;
-        displayFilteredResults();
-      } else {
-        await loadInvoicesByStatus('recent');
-      }
     } else {
-      // Show all results (no filter)
+      // Show all results (no job status filter)
       window.filteredResults = null;
       document.getElementById('results-count').textContent = `(${currentResults.length})`;
       sortResults(); // This will redisplay all results
@@ -1103,10 +1093,9 @@ async function loadInitialInvoices() {
     const formattedDate = fourteenDaysAgo.toISOString().split('T')[0];
     
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    // Add date filter to only get last 14 days
-    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
+    // Add date filter to only get last 14 days AND only ACCREC invoices
+    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC"`);
     url.searchParams.set('order', 'Date DESC');
-    // Increase page size to reduce number of API calls needed
     url.searchParams.set('page', '1');
     url.searchParams.set('pageSize', '50');
     
@@ -1125,6 +1114,7 @@ async function loadInitialInvoices() {
         
         // Display the results section
         document.getElementById('results-section').classList.remove('hidden');
+        document.getElementById('results-count').textContent = `(${currentResults.length})`;
         
         // Apply any active job status filter
         const jobStatusFilter = document.getElementById('job-status-filter').value;
@@ -1137,10 +1127,7 @@ async function loadInitialInvoices() {
           const recent = currentResults.filter(invoice => getJobStatus(invoice) === 'recent').length;
           
           // Display counts in a message
-          showMessage(`Found ${currentResults.length} invoices from last 14 days: ${overdue} overdue, ${approaching} approaching deadline, ${recent} recently created`, 'info');
-          
-          // Update count
-          document.getElementById('results-count').textContent = `(${currentResults.length})`;
+          showMessage(`Found ${currentResults.length} sales invoices from last 14 days: ${overdue} overdue, ${approaching} approaching deadline, ${recent} recently created`, 'info');
           
           // Sort and display results
           sortResults();
@@ -1150,7 +1137,7 @@ async function loadInitialInvoices() {
         document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 50);
       } else {
         console.log("No invoices returned from API");
-        showMessage("No invoices found for the last 14 days", 'info');
+        showMessage("No sales invoices found for the last 14 days", 'info');
       }
     } else {
       console.error("API response not OK:", response.status);
@@ -1208,7 +1195,6 @@ function displayFilteredResults() {
   updatePagination(window.filteredResults.length);
 }
 
-// New function to load invoices based on status
 async function loadInvoicesByStatus(status) {
   try {
     const tokens = await getValidTokens();
@@ -1231,7 +1217,11 @@ async function loadInvoicesByStatus(status) {
     const formattedDate = lookBackDate.toISOString().split('T')[0];
     
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
+    
+    // Build where clause - only ACCREC invoices, not PAID, within date range
+    let whereClause = `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`;
+    
+    url.searchParams.set('where', whereClause);
     url.searchParams.set('order', 'Date DESC');
     url.searchParams.set('page', '1');
     url.searchParams.set('pageSize', '100'); // Increase to get more historical data
@@ -1260,11 +1250,11 @@ async function loadInvoicesByStatus(status) {
       currentPage = 1;
       displayFilteredResults();
       
-      showMessage(`Found ${window.filteredResults.length} ${status} invoices from the last ${daysToLookBack} days.`, 'info');
+      showMessage(`Found ${window.filteredResults.length} ${status} sales invoices from the last ${daysToLookBack} days.`, 'info');
     } else {
       window.filteredResults = [];
       const resultsList = document.getElementById('results-list');
-      resultsList.innerHTML = `<div class="message info">No ${status} invoices found in the last ${daysToLookBack} days.</div>`;
+      resultsList.innerHTML = `<div class="message info">No ${status} sales invoices found in the last ${daysToLookBack} days.</div>`;
       document.getElementById('results-count').textContent = '(0)';
     }
   } catch (error) {
@@ -1388,7 +1378,6 @@ function createInvoiceItem(invoice) {
   return item;
 }
 
-// Load more invoices when "Load More" button is clicked
 async function loadMoreInvoices() {
   try {
     toggleLoading(true);
@@ -1402,11 +1391,8 @@ async function loadMoreInvoices() {
     url.searchParams.set('page', currentPage.toString());
     url.searchParams.set('pageSize', '10');
     
-    // Add any active filters
-    const statusFilter = document.getElementById('status-filter').value;
-    if (statusFilter) {
-      url.searchParams.append('where', `Status=="${statusFilter}"`);
-    }
+    // Filter for ACCREC only
+    url.searchParams.append('where', `Type=="ACCREC"`);
     
     const response = await fetch(url.toString(), {
       headers: {
@@ -1445,29 +1431,20 @@ async function loadMoreInvoices() {
   try {
     // Safely get filter values, providing defaults if elements don't exist
     const searchTerm = document.getElementById('search-input')?.value.trim() || '';
-    const statusFilterElement = document.getElementById('status-filter');
-    const statusFilter = statusFilterElement ? statusFilterElement.value : '';
-    
     const dateFromElement = document.getElementById('date-from');
     const dateFrom = dateFromElement ? dateFromElement.value : '';
-    
     const dateToElement = document.getElementById('date-to');
     const dateTo = dateToElement ? dateToElement.value : '';
-    
-    // Same for job status filter if you've added it
-    const jobStatusFilterElement = document.getElementById('job-status-filter');
-    const jobStatusFilter = jobStatusFilterElement ? jobStatusFilterElement.value : '';
 
     const tokens = await getValidTokens();
     if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
     
-    // Rest of your function remains the same...
     // Create base query and headers
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
     url.searchParams.set('page', '1');
-    url.searchParams.set('pageSize', '10');
+    url.searchParams.set('pageSize', '50');
     
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
@@ -1477,19 +1454,17 @@ async function loadMoreInvoices() {
     // Build where conditions
     const whereConditions = [];
     
-    // Add status filter if selected
-    if (statusFilter) {
-      whereConditions.push(`Status=="${statusFilter}"`);
-    }
+    // Always filter for ACCREC only
+    whereConditions.push(`Type=="ACCREC"`);
     
     // Add date filters if provided
     if (dateFrom) {
       whereConditions.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
     } else {
-      // Default to last 14 days if no date provided
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-      const formattedDate = fourteenDaysAgo.toISOString().split('T')[0];
+      // Default to last 30 days if no date provided (increased from 14)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const formattedDate = thirtyDaysAgo.toISOString().split('T')[0];
       whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
     }
     
@@ -1497,14 +1472,7 @@ async function loadMoreInvoices() {
       whereConditions.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
     }
     
-    // Check for job status filter - handle on client side
-    if (jobStatusFilter) {
-      // We'll handle this after the results come back
-    }
-    
-    // Continue with the rest of your function...
-    
-    // Add search term if provided - focus on invoice number, reference, contact name
+    // Add search term if provided
     if (searchTerm) {
       const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
       const lowerCaseSearchTerm = safeSearchTerm.toLowerCase();
@@ -1527,11 +1495,42 @@ async function loadMoreInvoices() {
     console.log("Making API request:", url.toString());
     const response = await fetch(url.toString(), { method: 'GET', headers });
     
-    // Process response...
+    if (!response.ok) {
+      const errorText = await response.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        const detail = errorData.Detail || errorData.message || 
+          (errorData.Elements && errorData.Elements[0]?.ValidationErrors?.[0]?.Message);
+        throw new Error(detail || errorText || `Server returned ${response.status}`);
+      } catch (parseError) {
+        throw new Error(errorText || `Server returned ${response.status}`);
+      }
+    }
     
+    const data = await response.json();
+    console.log('Xero API response:', data);
+    
+    // Process results
+    if (data?.Invoices?.length) {
+      console.log(`Found ${data.Invoices.length} invoices`);
+      currentResults = data.Invoices;
+      currentPage = 1;
+      
+      // Reset any existing filter
+      window.filteredResults = null;
+      
+      displayResults();
+      
+      // Show/hide load more button
+      document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 50);
+    } else {
+      document.getElementById('results-section').classList.add('hidden');
+      document.getElementById('load-more-container').classList.add('hidden');
+      showMessage('No sales invoices found matching your search criteria.', 'info');
+    }
   } catch (error) {
     console.error("Error searching invoices:", error);
-    showError(`Error searching invoices/bills: ${error.message || 'Unknown error'}`);
+    showError(`Error searching sales invoices: ${error.message || 'Unknown error'}`);
   } finally {
     toggleLoading(false);
   }
