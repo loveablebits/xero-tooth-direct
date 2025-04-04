@@ -868,17 +868,36 @@ function setupEventListeners() {
     }
   });
 
-// Job status filter change
-document.getElementById('job-status-filter').addEventListener('change', function() {
+  document.getElementById('job-status-filter').addEventListener('change', async function() {
   const selectedStatus = this.value;
+  toggleLoading(true);
   
-  if (selectedStatus) {
-    // Apply the filter to current results
-    applyJobStatusFilter(selectedStatus);
-  } else {
-    // Show all results
-    document.getElementById('results-count').textContent = `(${currentResults.length})`;
-    sortResults(); // This will redisplay all results
+  try {
+    if (selectedStatus === 'overdue' || selectedStatus === 'approaching') {
+      // For overdue or approaching, we need to load more historical data
+      await loadInvoicesByStatus(selectedStatus);
+    } else if (selectedStatus === 'recent') {
+      // For recent invoices, we can filter from current results
+      if (currentResults.length > 0) {
+        window.filteredResults = currentResults.filter(invoice => {
+          return getJobStatus(invoice) === 'recent';
+        });
+        currentPage = 1;
+        displayFilteredResults();
+      } else {
+        await loadInvoicesByStatus('recent');
+      }
+    } else {
+      // Show all results (no filter)
+      window.filteredResults = null;
+      document.getElementById('results-count').textContent = `(${currentResults.length})`;
+      sortResults(); // This will redisplay all results
+    }
+  } catch (error) {
+    console.error("Error applying job status filter:", error);
+    showError("Error loading invoices. Please try again.");
+  } finally {
+    toggleLoading(false);
   }
 });
   
@@ -1149,60 +1168,149 @@ function applyJobStatusFilter(statusFilter) {
     return getJobStatus(invoice) === statusFilter;
   });
   
-  // Update the display with filtered results
+  // Store filtered results for pagination
+  window.filteredResults = filteredResults;
+  currentPage = 1;
+  
+  // Display the filtered results
+  displayFilteredResults();
+  
+  // Hide the standard "Load More" button when using a filter
+  document.getElementById('load-more-container').classList.add('hidden');
+}
+
+function displayFilteredResults() {
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
   
   // Update count
-  document.getElementById('results-count').textContent = `(${filteredResults.length})`;
+  const resultsCount = document.getElementById('results-count');
+  resultsCount.textContent = `(${window.filteredResults.length})`;
   
   // If no results after filtering
-  if (filteredResults.length === 0) {
-    resultsList.innerHTML = `<div class="message info">No ${statusFilter} invoices found in the last 14 days.</div>`;
+  if (window.filteredResults.length === 0) {
+    resultsList.innerHTML = `<div class="message info">No matching invoices found.</div>`;
     return;
   }
   
-  // Process the filtered results for display
-  const pageSize = 10;
-  const pageResults = filteredResults.slice(0, pageSize);
+  // Calculate pagination
+  const startIndex = (currentPage - 1) * resultsPerPage;
+  const endIndex = Math.min(startIndex + resultsPerPage, window.filteredResults.length);
+  const pageResults = window.filteredResults.slice(startIndex, endIndex);
   
   // Display the filtered items
   pageResults.forEach(invoice => {
-    // Your existing display logic for a single invoice
     const item = createInvoiceItem(invoice);
     resultsList.appendChild(item);
   });
   
-  // Store filtered results for pagination
-  window.filteredResults = filteredResults;
-  
-  // Update pagination if needed
-  const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
-  
-  if (filteredResults.length > pageSize) {
-    // Create simple "Show More" button instead of pagination
-    const showMoreBtn = document.createElement('button');
-    showMoreBtn.textContent = `Show More (${pageSize} of ${filteredResults.length})`;
-    showMoreBtn.className = 'btn secondary';
-    showMoreBtn.addEventListener('click', () => {
-      const currentlyShown = resultsList.children.length;
-      const nextBatch = filteredResults.slice(currentlyShown, currentlyShown + pageSize);
-      
-      nextBatch.forEach(invoice => {
-        const item = createInvoiceItem(invoice);
-        resultsList.appendChild(item);
-      });
-      
-      // Update button text or hide if all shown
-      if (currentlyShown + nextBatch.length >= filteredResults.length) {
-        showMoreBtn.style.display = 'none';
-      } else {
-        showMoreBtn.textContent = `Show More (${currentlyShown + nextBatch.length} of ${filteredResults.length})`;
+  // Update pagination
+  updatePagination(window.filteredResults.length);
+}
+
+// New function to load invoices based on status
+async function loadInvoicesByStatus(status) {
+  try {
+    const tokens = await getValidTokens();
+    if (!tokens) throw new Error('No valid authentication tokens available');
+    
+    let daysToLookBack;
+    
+    // Determine how far back to look based on status
+    if (status === 'overdue') {
+      daysToLookBack = 30; // Look back 30 days for overdue jobs
+    } else if (status === 'approaching') {
+      daysToLookBack = 15; // Look back 15 days for approaching deadline jobs
+    } else {
+      daysToLookBack = 10; // Recent jobs within 10 days
+    }
+    
+    // Calculate the date to look back to
+    const lookBackDate = new Date();
+    lookBackDate.setDate(lookBackDate.getDate() - daysToLookBack);
+    const formattedDate = lookBackDate.toISOString().split('T')[0];
+    
+    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
+    url.searchParams.set('order', 'Date DESC');
+    url.searchParams.set('page', '1');
+    url.searchParams.set('pageSize', '100'); // Increase to get more historical data
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
       }
     });
     
-    pagination.appendChild(showMoreBtn);
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data?.Invoices?.length) {
+      // Store the full results
+      const allResults = data.Invoices;
+      
+      // Filter by job status
+      window.filteredResults = allResults.filter(invoice => {
+        return getJobStatus(invoice) === status;
+      });
+      
+      currentPage = 1;
+      displayFilteredResults();
+      
+      showMessage(`Found ${window.filteredResults.length} ${status} invoices from the last ${daysToLookBack} days.`, 'info');
+    } else {
+      window.filteredResults = [];
+      const resultsList = document.getElementById('results-list');
+      resultsList.innerHTML = `<div class="message info">No ${status} invoices found in the last ${daysToLookBack} days.</div>`;
+      document.getElementById('results-count').textContent = '(0)';
+    }
+  } catch (error) {
+    console.error("Error loading invoices by status:", error);
+    throw error;
+  }
+}
+
+function updatePagination(totalItems) {
+  const pagination = document.getElementById('pagination');
+  pagination.innerHTML = '';
+  
+  const totalPages = Math.ceil(totalItems / resultsPerPage);
+  
+  if (totalPages <= 1) return;
+  
+  // Create a simplified pagination - just a "Load More" button
+  if (currentPage < totalPages) {
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.textContent = `Load More (${currentPage * resultsPerPage} of ${totalItems})`;
+    loadMoreBtn.className = 'btn secondary';
+    loadMoreBtn.addEventListener('click', () => {
+      currentPage++;
+      
+      // When using a filter
+      if (window.filteredResults) {
+        // Append more filtered results
+        const startIndex = (currentPage - 1) * resultsPerPage;
+        const endIndex = Math.min(startIndex + resultsPerPage, window.filteredResults.length);
+        const nextBatch = window.filteredResults.slice(startIndex, endIndex);
+        
+        const resultsList = document.getElementById('results-list');
+        nextBatch.forEach(invoice => {
+          const item = createInvoiceItem(invoice);
+          resultsList.appendChild(item);
+        });
+        
+        // Update pagination
+        updatePagination(window.filteredResults.length);
+      } else {
+        // Normal pagination - load more from API
+        loadMoreInvoices();
+      }
+    });
+    
+    pagination.appendChild(loadMoreBtn);
   }
 }
 
