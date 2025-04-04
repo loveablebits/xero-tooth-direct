@@ -1324,7 +1324,7 @@ function updatePagination() {
     const prevButton = document.createElement('button');
     prevButton.textContent = 'Previous Page';
     prevButton.className = 'btn secondary';
-    prevButton.addEventListener('click', function() {
+    prevButton.addEventListener('click', () => {
       currentPage--;
       if (window.filteredResults) {
         displayFilteredResults();
@@ -1346,7 +1346,7 @@ function updatePagination() {
     const nextButton = document.createElement('button');
     nextButton.textContent = 'Next Page';
     nextButton.className = 'btn secondary';
-    nextButton.addEventListener('click', function() {
+    nextButton.addEventListener('click', () => {
       currentPage++;
       if (window.filteredResults) {
         displayFilteredResults();
@@ -1355,31 +1355,6 @@ function updatePagination() {
       }
     });
     pagination.appendChild(nextButton);
-  }
-}
-  
-  // Add page indicator
-  const pageIndicator = document.createElement('span');
-  pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
-  pageIndicator.style.margin = '0 10px';
-  pagination.appendChild(pageIndicator);
-  
-  // Add Previous button if not on first page
-  if (currentPage > 1) {
-    const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous Page';
-    prevButton.className = 'btn secondary';
-    prevButton.addEventListener('click', () => {
-      currentPage--;
-      if (window.filteredResults) {
-        displayFilteredResults();
-      } else {
-        displayResultItems();
-      }
-    });
-    
-    // Insert at beginning
-    pagination.insertBefore(prevButton, pagination.firstChild);
   }
 }
 
