@@ -566,10 +566,9 @@
         <div class="filter-group">
           <label for="job-status-filter">Job Status:</label>
           <select id="job-status-filter">
-            <option value="">All Jobs</option>
-            <option value="approaching">Approaching Deadline (8-10 days)</option>
-            <option value="overdue">Overdue (>10 days)</option>
-            <option value="recent">Recent (<7 days)</option>
+            <option value="">All Invoices</option>
+            <option value="approaching">Borderline (7-10 days)</option>
+            <option value="overdue">Deadline (10+ days)</option>
           </select>
         </div>
         
@@ -597,16 +596,10 @@
         <h2>Search Results <span id="results-count">(0)</span></h2>
         <div class="sorting">
           <select id="sort-by">
-            <option value="Date">Sort by Date</option>
-            <option value="DueDate">Sort by Due Date</option>
-            <option value="Total">Sort by Amount</option>
-            <option value="Reference">Sort by Reference</option>
-            <option value="Contact.Name">Sort by Customer</option>
-            <option value="InvoiceNumber">Sort by Invoice Number</option>
-          </select>
-          <select id="sort-order">
-            <option value="desc">Newest First</option>
-            <option value="asc">Oldest First</option>
+            <option value="Date-desc">Sort by latest</option>
+            <option value="Date-asc">Sort by oldest</option>
+            <option value="Contact.Name-asc">Sort by customer</option>
+            <option value="InvoiceNumber-asc">Sort by invoice number</option>
           </select>
         </div>
       </div>
@@ -1087,14 +1080,14 @@ async function loadInitialInvoices() {
       return;
     }
     
-    // Calculate date 45 days ago (extended to ensure we catch most overdue invoices)
+    // Calculate date 45 days ago
     const daysAgo = new Date();
     daysAgo.setDate(daysAgo.getDate() - 45);
     const formattedDate = daysAgo.toISOString().split('T')[0];
     
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    // Add date filter to only get last 45 days AND only ACCREC invoices
-    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC"`);
+    // Filter for ACCREC only, exclude PAID
+    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`);
     url.searchParams.set('order', 'Date DESC');
     
     // Fetch all pages of results
@@ -1104,23 +1097,22 @@ async function loadInitialInvoices() {
       currentResults = allInvoices;
       currentPage = 1;
       
-      // Count items in each category (excluding PAID invoices for status counts)
-      const unpaidInvoices = currentResults.filter(inv => inv.Status !== 'PAID');
-      const overdue = unpaidInvoices.filter(invoice => getJobStatus(invoice) === 'overdue').length;
-      const approaching = unpaidInvoices.filter(invoice => getJobStatus(invoice) === 'approaching').length;
-      const recent = unpaidInvoices.filter(invoice => getJobStatus(invoice) === 'recent').length;
+      // Count items in each category
+      const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
+      const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
+      const recent = currentResults.filter(invoice => getJobStatus(invoice) === 'recent').length;
       
       // Display the results section
       document.getElementById('results-section').classList.remove('hidden');
       document.getElementById('results-count').textContent = `(${currentResults.length})`;
       
       // Display counts in a message
-      showMessage(`Found ${currentResults.length} sales invoices from last 45 days: ${overdue} overdue, ${approaching} approaching deadline, ${recent} recently created`, 'info');
+      showMessage(`Found ${currentResults.length} sales invoices from last 45 days: ${overdue} deadline, ${approaching} borderline, ${recent} recent`, 'info');
       
       // Apply any active job status filter
       const jobStatusFilter = document.getElementById('job-status-filter').value;
       if (jobStatusFilter) {
-        window.filteredResults = unpaidInvoices.filter(invoice => getJobStatus(invoice) === jobStatusFilter);
+        window.filteredResults = currentResults.filter(invoice => getJobStatus(invoice) === jobStatusFilter);
         displayFilteredResults();
       } else {
         // Sort and display all results
@@ -1212,9 +1204,9 @@ async function loadInvoicesByStatus(status) {
     if (status === 'overdue') {
       daysToLookBack = 90; // Look back 90 calendar days for overdue jobs (>10 business days)
     } else if (status === 'approaching') {
-      daysToLookBack = 30; // Look back 30 calendar days for approaching deadline jobs (8-10 business days)
+      daysToLookBack = 30; // Look back 30 calendar days for approaching deadline jobs (7-10 business days)
     } else {
-      daysToLookBack = 21; // Recent jobs within 21 calendar days (to ensure we get all <8 business day jobs)
+      daysToLookBack = 21; // Recent jobs within 21 calendar days
     }
     
     // Calculate the date to look back to
@@ -1243,11 +1235,11 @@ async function loadInvoicesByStatus(status) {
       currentPage = 1;
       displayFilteredResults();
       
-      showMessage(`Found ${filteredResults.length} ${status} sales invoices from the last ${daysToLookBack} days.`, 'info');
+      showMessage(`Found ${filteredResults.length} ${status === 'overdue' ? 'deadline' : 'borderline'} invoices from the last ${daysToLookBack} days.`, 'info');
     } else {
       window.filteredResults = [];
       const resultsList = document.getElementById('results-list');
-      resultsList.innerHTML = `<div class="message info">No ${status} sales invoices found in the last ${daysToLookBack} days.</div>`;
+      resultsList.innerHTML = `<div class="message info">No ${status === 'overdue' ? 'deadline' : 'borderline'} invoices found in the last ${daysToLookBack} days.</div>`;
       document.getElementById('results-count').textContent = '(0)';
     }
   } catch (error) {
@@ -1319,44 +1311,56 @@ async function fetchAllPages(baseUrl, accessToken) {
   return allResults;
 }
 
-function updatePagination(totalItems) {
+function updatePagination() {
   const pagination = document.getElementById('pagination');
   pagination.innerHTML = '';
   
-  const totalPages = Math.ceil(totalItems / resultsPerPage);
+  // Get the right set of results depending on whether we have a filter applied
+  const resultsToUse = window.filteredResults || currentResults;
+  
+  const totalPages = Math.ceil(resultsToUse.length / resultsPerPage);
   
   if (totalPages <= 1) return;
   
-  // Create a simplified pagination - just a "Load More" button
+  // Simple Next Page button
   if (currentPage < totalPages) {
-    const loadMoreBtn = document.createElement('button');
-    loadMoreBtn.textContent = `Load More (${currentPage * resultsPerPage} of ${totalItems})`;
-    loadMoreBtn.className = 'btn secondary';
-    loadMoreBtn.addEventListener('click', () => {
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next Page';
+    nextButton.className = 'btn secondary';
+    nextButton.addEventListener('click', () => {
       currentPage++;
-      
-      // When using a filter
       if (window.filteredResults) {
-        // Append more filtered results
-        const startIndex = (currentPage - 1) * resultsPerPage;
-        const endIndex = Math.min(startIndex + resultsPerPage, window.filteredResults.length);
-        const nextBatch = window.filteredResults.slice(startIndex, endIndex);
-        
-        const resultsList = document.getElementById('results-list');
-        nextBatch.forEach(invoice => {
-          const item = createInvoiceItem(invoice);
-          resultsList.appendChild(item);
-        });
-        
-        // Update pagination
-        updatePagination(window.filteredResults.length);
+        displayFilteredResults();
       } else {
-        // Normal pagination - load more from API
-        loadMoreInvoices();
+        displayResultItems();
       }
     });
     
-    pagination.appendChild(loadMoreBtn);
+    pagination.appendChild(nextButton);
+  }
+  
+  // Add page indicator
+  const pageIndicator = document.createElement('span');
+  pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  pageIndicator.style.margin = '0 10px';
+  pagination.appendChild(pageIndicator);
+  
+  // Add Previous button if not on first page
+  if (currentPage > 1) {
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous Page';
+    prevButton.className = 'btn secondary';
+    prevButton.addEventListener('click', () => {
+      currentPage--;
+      if (window.filteredResults) {
+        displayFilteredResults();
+      } else {
+        displayResultItems();
+      }
+    });
+    
+    // Insert at beginning
+    pagination.insertBefore(prevButton, pagination.firstChild);
   }
 }
 
@@ -1739,8 +1743,10 @@ function displayResults() {
 function sortResults() {
   if (!currentResults || currentResults.length === 0) return;
   
-  const sortBy = document.getElementById('sort-by').value;
-  const sortOrder = document.getElementById('sort-order').value;
+  const sortByValue = document.getElementById('sort-by').value;
+  
+  // Split into field and direction
+  const [sortBy, sortOrder] = sortByValue.split('-');
   
   console.log(`Sorting by ${sortBy} in ${sortOrder} order`);
   
@@ -2093,7 +2099,7 @@ const dueDate = formatDate(invoice.DueDate);
 // Global variables
 let currentResults = [];
 let currentPage = 1;
-const resultsPerPage = 10;
+const resultsPerPage = 20;
 
 // Helper function to parse Xero date format
 function parseXeroDate(xeroDateString) {
@@ -2168,6 +2174,16 @@ function getBusinessDaysDifference(startDate, endDate) {
 
 // Determine job status based on age (business days)
 function getJobStatus(invoice) {
+  // Skip paid invoices for job status categorization
+  if (invoice.Status === 'PAID') {
+    return null;
+  }
+  
+  // Skip ACCPAY invoices
+  if (invoice.Type === 'ACCPAY') {
+    return null;
+  }
+  
   // Use invoice date as start date
   const startDate = parseXeroDate(invoice.Date);
   if (!startDate) return null;
@@ -2182,7 +2198,7 @@ function getJobStatus(invoice) {
   // Determine status based on business days
   if (businessDays > 10) {
     return 'overdue';
-  } else if (businessDays >= 8) {
+  } else if (businessDays >= 7) { // Changed from 8 to 7
     return 'approaching';
   } else {
     return 'recent';
