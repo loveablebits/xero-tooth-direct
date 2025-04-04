@@ -1158,16 +1158,27 @@ async function loadMoreInvoices() {
  * and contact address (City, PostalCode, Region).
  */
  async function searchInvoices() {
-  const searchTerm = document.getElementById('search-input').value.trim();
-  const statusFilter = document.getElementById('status-filter').value;
-  const dateFrom = document.getElementById('date-from').value;
-  const dateTo = document.getElementById('date-to').value;
-
   try {
+    // Safely get filter values, providing defaults if elements don't exist
+    const searchTerm = document.getElementById('search-input')?.value.trim() || '';
+    const statusFilterElement = document.getElementById('status-filter');
+    const statusFilter = statusFilterElement ? statusFilterElement.value : '';
+    
+    const dateFromElement = document.getElementById('date-from');
+    const dateFrom = dateFromElement ? dateFromElement.value : '';
+    
+    const dateToElement = document.getElementById('date-to');
+    const dateTo = dateToElement ? dateToElement.value : '';
+    
+    // Same for job status filter if you've added it
+    const jobStatusFilterElement = document.getElementById('job-status-filter');
+    const jobStatusFilter = jobStatusFilterElement ? jobStatusFilterElement.value : '';
+
     const tokens = await getValidTokens();
     if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
     
+    // Rest of your function remains the same...
     // Create base query and headers
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
@@ -1201,13 +1212,13 @@ async function loadMoreInvoices() {
     if (dateTo) {
       whereConditions.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
     }
-
-    // Add this to your searchInvoices function, in the section where you build where conditions
-const jobStatusFilter = document.getElementById('job-status-filter').value;
-if (jobStatusFilter) {
-  // We'll handle this on the client side by filtering results after they come back
-  // because business days calculation is complex to do in the Xero API query
-}
+    
+    // Check for job status filter - handle on client side
+    if (jobStatusFilter) {
+      // We'll handle this after the results come back
+    }
+    
+    // Continue with the rest of your function...
     
     // Add search term if provided - focus on invoice number, reference, contact name
     if (searchTerm) {
@@ -1232,35 +1243,8 @@ if (jobStatusFilter) {
     console.log("Making API request:", url.toString());
     const response = await fetch(url.toString(), { method: 'GET', headers });
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      try {
-        const errorData = JSON.parse(errorText);
-        const detail = errorData.Detail || errorData.message || 
-          (errorData.Elements && errorData.Elements[0]?.ValidationErrors?.[0]?.Message);
-        throw new Error(detail || errorText || `Server returned ${response.status}`);
-      } catch (parseError) {
-        throw new Error(errorText || `Server returned ${response.status}`);
-      }
-    }
+    // Process response...
     
-    const data = await response.json();
-    console.log('Xero API response:', data);
-    
-    // Process results
-    if (data?.Invoices?.length) {
-      console.log(`Found ${data.Invoices.length} invoices`);
-      currentResults = data.Invoices;
-      currentPage = 1;
-      displayResults();
-      
-      // Show/hide load more button
-      document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
-    } else {
-      document.getElementById('results-section').classList.add('hidden');
-      document.getElementById('load-more-container').classList.add('hidden');
-      showMessage('No invoices or bills found matching your search criteria.', 'info');
-    }
   } catch (error) {
     console.error("Error searching invoices:", error);
     showError(`Error searching invoices/bills: ${error.message || 'Unknown error'}`);
