@@ -660,27 +660,50 @@
   <!-- Main JavaScript -->
   <script>
   // Initialize the application
-// NEW CODE - Add this function
+
+  // Initialize the application
 function initApp() {
   console.log("Initializing app...");
-  
-  // Check for authentication result in URL parameters
+
+  // Initialize caching variables and state BEFORE checking auth
+  cachedPages = {}; // Reset cache on app start
+  window.lastPageViewed = 1; // Reset page tracking
+  window.lastScrollPosition = 0; // Reset scroll tracking
+  currentResults = []; // Clear previous results
+  window.filteredResults = null; // Clear filters
+  currentPage = 1; // Reset to first page
+  window.tenantId = null; // Ensure tenantId is null initially
+  window.tenantName = null;
+  window.xeroTenants = null;
+
+
+  // Check for authentication result in URL parameters FIRST
+  // This might set auth state and initial tenant from URL redirect
   checkAuthResult();
-  
-  // Check if we're already authenticated
+
+  // Check if we're already authenticated (reads from localStorage)
+  // This confirms auth state and ensures tenant ID/list are loaded into window vars
+  // It also calls displayTenantDropdown if authenticated
   checkAuthStatus();
-  
-  // Set up event listeners
+
+  // Set up event listeners AFTER potential UI updates from checkAuthStatus
   setupEventListeners();
-  
-  // Initialize caching variables
-  cachedPages = {};
-  window.lastPageViewed = 1;
-  window.lastScrollPosition = 0;
-  
-  // Load initial invoices if authenticated
-  if (localStorage.getItem('xero_authenticated') === 'true') {
-    loadInitialInvoices();
+
+  // Load initial invoices *only if* authenticated and tenant is set
+  // checkAuthStatus now handles setting window.tenantId correctly
+  if (localStorage.getItem('xero_authenticated') === 'true' && window.tenantId) {
+      console.log(`Authentication confirmed. Triggering initial invoice load for tenant: ${window.tenantName} (${window.tenantId})`);
+      // Reset filters before initial load
+        document.getElementById('job-status-filter').value = '';
+        document.getElementById('search-input').value = '';
+        document.getElementById('date-from').value = '';
+        document.getElementById('date-to').value = '';
+      loadInitialInvoices();
+  } else {
+       console.log("Skipping initial invoice load: Not authenticated or no tenant ID determined.");
+       // Ensure UI reflects logged-out state if needed
+       updateUI(false);
+       document.getElementById('auth-message').classList.remove('hidden'); // Show connect message
   }
 }
 
@@ -689,76 +712,123 @@ function checkAuthResult() {
   const urlParams = new URLSearchParams(window.location.search);
   const authStatus = urlParams.get('auth');
   const errorMessage = urlParams.get('message');
-  const tenantName = urlParams.get('tenantName');
-  const tenantId = urlParams.get('tenantId');
+  const tenantNameParam = urlParams.get('tenantName'); // Renamed to avoid conflict
+  const tenantIdParam = urlParams.get('tenantId'); // Renamed to avoid conflict
   const multipleOrgs = urlParams.get('multipleOrgs') === 'true';
   const tenantsParam = urlParams.get('tenants');
-  
+  const tokensParam = urlParams.get('tokens');
+
   // Process auth status from URL
   if (authStatus === 'success') {
     console.log("Authentication successful");
-    
-    // Store authentication state in localStorage
     localStorage.setItem('xero_authenticated', 'true');
-    
-    if (tenantId) {
-      localStorage.setItem('xero_tenant_id', tenantId);
-      localStorage.setItem('xero_tenant_name', tenantName || 'Unknown Organization');
-      
-      // Set window variables for current session
-      window.tenantId = tenantId;
-      window.tenantName = tenantName || 'Unknown Organization';
-    }
-    
+
+    // --- START MODIFIED CODE for tenant handling ---
+    let determinedTenantId = tenantIdParam; // From URL param
+    let determinedTenantName = tenantNameParam; // From URL param
+    let tenantsList = [];
+
     // Process tenants data if available
     if (tenantsParam) {
       try {
-        const tenants = JSON.parse(decodeURIComponent(tenantsParam));
-        console.log('Received tenants data:', tenants);
-        
-        // Store tenants in localStorage
-        localStorage.setItem('xero_tenants', JSON.stringify(tenants));
-        
-        // Set for current session
-        window.xeroTenants = tenants;
-        
-        // Display the tenant dropdown
-        displayTenantDropdown(tenants);
+        tenantsList = JSON.parse(decodeURIComponent(tenantsParam));
+        console.log('Received tenants data:', tenantsList);
+        localStorage.setItem('xero_tenants', JSON.stringify(tenantsList));
+        window.xeroTenants = tenantsList;
+
+        if (tenantsList.length > 0) {
+            // If multiple orgs, the URL might not contain a specific tenantId/Name,
+            // so default to the first one in the list as the initially active one.
+             if (!determinedTenantId) {
+                determinedTenantId = tenantsList[0].tenantId;
+                determinedTenantName = tenantsList[0].tenantName;
+                console.log("Multiple orgs detected, defaulting initial tenant to first in list:", determinedTenantId);
+             }
+        }
+
       } catch (error) {
         console.error('Error parsing tenants data:', error);
+        // If tenants list fails to parse but we got a single ID/Name, use that
+        if (determinedTenantId) {
+             tenantsList = [{ tenantId: determinedTenantId, tenantName: determinedTenantName || 'Unknown' }];
+             window.xeroTenants = tenantsList;
+             localStorage.setItem('xero_tenants', JSON.stringify(tenantsList));
+        }
       }
+    } else if (determinedTenantId) {
+        // Only a single tenant ID/Name came back, create minimal tenants list
+         tenantsList = [{ tenantId: determinedTenantId, tenantName: determinedTenantName || 'Unknown' }];
+         window.xeroTenants = tenantsList;
+         localStorage.setItem('xero_tenants', JSON.stringify(tenantsList));
+         console.log("Single tenant detected:", determinedTenantId);
+    } else {
+        console.error("Authentication success but no tenant information received!");
+        showError("Connected to Xero, but couldn't identify your organization. Please try reconnecting.");
+        clearCookies(); // Clear partial auth state
+        updateUI(false);
+        return; // Stop processing if no tenant info
     }
 
+    // Now, store the determined initially active tenant
+    if (determinedTenantId) {
+        localStorage.setItem('xero_tenant_id', determinedTenantId);
+        localStorage.setItem('xero_tenant_name', determinedTenantName || 'Unknown Organization');
+        window.tenantId = determinedTenantId; // Set window variable for current session
+        window.tenantName = determinedTenantName || 'Unknown Organization';
+        console.log(`Initial active tenant set to: ${window.tenantName} (${window.tenantId})`);
+    } else {
+        console.error("Failed to determine an active tenant ID after processing auth results.");
+         showError("Failed to set an active organization. Please reconnect.");
+         clearCookies();
+         updateUI(false);
+         return;
+    }
+     // Display dropdown immediately after getting tenants list
+     if (window.xeroTenants && window.xeroTenants.length > 0) {
+        displayTenantDropdown(window.xeroTenants);
+    }
+    // --- END MODIFIED CODE for tenant handling ---
+
+
     // Process tokens data if available
-const tokensParam = urlParams.get('tokens');
-if (tokensParam) {
-  try {
-    const tokens = JSON.parse(decodeURIComponent(tokensParam));
-    console.log('Received tokens data with expiration at:', new Date(tokens.expires_at).toLocaleString());
-    
-    // Store tokens in localStorage
-    localStorage.setItem('xero_tokens', JSON.stringify(tokens));
-    
-    // Set for current session
-    window.xeroTokens = tokens;
-  } catch (error) {
-    console.error('Error parsing tokens data:', error);
-  }
-}
-    
-    showSuccess(`Successfully connected to Xero${tenantName ? `: ${tenantName}` : ''}`);
-    updateUI(true);
-    
+    if (tokensParam) {
+      try {
+        const tokens = JSON.parse(decodeURIComponent(tokensParam));
+        console.log('Received tokens data with expiration at:', new Date(tokens.expires_at).toLocaleString());
+        localStorage.setItem('xero_tokens', JSON.stringify(tokens));
+        window.xeroTokens = tokens;
+      } catch (error) {
+        console.error('Error parsing tokens data:', error);
+        // Decide if this is critical. Maybe allow continuing but warn?
+        showError("Connected, but failed to store authentication tokens. You may need to reconnect soon.");
+      }
+    } else {
+        // This is more critical, auth won't work without tokens
+        console.error("Authentication success but no tokens received!");
+        showError("Authentication succeeded but token data is missing. Please try reconnecting.");
+        clearCookies();
+        updateUI(false);
+        return; // Stop processing if no tokens
+    }
+
+    showSuccess(`Successfully connected to Xero${window.tenantName ? `: ${window.tenantName}` : ''}`);
+    updateUI(true); // Update UI to authenticated state
+
     // If multiple organizations, show a message
-    if (multipleOrgs) {
+    if (multipleOrgs || (tenantsList && tenantsList.length > 1)) {
       showMessage("You have access to multiple Xero organizations. Use the dropdown to switch between them.", "info");
     }
+
+    // Initial load is handled in initApp
+
   } else if (authStatus === 'error' && errorMessage) {
     console.error("Authentication error:", errorMessage);
-    showError(decodeURIComponent(errorMessage));
+    showError(`Xero connection failed: ${decodeURIComponent(errorMessage)}`);
+    clearCookies(); // Clear any partial auth state
+    updateUI(false);
   }
-  
-  // Clean up URL parameters
+
+  // Clean up URL parameters regardless of success/error
   if (authStatus) {
     // Remove query parameters but keep the path
     const currentPath = window.location.pathname;
@@ -769,48 +839,87 @@ if (tokensParam) {
 // Check if we're already authenticated - using localStorage approach
 function checkAuthStatus() {
   console.log("Checking authentication status...");
-  
+
   // Check if we're authenticated via localStorage
   const isAuthenticated = localStorage.getItem('xero_authenticated') === 'true';
   console.log("Is authenticated (localStorage):", isAuthenticated);
-  
+
   if (isAuthenticated) {
     console.log("User is authenticated");
-    
-    // Get tenant information from localStorage
+
+    // --- START MODIFIED CODE ---
+    // Get tenant information CONSISTENTLY from localStorage
     const tenantId = localStorage.getItem('xero_tenant_id');
     const tenantName = localStorage.getItem('xero_tenant_name');
-    
+    // --- END MODIFIED CODE ---
+
     if (tenantId) {
-      console.log(`Using tenant: ${tenantName} (${tenantId})`);
+      console.log(`Using tenant from localStorage: ${tenantName} (${tenantId})`);
       window.tenantId = tenantId;
       window.tenantName = tenantName || 'Your Xero Organization';
-      
-      // Get tenants from localStorage if available
+
+      // Get tenants list from localStorage if available
       const storedTenants = localStorage.getItem('xero_tenants');
       if (storedTenants) {
         try {
           window.xeroTenants = JSON.parse(storedTenants);
+          // Ensure the current tenantId is actually in the list
+           const currentTenantInList = window.xeroTenants.find(t => t.tenantId === window.tenantId);
+           if (!currentTenantInList && window.xeroTenants.length > 0) {
+               console.warn(`Current tenant ${window.tenantId} not in stored list. Defaulting to first tenant.`);
+               window.tenantId = window.xeroTenants[0].tenantId;
+               window.tenantName = window.xeroTenants[0].tenantName;
+               localStorage.setItem('xero_tenant_id', window.tenantId);
+               localStorage.setItem('xero_tenant_name', window.tenantName);
+           }
+
         } catch (e) {
+            console.error("Error parsing stored tenants", e);
+          // Fallback if tenants list is corrupted but we have a tenantId/Name
           window.xeroTenants = [{
             tenantId: window.tenantId,
             tenantName: window.tenantName
           }];
         }
       } else {
-        // Fallback to single tenant
+        // Fallback to single tenant if no list stored
         window.xeroTenants = [{
           tenantId: window.tenantId,
           tenantName: window.tenantName
         }];
+         localStorage.setItem('xero_tenants', JSON.stringify(window.xeroTenants)); // Store it now
       }
-      
-      displayTenantDropdown(window.xeroTenants);
+
+      displayTenantDropdown(window.xeroTenants || []); // Pass tenants list
       updateUI(true);
+
+      // Initial load is now handled in initApp after this function runs
+
     } else {
-      console.warn("Authenticated but no tenant ID found");
-      showError("No Xero organization found. Please reconnect to Xero.");
-      updateUI(false);
+      console.warn("Authenticated but no tenant ID found in localStorage.");
+      // Attempt to get tenant info from stored list if available
+      const storedTenants = localStorage.getItem('xero_tenants');
+       if (storedTenants) {
+           try {
+               const tenants = JSON.parse(storedTenants);
+               if (tenants && tenants.length > 0) {
+                   console.log("No tenant ID stored, defaulting to first tenant from list.");
+                   window.tenantId = tenants[0].tenantId;
+                   window.tenantName = tenants[0].tenantName;
+                   localStorage.setItem('xero_tenant_id', window.tenantId);
+                   localStorage.setItem('xero_tenant_name', window.tenantName);
+                   window.xeroTenants = tenants;
+                   displayTenantDropdown(window.xeroTenants);
+                   updateUI(true);
+                   // Initial load will now proceed in initApp
+                   return; // Exit checkAuthStatus early as we recovered
+               }
+           } catch(e) { /* ignore parse error if list is corrupt */ }
+       }
+      // If still no tenant ID, show error
+      showError("No Xero organization selected. Please try reconnecting to Xero.");
+      updateUI(false); // Stay logged out visually
+      clearCookies(); // Clear potentially inconsistent state
     }
   } else {
     console.log("User is not authenticated");
@@ -821,13 +930,13 @@ function checkAuthStatus() {
 // Display tenant dropdown selector - fixed version
 function displayTenantDropdown(tenants) {
   console.log('Displaying tenant dropdown with:', tenants);
-  
+
   // Get dropdown element
   const dropdown = document.getElementById('tenant-dropdown');
-  
+
   // Clear existing options
   dropdown.innerHTML = '';
-  
+
   // Add options for each tenant
   tenants.forEach(tenant => {
     const option = document.createElement('option');
@@ -835,48 +944,135 @@ function displayTenantDropdown(tenants) {
     option.textContent = tenant.tenantName || 'Unnamed Organization';
     dropdown.appendChild(option);
   });
-  
+
+  // --- START NEW CODE in this function ---
+  // Ensure the dropdown selection matches the current active tenant ID
+  if (window.tenantId) {
+    // Check if the current window.tenantId exists in the dropdown options
+    const tenantExists = Array.from(dropdown.options).some(opt => opt.value === window.tenantId);
+    if (tenantExists) {
+        dropdown.value = window.tenantId;
+        console.log(`Set dropdown value to match active tenant: ${window.tenantId}`);
+    } else if (tenants.length > 0) {
+        // If the stored tenantId is invalid/not in list, default to the first one
+        window.tenantId = tenants[0].tenantId;
+        window.tenantName = tenants[0].tenantName;
+        dropdown.value = window.tenantId;
+        localStorage.setItem('xero_tenant_id', window.tenantId);
+        localStorage.setItem('xero_tenant_name', window.tenantName);
+        console.log(`Stored tenant ID was invalid, defaulted active tenant to first in list: ${window.tenantId}`);
+    }
+    
+  } else if (tenants.length > 0) {
+    // If no specific tenantId is set in window, default to the first one
+    window.tenantId = tenants[0].tenantId;
+    window.tenantName = tenants[0].tenantName;
+    dropdown.value = window.tenantId;
+    // Optionally store this default selection
+    localStorage.setItem('xero_tenant_id', window.tenantId);
+    localStorage.setItem('xero_tenant_name', window.tenantName);
+    console.log(`No active tenant set, defaulted active tenant to first in list: ${window.tenantId}`);
+  }
+  // --- END NEW CODE in this function ---
+
   // Always show the selector if we have at least one tenant
   if (tenants && tenants.length > 0) {
     document.getElementById('tenant-selector').classList.remove('hidden');
-    
-// Set up change event to switch between organizations
-// NEW CODE - Replace with this updated event listener
-dropdown.addEventListener('change', function() {
-  window.tenantId = this.value;
-  window.tenantName = this.options[this.selectedIndex].textContent;
-  console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
-  
-  // Save selected tenant in cookie
-  document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
-  document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
-  
-  // Reset all data and caches
-  currentResults = [];
-  currentPage = 1;
-  cachedPages = {};
-  window.filteredResults = null;
-  
-  // Clear results display
-  document.getElementById('results-list').innerHTML = '';
-  document.getElementById('results-count').textContent = '(0)';
-  
-  // Show a loading indicator while fetching new data
-  toggleLoading(true);
-  
-  // Reset any active filters
-  document.getElementById('job-status-filter').value = '';
-  document.getElementById('search-input').value = '';
-  
-  // Reload invoices for the new organization
-  loadInitialInvoices();
-  
-  // Show a message to the user
-  showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
-});
+
+    // Attach the change listener *only once*
+    if (!dropdown.dataset.listenerAttached) { // Simple way to prevent multiple listeners
+        dropdown.addEventListener('change', handleTenantChange);
+        dropdown.dataset.listenerAttached = 'true'; // Mark as attached
+        console.log('Tenant dropdown change listener attached.');
+    }
+
   } else {
     document.getElementById('tenant-selector').classList.add('hidden');
   }
+}
+
+// NEW CODE: Separate handler function for clarity
+function handleTenantChange() {
+  const dropdown = document.getElementById('tenant-dropdown');
+  window.tenantId = dropdown.value;
+  window.tenantName = dropdown.options[dropdown.selectedIndex].textContent;
+  console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
+
+  // --- START MODIFIED CODE ---
+  // Save selected tenant consistently to localStorage
+  localStorage.setItem('xero_tenant_id', window.tenantId);
+  localStorage.setItem('xero_tenant_name', window.tenantName);
+  // --- END MODIFIED CODE ---
+
+  // Reset all data and caches
+  currentResults = [];
+  currentPage = 1;
+  cachedPages = {}; // Crucial: Clear cache on tenant switch
+  window.filteredResults = null;
+
+  // Clear results display
+  document.getElementById('results-list').innerHTML = '';
+  document.getElementById('results-count').textContent = '(0)';
+  document.getElementById('pagination').innerHTML = ''; // Clear pagination
+
+  // Show a loading indicator while fetching new data
+  toggleLoading(true); // Ensure loading is shown
+
+  // Reset any active filters
+  document.getElementById('job-status-filter').value = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('date-from').value = '';
+  document.getElementById('date-to').value = '';
+
+
+  // Reload invoices for the new organization
+  loadInitialInvoices(); // This should now use the updated window.tenantId
+
+  // Show a message to the user
+  showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
+}
+
+// NEW CODE: Separate handler function for clarity
+function handleTenantChange() {
+  const dropdown = document.getElementById('tenant-dropdown');
+  window.tenantId = dropdown.value;
+  window.tenantName = dropdown.options[dropdown.selectedIndex].textContent;
+  console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
+
+  // --- START MODIFIED CODE ---
+  // Save selected tenant consistently to localStorage
+  localStorage.setItem('xero_tenant_id', window.tenantId);
+  localStorage.setItem('xero_tenant_name', window.tenantName);
+  // Remove the cookie setting lines if you want to use localStorage exclusively
+  // document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
+  // document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
+  // --- END MODIFIED CODE ---
+
+  // Reset all data and caches
+  currentResults = [];
+  currentPage = 1;
+  cachedPages = {}; // Crucial: Clear cache on tenant switch
+  window.filteredResults = null;
+
+  // Clear results display
+  document.getElementById('results-list').innerHTML = '';
+  document.getElementById('results-count').textContent = '(0)';
+  document.getElementById('pagination').innerHTML = ''; // Clear pagination
+
+  // Show a loading indicator while fetching new data
+  toggleLoading(true); // Ensure loading is shown
+
+  // Reset any active filters
+  document.getElementById('job-status-filter').value = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('date-from').value = '';
+  document.getElementById('date-to').value = '';
+
+  // Reload invoices for the new organization
+  loadInitialInvoices(); // This should now use the updated window.tenantId
+
+  // Show a message to the user
+  showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
 }
 
 // Setup event listeners - simplified
@@ -1021,28 +1217,45 @@ async function getValidTokens() {
   return await checkAndRefreshTokens();
 }
 
-// Clear authentication data (both cookies and localStorage)
+// Clear authentication data (cookies and localStorage)
 function clearCookies() {
-  // Clear cookies
+  // Clear cookies (keep for potential other uses, but primary auth is localStorage now)
   document.cookie = "xero_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
   document.cookie = "xero_tenant_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
   document.cookie = "xero_tenant_name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
   document.cookie = "xero_user_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=lax";
-  
-  // Clear localStorage
+
+  // Clear localStorage items used for auth and tenant management
   localStorage.removeItem('xero_authenticated');
-  localStorage.removeItem('xero_tenant_id');
-  localStorage.removeItem('xero_tenant_name');
+  localStorage.removeItem('xero_tenant_id'); // Ensure this is cleared
+  localStorage.removeItem('xero_tenant_name'); // Ensure this is cleared
   localStorage.removeItem('xero_tenants');
   localStorage.removeItem('xero_tokens');
-  
+
   // Clear window variables
   window.tenantId = null;
   window.tenantName = null;
   window.xeroTenants = null;
   window.xeroTokens = null;
-  
-  console.log('All Xero authentication data cleared');
+
+  // Reset UI elements
+  const dropdown = document.getElementById('tenant-dropdown');
+  if (dropdown) {
+      dropdown.innerHTML = ''; // Clear dropdown options
+      dropdown.dataset.listenerAttached = 'false'; // Reset listener flag if used
+  }
+   document.getElementById('tenant-selector').classList.add('hidden'); // Hide selector
+
+   // Reset other parts of UI if necessary
+    document.getElementById('results-list').innerHTML = '';
+    document.getElementById('results-count').textContent = '(0)';
+    document.getElementById('pagination').innerHTML = '';
+    document.getElementById('detail-section').classList.add('hidden');
+    document.getElementById('results-section').classList.add('hidden');
+    document.getElementById('search-section').classList.add('hidden'); // Hide search section
+
+
+  console.log('All Xero authentication data cleared from localStorage and cookies.');
 }
 
 // Cookie helper functions
@@ -1192,73 +1405,124 @@ function applyJobStatusFilter(statusFilter) {
 // NEW CODE - Replace with this updated function
 function displayFilteredResults() {
   const resultsList = document.getElementById('results-list');
-  resultsList.innerHTML = '';
-  
+  resultsList.innerHTML = ''; // Clear previous results first
+
   // Add a small loading indicator
   const loadingElement = document.createElement('div');
   loadingElement.className = 'loading-indicator';
-  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div>';
+  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Applying filter...</p>';
   resultsList.appendChild(loadingElement);
-  
-  
-  // Update count
+
+
+  // Update count based on window.filteredResults
   const resultsCount = document.getElementById('results-count');
   const filteredCount = window.filteredResults ? window.filteredResults.length : 0;
   resultsCount.textContent = `(${filteredCount})`;
-  
+  console.log(`Displaying filtered results. Count: ${filteredCount}`);
+
+
   // If no results after filtering
   if (!window.filteredResults || window.filteredResults.length === 0) {
-    resultsList.innerHTML = `<div class="message info">No matching invoices found.</div>`;
+    resultsList.innerHTML = `<div class="message info">No matching invoices found for this filter.</div>`;
+    updatePagination(); // Update pagination (will likely show 0 pages)
     return;
   }
-  
-  // Generate a cache key for filtered results
-  const cacheKey = `filtered_${currentPage}_${document.getElementById('job-status-filter').value || 'all'}`;
-  
+
+  // Generate a cache key for filtered results including tenantId
+  // Note: The job status filter value is implicitly part of window.filteredResults,
+  // but we include it in the key for clarity and robustness.
+  const jobStatusFilterValue = document.getElementById('job-status-filter').value || 'all';
+  const cacheKey = `filtered_${window.tenantId}_${currentPage}_${jobStatusFilterValue}`;
+  console.log(`Checking cache for filtered key: ${cacheKey}`);
+
   // Check if we already have this page cached
   if (cachedPages[cacheKey]) {
     console.log('Using cached filtered page:', cacheKey);
-    resultsList.innerHTML = cachedPages[cacheKey];
-    
+    resultsList.innerHTML = cachedPages[cacheKey]; // Replace loading indicator
+
     // Re-attach click event listeners
     const items = resultsList.querySelectorAll('.result-item[data-id]');
     items.forEach(item => {
       const invoiceId = item.dataset.id;
       if (invoiceId) {
-        item.addEventListener('click', () => showInvoiceDetail(invoiceId));
+         item.removeEventListener('click', showInvoiceDetailById); // Use named handler
+         item.addEventListener('click', showInvoiceDetailById);
       }
     });
-    
+
+     // Restore scroll position or scroll to top
+    if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
+         console.log(`Restoring scroll position to ${window.lastScrollPosition}`);
+         setTimeout(() => window.scrollTo(0, window.lastScrollPosition), 50);
+         window.lastScrollPosition = 0;
+    } else {
+        console.log("Scrolling to top of filtered results.");
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Update last page viewed
+    window.lastPageViewed = currentPage;
+
     // Update pagination controls
     updatePagination();
     return;
   }
-  
-  // Calculate pagination
+
+  console.log('Cache miss for filtered page, generating:', cacheKey);
+
+  // Calculate pagination based on filtered results
+  const totalFilteredResults = window.filteredResults.length;
+  const totalPages = Math.ceil(totalFilteredResults / resultsPerPage);
   const startIndex = (currentPage - 1) * resultsPerPage;
-  const endIndex = Math.min(startIndex + resultsPerPage, window.filteredResults.length);
+  const endIndex = Math.min(startIndex + resultsPerPage, totalFilteredResults);
   const pageResults = window.filteredResults.slice(startIndex, endIndex);
-  
+
   // Clear loading indicator
   resultsList.innerHTML = '';
-  
-  // Display the filtered items
+
+
+  // Display the filtered items for the current page
+  const pageContent = document.createDocumentFragment();
   pageResults.forEach(invoice => {
-    const item = createInvoiceItem(invoice);
-    resultsList.appendChild(item);
+     try {
+         const item = createInvoiceItem(invoice); // Use createInvoiceItem
+         pageContent.appendChild(item);
+     } catch (error) {
+         console.error("Error rendering filtered invoice:", error, invoice);
+         const errorItem = document.createElement('div');
+         errorItem.className = 'result-item message error';
+         errorItem.textContent = `Error displaying invoice ${invoice.InvoiceNumber || invoice.InvoiceID || '(Unknown ID)'}`;
+         pageContent.appendChild(errorItem);
+     }
   });
-  
+  resultsList.appendChild(pageContent);
+
+
   // Cache this filtered page
   cachedPages[cacheKey] = resultsList.innerHTML;
-  
-  // Use our standard pagination function
-  updatePagination();
-  
-  // Add a simple transition in
+   console.log('Filtered page cached:', cacheKey);
+
+
+   // Update last page viewed (only needed if not restoring scroll)
+   // window.lastPageViewed = currentPage;
+
+   // Scroll to top if not restoring scroll position
+   if (!window.lastScrollPosition || currentPage !== window.lastPageViewed) {
+        console.log("Scrolling to top after generating filtered page.");
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+   }
+   window.lastScrollPosition = 0; // Reset scroll position tracking
+
+
+  // Add a simple transition effect (optional)
   resultsList.style.opacity = '0';
   setTimeout(() => {
     resultsList.style.opacity = '1';
   }, 50);
+
+
+  // Update pagination controls using the standard function
+  updatePagination();
 }
 
 async function loadInvoicesByStatus(status) {
@@ -1911,163 +2175,163 @@ function sortResults() {
 function displayResultItems() {
   const resultsList = document.getElementById('results-list');
   const jobStatusFilter = document.getElementById('job-status-filter').value;
-  
-  // Add a small loading indicator
+
+  // Add a small loading indicator temporarily
   const loadingElement = document.createElement('div');
   loadingElement.className = 'loading-indicator';
-  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div>';
+  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Loading page...</p>';
+  // Prepend loading indicator if list is empty, otherwise append? Or just show it always briefly.
+  resultsList.innerHTML = ''; // Clear previous content before showing loading
   resultsList.appendChild(loadingElement);
-  
-  // Filter results by job status if needed
-  let filteredResults = currentResults;
+
+
+  // Filter results by job status if needed (using currentResults as the source)
+  let resultsToDisplay = currentResults;
   if (jobStatusFilter) {
-    filteredResults = currentResults.filter(invoice => {
+    resultsToDisplay = currentResults.filter(invoice => {
+      // Ensure getJobStatus handles PAID/ACCPAY invoices correctly (should return null)
       const status = getJobStatus(invoice);
       return status === jobStatusFilter;
     });
+     console.log(`Filtered by job status '${jobStatusFilter}', ${resultsToDisplay.length} results.`);
+  } else {
+      console.log(`No job status filter applied, using all ${currentResults.length} current results.`);
   }
-  
-  // Update count
-  document.getElementById('results-count').textContent = `(${filteredResults.length})`;
-  
-  // If no results after filtering
-  if (filteredResults.length === 0) {
-    resultsList.innerHTML = '<div class="message info">No invoices match the selected job status filter.</div>';
-    return;
-  }
-  
-  // Generate a cache key
-  const cacheKey = `${currentPage}_${jobStatusFilter || 'all'}`;
-  
+
+  // Update total count display (reflects filtered count if filter is active)
+  document.getElementById('results-count').textContent = `(${resultsToDisplay.length})`;
+
+  // Generate a cache key including the active tenant ID
+  const cacheKey = `${window.tenantId}_${currentPage}_${jobStatusFilter || 'all'}`;
+  console.log(`Checking cache for key: ${cacheKey}`);
+
+
   // Check if we already have this page cached
   if (cachedPages[cacheKey]) {
     console.log('Using cached page:', cacheKey);
-    resultsList.innerHTML = cachedPages[cacheKey];
-    
+    resultsList.innerHTML = cachedPages[cacheKey]; // Replace loading indicator with cached content
+
     // Re-attach click event listeners
     const items = resultsList.querySelectorAll('.result-item[data-id]');
     items.forEach(item => {
       const invoiceId = item.dataset.id;
       if (invoiceId) {
-        item.addEventListener('click', () => showInvoiceDetail(invoiceId));
+        // Avoid attaching multiple listeners if somehow cached HTML already had them (unlikely but safe)
+        item.removeEventListener('click', showInvoiceDetailById); // Use a named handler if possible
+        item.addEventListener('click', showInvoiceDetailById);
       }
     });
-    
-    // Restore scroll position if going back
-    if (window.lastScrollPosition && currentPage < window.lastPageViewed) {
+
+    // Restore scroll position if going back to a previously viewed page
+    if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
+        console.log(`Restoring scroll position to ${window.lastScrollPosition}`);
       setTimeout(() => {
         window.scrollTo(0, window.lastScrollPosition);
-      }, 100);
+        window.lastScrollPosition = 0; // Reset after restoring
+      }, 50); // Small delay to allow rendering
+    } else {
+        // If navigating to a new page (forward or direct jump), scroll to top of results
+        console.log("Scrolling to top of results.");
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
     }
-    
+
+
     // Update last page viewed
     window.lastPageViewed = currentPage;
+
+    // Update pagination controls (important!)
+    updatePagination(); // Needs to be called even when using cache
+
+    return; // Exit function, no need to regenerate
+  }
+
+   console.log('Cache miss, generating page:', cacheKey);
+
+  // Calculate pagination based on the potentially filtered results
+  const totalFilteredResults = resultsToDisplay.length;
+  const totalPages = Math.ceil(totalFilteredResults / resultsPerPage);
+  const startIndex = (currentPage - 1) * resultsPerPage;
+  const endIndex = Math.min(startIndex + resultsPerPage, totalFilteredResults);
+  const pageResults = resultsToDisplay.slice(startIndex, endIndex);
+
+
+  // Clear the loading indicator before adding actual items
+  resultsList.innerHTML = '';
+
+  // If no results for this page (either no results at all, or filter resulted in empty)
+  if (pageResults.length === 0) {
+    if (totalFilteredResults === 0) {
+         resultsList.innerHTML = `<div class="message info">No invoices match${jobStatusFilter ? ' the selected job status filter' : ' your criteria'}.</div>`;
+    } else {
+        // This case should ideally not happen with correct pagination logic, but handle it
+         resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
+    }
+     updatePagination(); // Still update pagination (it might show 0 pages)
     return;
   }
-  
-  // Calculate pagination
-  const startIndex = (currentPage - 1) * resultsPerPage;
-  const endIndex = Math.min(startIndex + resultsPerPage, filteredResults.length);
-  const pageResults = filteredResults.slice(startIndex, endIndex);
-  
-  // Clear the results list
-  resultsList.innerHTML = '';
-  
-  // Create result items
+
+
+  // Create result items for the current page
   const pageContent = document.createDocumentFragment();
-  
+
   pageResults.forEach(invoice => {
     try {
-      const item = document.createElement('div');
-      item.className = 'result-item';
-      
-      // Get job status and add appropriate class
-      const jobStatus = getJobStatus(invoice);
-      if (jobStatus) {
-        item.classList.add(jobStatus);
-      }
-      
-      // Safety check for invoice ID
-      if (invoice.InvoiceID) {
-        item.dataset.id = invoice.InvoiceID;
-      }
-      
-      // Format dates safely
-      const date = formatDate(invoice.Date);
-      const dueDate = formatDate(invoice.DueDate);
-      
-      // Calculate business days from invoice date to now
-      const invoiceDate = parseXeroDate(invoice.Date);
-      const businessDays = invoiceDate ? getBusinessDaysDifference(invoiceDate, new Date()) : null;
-      
-      // Create status badge based on age
-      let jobAgeHtml = '';
-      if (businessDays !== null) {
-        if (businessDays > 10) {
-          jobAgeHtml = `<div class="job-age job-overdue">Deadline: ${businessDays} business days</div>`;
-        } else if (businessDays >= 7) {
-          jobAgeHtml = `<div class="job-age job-approaching">Borderline: ${businessDays} business days</div>`;
-        } else {
-          jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
-        }
-      }
-
-      // Create HTML safely
-      item.innerHTML = `
-        <div class="result-header">
-          <div class="invoice-number">Invoice #${invoice.InvoiceNumber || 'N/A'}</div>
-          <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
-        </div>
-        <div class="result-details">
-          <div>
-            <span>Customer</span>
-            <span>${invoice.Contact && invoice.Contact.Name ? invoice.Contact.Name : 'N/A'}</span>
-          </div>
-          <div>
-            <span>Reference</span>
-            <span>${invoice.Reference || 'N/A'}</span>
-          </div>
-          <div>
-            <span>Date</span>
-            <span>${date}</span>
-            ${jobAgeHtml}
-          </div>
-          <div>
-            <span>Due Date</span>
-            <span>${dueDate}</span>
-          </div>
-          <div>
-            <span>Amount</span>
-            <span>${invoice.CurrencyCode || ''} ${invoice.Total ? invoice.Total.toFixed(2) : 'N/A'}</span>
-          </div>
-        </div>
-      `;
-      
-      // Add event listener if we have an invoice ID
-      if (invoice.InvoiceID) {
-        item.addEventListener('click', () => showInvoiceDetail(invoice.InvoiceID));
-      }
-      
+      // Use the existing createInvoiceItem function
+      const item = createInvoiceItem(invoice); // createInvoiceItem handles attaching listener
       pageContent.appendChild(item);
     } catch (error) {
       console.error("Error rendering invoice:", error, invoice);
+      // Optionally display a placeholder for the failed item
+       const errorItem = document.createElement('div');
+       errorItem.className = 'result-item message error';
+       errorItem.textContent = `Error displaying invoice ${invoice.InvoiceNumber || invoice.InvoiceID || '(Unknown ID)'}`;
+       pageContent.appendChild(errorItem);
     }
   });
-  
+
   // Add content to the results list
   resultsList.appendChild(pageContent);
-  
-  // Cache this page
+
+  // Cache this newly generated page HTML
   cachedPages[cacheKey] = resultsList.innerHTML;
-  
-  // Update last page viewed
-  window.lastPageViewed = currentPage;
-  
-  // Add a simple transition in
+  console.log('Page cached:', cacheKey);
+
+
+  // Update last page viewed (only needed if not restoring scroll)
+  // window.lastPageViewed = currentPage;
+
+  // If not restoring scroll, scroll to top
+  if (!window.lastScrollPosition || currentPage !== window.lastPageViewed) {
+        console.log("Scrolling to top after generating new page.");
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+  }
+   window.lastScrollPosition = 0; // Reset scroll position tracking after page load
+
+
+  // Add a simple transition effect (optional)
   resultsList.style.opacity = '0';
   setTimeout(() => {
     resultsList.style.opacity = '1';
-  }, 50);
+  }, 50); // Short delay for effect
+
+  // Update pagination controls AFTER rendering the page
+  updatePagination();
+}
+
+// Helper function to pass invoiceId to showInvoiceDetail
+// Add this helper function alongside others
+function showInvoiceDetailById(event) {
+    // Find the parent result-item element to get the data-id
+    let targetElement = event.target;
+    while (targetElement && !targetElement.classList.contains('result-item')) {
+        targetElement = targetElement.parentElement;
+    }
+    const invoiceId = targetElement ? targetElement.dataset.id : null;
+    if (invoiceId) {
+        showInvoiceDetail(invoiceId);
+    } else {
+        console.error("Could not find invoice ID for clicked item.");
+    }
 }
 
 // Update pagination controls
