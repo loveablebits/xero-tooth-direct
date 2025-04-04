@@ -621,9 +621,6 @@
       
       <div id="results-list"></div>
       
-      <div id="load-more-container" class="hidden" style="text-align: center; margin-top: 1.5rem;">
-        <button id="load-more-btn" class="btn secondary">Load More Invoices</button>
-      </div>
       
       <div id="pagination"></div>
     </section>
@@ -948,8 +945,6 @@ document.getElementById('sort-by').addEventListener('change', () => {
     document.getElementById('results-section').classList.remove('hidden');
   });
   
-  // Load more button
-  document.getElementById('load-more-btn').addEventListener('click', loadMoreInvoices);
 }
 
 // Check if tokens need refreshing
@@ -1199,12 +1194,6 @@ function displayFilteredResults() {
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
   
-  const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
-  
-  // Hide the standard load more button
-  document.getElementById('load-more-container').classList.add('hidden');
-  
   // Update count
   const resultsCount = document.getElementById('results-count');
   const filteredCount = window.filteredResults ? window.filteredResults.length : 0;
@@ -1227,18 +1216,8 @@ function displayFilteredResults() {
     resultsList.appendChild(item);
   });
   
-  // Create a single load more button
-  if (endIndex < window.filteredResults.length) {
-    const loadMoreBtn = document.createElement('button');
-    loadMoreBtn.textContent = `Load More (${endIndex} of ${window.filteredResults.length})`;
-    loadMoreBtn.className = 'btn secondary';
-    loadMoreBtn.addEventListener('click', () => {
-      currentPage++;
-      displayFilteredResults();
-    });
-    
-    pagination.appendChild(loadMoreBtn);
-  }
+  // Update pagination with Previous/Next buttons
+  updatePagination();
 }
 
 async function loadInvoicesByStatus(status) {
@@ -1360,77 +1339,7 @@ async function fetchAllPages(baseUrl, accessToken) {
 }
 
 // NEW CODE - Replace with this updated function
-function updatePagination() {
-  const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
-  
-  // Get the right set of results depending on whether we have a filter applied
-  const resultsToUse = window.filteredResults || currentResults;
-  
-  const totalPages = Math.ceil(resultsToUse.length / resultsPerPage);
-  
-  if (totalPages <= 1) return;
-  
-  // Create the pagination container with a flex layout
-  pagination.style.display = 'flex';
-  pagination.style.justifyContent = 'center';
-  pagination.style.gap = '10px';
-  pagination.style.marginTop = '20px';
-  
-  // Add Previous button if not on first page
-  if (currentPage > 1) {
-    const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous';
-    prevButton.className = 'btn secondary';
-    prevButton.addEventListener('click', () => {
-      // Save current scroll position before changing page
-      window.lastScrollPosition = window.scrollY;
-      
-      currentPage--;
-      if (window.filteredResults) {
-        displayFilteredResults();
-      } else {
-        displayResultItems();
-      }
-      
-      // Add a subtle transition effect
-      const resultsSection = document.getElementById('results-section');
-      resultsSection.style.opacity = '0.7';
-      setTimeout(() => {
-        resultsSection.style.opacity = '1';
-      }, 300);
-    });
-    pagination.appendChild(prevButton);
-  }
-  
-  // Next Page button
-  if (currentPage < totalPages) {
-    const nextButton = document.createElement('button');
-    nextButton.textContent = 'Next Page';
-    nextButton.className = 'btn primary';
-    nextButton.addEventListener('click', () => {
-      // Save current scroll position before changing page
-      window.lastScrollPosition = window.scrollY;
-      
-      currentPage++;
-      if (window.filteredResults) {
-        displayFilteredResults();
-      } else {
-        displayResultItems();
-      }
-      
-      // Add a subtle transition effect
-      const resultsSection = document.getElementById('results-section');
-      resultsSection.style.opacity = '0.7';
-      setTimeout(() => {
-        resultsSection.style.opacity = '1';
-        // Scroll to top of results on next page
-        resultsSection.scrollIntoView({ behavior: 'smooth' });
-      }, 300);
-    });
-    pagination.appendChild(nextButton);
-  }
-}
+
 
 function createInvoiceItem(invoice) {
   const item = document.createElement('div');
@@ -1508,49 +1417,6 @@ if (businessDays !== null) {
   return item;
 }
 
-async function loadMoreInvoices() {
-  try {
-    toggleLoading(true);
-    currentPage++;
-    
-    const tokens = await getValidTokens();
-    if (!tokens) return;
-    
-    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    url.searchParams.set('order', 'Date DESC');
-    url.searchParams.set('page', currentPage.toString());
-    url.searchParams.set('pageSize', '10');
-    
-    // Filter for ACCREC only
-    url.searchParams.append('where', `Type=="ACCREC"`);
-    
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-        'Xero-Tenant-Id': window.tenantId
-      }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.Invoices?.length) {
-        // Append new invoices to existing results
-        currentResults = [...currentResults, ...data.Invoices];
-        displayResults();
-        
-        // Hide "Load More" if fewer results than requested
-        document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
-      } else {
-        // No more results
-        document.getElementById('load-more-container').classList.add('hidden');
-      }
-    }
-  } catch (error) {
-    console.error("Error loading more invoices:", error);
-  } finally {
-    toggleLoading(false);
-  }
-}
 
 /**
  * Searches Xero for invoices and bills based on various criteria including
@@ -1651,8 +1517,9 @@ async function loadMoreInvoices() {
       
       displayResults();
       
-      // Show/hide load more button
-      document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 50);
+// Update pagination for search results
+updatePagination();
+
     } else {
       document.getElementById('results-section').classList.add('hidden');
       document.getElementById('load-more-container').classList.add('hidden');
@@ -1778,10 +1645,8 @@ const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
 function displayResults() {
   const resultsList = document.getElementById('results-list');
   
-  // Clear results only if it's the first page
-  if (currentPage === 1) {
-    resultsList.innerHTML = '';
-  }
+  // Always clear results when displaying a page
+  resultsList.innerHTML = '';
   
   const resultsSection = document.getElementById('results-section');
   const resultsCount = document.getElementById('results-count');
@@ -1805,8 +1670,8 @@ function displayResults() {
     displayResultItems();
   }
   
-  // IMPORTANT: Hide standard pagination controls - we'll use only the Load More button
-  document.getElementById('pagination').innerHTML = '';
+  // Update pagination to show Previous/Next buttons
+  updatePagination();
 }
 
 // Sort the current results
