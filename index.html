@@ -1328,62 +1328,121 @@ function updateUI(isAuthenticated) {
   }
 }
 
+// Modify loadInitialInvoices
 async function loadInitialInvoices() {
+  // Reset state for a fresh load (especially relevant when switching tenants)
+  currentResults = [];
+  window.filteredResults = null; // Clear any previous filters
+  currentPage = 1;
+  currentApiPage = 1; // Start API fetching from page 1
+  apiHasMorePages = true; // Assume more pages initially
+  isLoadingMoreApiData = false;
+  cachedPages = {}; // Clear cache for the new tenant/load
+
+  // Reset UI filters visually
+   document.getElementById('job-status-filter').value = '';
+   document.getElementById('search-input').value = '';
+   document.getElementById('date-from').value = '';
+   document.getElementById('date-to').value = '';
+
+
+  console.log("loadInitialInvoices: Fetching initial page for 'All' filter.");
+  toggleLoading(true); // Show loading indicator
+
   try {
-    toggleLoading(true);
-    const tokens = await getValidTokens();
-    if (!tokens) {
-      console.warn("No valid tokens available");
-      return;
-    }
-    
-    // Calculate date 45 days ago
-    const daysAgo = new Date();
-    daysAgo.setDate(daysAgo.getDate() - 45);
-    const formattedDate = daysAgo.toISOString().split('T')[0];
-    
-    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    // Filter for ACCREC only, exclude PAID
-    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`);
-    url.searchParams.set('order', 'Date DESC');
-    
-    // Fetch all pages of results
-    const allInvoices = await fetchAllPages(url.toString(), tokens.access_token);
-    
-    if (allInvoices.length > 0) {
-      currentResults = allInvoices;
-      currentPage = 1;
-      
-      // Count items in each category
-      const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
-      const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
-      const recent = currentResults.filter(invoice => getJobStatus(invoice) === 'recent').length;
-      
-      // Display the results section
+    // Fetch the *first page* (e.g., 100 items)
+    const initialData = await fetchInvoicePageApi(1, 100); // Use new helper function
+
+    if (initialData && initialData.invoices.length > 0) {
+      currentResults = initialData.invoices; // Store the first batch
+      apiHasMorePages = initialData.hasMore; // Update based on API response
+
+      console.log(`Fetched initial ${currentResults.length} invoices. API has more: ${apiHasMorePages}`);
+
+      // Display results section and count
       document.getElementById('results-section').classList.remove('hidden');
-      document.getElementById('results-count').textContent = `(${currentResults.length})`;
-      
-      // Display counts in a message
-      showMessage(`Found ${currentResults.length} sales invoices from last 45 days: ${overdue} deadline, ${approaching} borderline, ${recent} recent`, 'info');
-      
-      // Apply any active job status filter
-      const jobStatusFilter = document.getElementById('job-status-filter').value;
-      if (jobStatusFilter) {
-        window.filteredResults = currentResults.filter(invoice => getJobStatus(invoice) === jobStatusFilter);
-        displayFilteredResults();
-      } else {
-        // Sort and display all results
-        sortResults();
-      }
+      document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`; // Indicate loaded count initially
+
+      // Show message about initial load (optional)
+       const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
+       const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
+       showMessage(`Loaded initial ${currentResults.length} recent invoices (${overdue} deadline, ${approaching} borderline). More may load as you paginate.`, 'info');
+
+
+      // Sort and display the first client-side page (of 20)
+      sortResults(); // sortResults calls displayResultItems which handles pagination
+
     } else {
-      console.log("No invoices returned from API");
-      showMessage("No sales invoices found for the last 45 days", 'info');
+      console.log("No initial invoices returned from API.");
+      document.getElementById('results-section').classList.add('hidden'); // Hide results if none found
+      showMessage("No recent sales invoices found.", 'info');
+      apiHasMorePages = false; // No more pages if first fetch is empty
     }
   } catch (error) {
     console.error("Error loading initial invoices:", error);
-    showError("Error loading invoices: " + error.message);
+    showError("Error loading initial invoices: " + error.message);
+    document.getElementById('results-section').classList.add('hidden');
   } finally {
-    toggleLoading(false);
+    toggleLoading(false); // Hide loading indicator
+  }
+}
+
+// NEW Helper Function to fetch a single page from Xero API
+async function fetchInvoicePageApi(page, pageSize) {
+  console.log(`Fetching API page ${page}, size ${pageSize} for tenant ${window.tenantId}`);
+  if (!window.tenantId) throw new Error("Tenant ID is not set.");
+
+  const tokens = await getValidTokens();
+  if (!tokens) {
+    throw new Error('No valid authentication tokens available for API fetch.');
+  }
+
+  const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+  // --- Default Filters for "All" ---
+  // Calculate date 45 days ago for default view if needed, or adjust as required
+  const daysAgo = new Date();
+  daysAgo.setDate(daysAgo.getDate() - 45); // Adjust lookback period if needed
+  const formattedDate = daysAgo.toISOString().split('T')[0];
+  const whereClause = `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`;
+
+  url.searchParams.set('where', whereClause);
+  url.searchParams.set('order', 'Date DESC');
+  url.searchParams.set('page', page.toString());
+  url.searchParams.set('pageSize', pageSize.toString());
+  // --- End Default Filters ---
+
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
+
+    if (!response.ok) {
+       const errorText = await response.text();
+        try {
+           const errorData = JSON.parse(errorText);
+            throw new Error(errorData.message || `API Error ${response.status}: ${errorText}`);
+        } catch(e) {
+             throw new Error(`API Error ${response.status}: ${errorText}`);
+        }
+    }
+
+    const data = await response.json();
+    const invoices = data?.Invoices || [];
+    // Determine if more pages likely exist based on whether a full page was returned
+    const hasMore = invoices.length === pageSize;
+    console.log(`API page ${page} fetch complete. Got ${invoices.length} invoices. HasMore likely: ${hasMore}`);
+
+
+    return { invoices, hasMore };
+
+  } catch (error) {
+    console.error(`Error fetching API page ${page}:`, error);
+    // Rethrow or handle as appropriate for the calling function
+    throw error; // Let the caller handle the UI feedback
   }
 }
 
@@ -1402,24 +1461,21 @@ function applyJobStatusFilter(statusFilter) {
   
 }
 
-// NEW CODE - Replace with this updated function
+// Modify displayFilteredResults
 function displayFilteredResults() {
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = ''; // Clear previous results first
 
-  // Add a small loading indicator
   const loadingElement = document.createElement('div');
   loadingElement.className = 'loading-indicator';
-  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Applying filter...</p>';
+  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Rendering filtered page...</p>';
   resultsList.appendChild(loadingElement);
-
 
   // Update count based on window.filteredResults
   const resultsCount = document.getElementById('results-count');
   const filteredCount = window.filteredResults ? window.filteredResults.length : 0;
-  resultsCount.textContent = `(${filteredCount})`;
-  console.log(`Displaying filtered results. Count: ${filteredCount}`);
-
+  resultsCount.textContent = `(${filteredCount})`; // Show total count for this filter
+  console.log(`Displaying filtered results page ${currentPage}. Total for filter: ${filteredCount}`);
 
   // If no results after filtering
   if (!window.filteredResults || window.filteredResults.length === 0) {
@@ -1428,12 +1484,11 @@ function displayFilteredResults() {
     return;
   }
 
-  // Generate a cache key for filtered results including tenantId
-  // Note: The job status filter value is implicitly part of window.filteredResults,
-  // but we include it in the key for clarity and robustness.
-  const jobStatusFilterValue = document.getElementById('job-status-filter').value || 'all';
+  // Generate a cache key for filtered results including tenantId and status
+  const jobStatusFilterValue = document.getElementById('job-status-filter').value || 'none'; // Get current status filter
   const cacheKey = `filtered_${window.tenantId}_${currentPage}_${jobStatusFilterValue}`;
   console.log(`Checking cache for filtered key: ${cacheKey}`);
+
 
   // Check if we already have this page cached
   if (cachedPages[cacheKey]) {
@@ -1459,8 +1514,6 @@ function displayFilteredResults() {
         console.log("Scrolling to top of filtered results.");
         document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
     }
-
-    // Update last page viewed
     window.lastPageViewed = currentPage;
 
     // Update pagination controls
@@ -1470,16 +1523,27 @@ function displayFilteredResults() {
 
   console.log('Cache miss for filtered page, generating:', cacheKey);
 
-  // Calculate pagination based on filtered results
+  // Calculate pagination based on the *complete* filtered results
   const totalFilteredResults = window.filteredResults.length;
-  const totalPages = Math.ceil(totalFilteredResults / resultsPerPage);
+  // Ensure currentPage is valid
+   if (currentPage < 1) currentPage = 1;
+   const totalPages = Math.ceil(totalFilteredResults / resultsPerPage);
+   if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
+
+
   const startIndex = (currentPage - 1) * resultsPerPage;
   const endIndex = Math.min(startIndex + resultsPerPage, totalFilteredResults);
   const pageResults = window.filteredResults.slice(startIndex, endIndex);
 
-  // Clear loading indicator
-  resultsList.innerHTML = '';
 
+  resultsList.innerHTML = ''; // Clear loading indicator
+
+   if (pageResults.length === 0) {
+       // This should only happen if filteredResults is empty, handled above
+       resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
+       updatePagination();
+       return;
+   }
 
   // Display the filtered items for the current page
   const pageContent = document.createDocumentFragment();
@@ -1500,11 +1564,8 @@ function displayFilteredResults() {
 
   // Cache this filtered page
   cachedPages[cacheKey] = resultsList.innerHTML;
-   console.log('Filtered page cached:', cacheKey);
+  console.log('Filtered page cached:', cacheKey);
 
-
-   // Update last page viewed (only needed if not restoring scroll)
-   // window.lastPageViewed = currentPage;
 
    // Scroll to top if not restoring scroll position
    if (!window.lastScrollPosition || currentPage !== window.lastPageViewed) {
@@ -1512,208 +1573,286 @@ function displayFilteredResults() {
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
    }
    window.lastScrollPosition = 0; // Reset scroll position tracking
-
-
-  // Add a simple transition effect (optional)
-  resultsList.style.opacity = '0';
-  setTimeout(() => {
-    resultsList.style.opacity = '1';
-  }, 50);
+    window.lastPageViewed = currentPage;
 
 
   // Update pagination controls using the standard function
   updatePagination();
 }
 
+// Modify loadInvoicesByStatus
 async function loadInvoicesByStatus(status) {
+  console.log(`loadInvoicesByStatus called for: ${status}`);
+  toggleLoading(true);
+  window.filteredResults = null; // Clear previous specific filter results
+  currentResults = []; // Clear general results too
+  currentPage = 1; // Reset to page 1 for the filter
+  cachedPages = {}; // Clear cache for the filter
+
   try {
     const tokens = await getValidTokens();
     if (!tokens) throw new Error('No valid authentication tokens available');
-    
-    let daysToLookBack;
-    
-    // Adjust calendar days to ensure we catch all relevant invoices based on business days
-    if (status === 'overdue') {
-      daysToLookBack = 90; // Look back 90 calendar days for overdue jobs (>10 business days)
-    } else if (status === 'approaching') {
-      daysToLookBack = 30; // Look back 30 calendar days for approaching deadline jobs (7-10 business days)
+
+    let daysToLookBackCalendar;
+    let statusName = '';
+
+    // Estimate calendar lookback days needed to capture business days
+    if (status === 'overdue') { // >10 business days
+      daysToLookBackCalendar = 60; // Look back ~2 months calendar days (adjust as needed)
+      statusName = 'deadline';
+    } else if (status === 'approaching') { // 7-10 business days
+      daysToLookBackCalendar = 30; // Look back ~1 month calendar days (adjust as needed)
+       statusName = 'borderline';
     } else {
-      daysToLookBack = 21; // Recent jobs within 21 calendar days
+       throw new Error(`Invalid status provided: ${status}`); // Should not happen
     }
-    
-    // Calculate the date to look back to
+
+    // Calculate the estimated start date for the API query
     const lookBackDate = new Date();
-    lookBackDate.setDate(lookBackDate.getDate() - daysToLookBack);
+    lookBackDate.setDate(lookBackDate.getDate() - daysToLookBackCalendar);
     const formattedDate = lookBackDate.toISOString().split('T')[0];
-    
+
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    
-    // Build where clause - only ACCREC invoices, not PAID, within date range
+    // Build where clause - non-paid ACCREC within estimated date range
     let whereClause = `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`;
-    
     url.searchParams.set('where', whereClause);
-    url.searchParams.set('order', 'Date DESC');
-    
-    // Use a paged approach to handle large result sets
-    const allInvoices = await fetchAllPages(url.toString(), tokens.access_token);
-    
-    if (allInvoices.length > 0) {
-      // Store the full results
-      const filteredResults = allInvoices.filter(invoice => {
-        return getJobStatus(invoice) === status;
+    url.searchParams.set('order', 'Date DESC'); // Keep order consistent
+
+    console.log(`Fetching all potential '${statusName}' invoices since ${formattedDate} using fetchAllPages...`);
+
+    // Fetch ALL potential candidates using fetchAllPages
+    const allPotentialInvoices = await fetchAllPages(url.toString(), tokens.access_token);
+
+    console.log(`Fetched ${allPotentialInvoices.length} potential invoices. Now filtering by business days...`);
+
+
+    if (allPotentialInvoices.length > 0) {
+      // Apply the precise business day filter *client-side*
+      const accuratelyFilteredInvoices = allPotentialInvoices.filter(invoice => {
+        return getJobStatus(invoice) === status; // 'overdue' or 'approaching'
       });
-      
-      window.filteredResults = filteredResults;
-      currentPage = 1;
-      displayFilteredResults();
-      
-      showMessage(`Found ${filteredResults.length} ${status === 'overdue' ? 'deadline' : 'borderline'} invoices from the last ${daysToLookBack} days.`, 'info');
+
+      console.log(`Filtered down to ${accuratelyFilteredInvoices.length} actual '${statusName}' invoices.`);
+
+       // Store the *complete* filtered list
+      window.filteredResults = accuratelyFilteredInvoices;
+
+
+      if (window.filteredResults.length > 0) {
+        document.getElementById('results-section').classList.remove('hidden');
+        // Display the results count based on the final filtered list
+         document.getElementById('results-count').textContent = `(${window.filteredResults.length})`;
+        showMessage(`Found ${window.filteredResults.length} ${statusName} invoices.`, 'info');
+         // Display the first page of the filtered results
+        displayFilteredResults(); // This function paginates window.filteredResults
+      } else {
+          // No invoices matched the business day criteria after fetching
+          window.filteredResults = []; // Ensure it's an empty array
+          document.getElementById('results-section').classList.remove('hidden'); // Show section to display message
+          document.getElementById('results-list').innerHTML = `<div class="message info">No ${statusName} invoices found matching the criteria.</div>`;
+          document.getElementById('results-count').textContent = '(0)';
+          document.getElementById('pagination').innerHTML = ''; // Clear pagination
+      }
+
     } else {
+      // fetchAllPages returned nothing within the calendar date range
       window.filteredResults = [];
-      const resultsList = document.getElementById('results-list');
-      resultsList.innerHTML = `<div class="message info">No ${status === 'overdue' ? 'deadline' : 'borderline'} invoices found in the last ${daysToLookBack} days.</div>`;
-      document.getElementById('results-count').textContent = '(0)';
+      document.getElementById('results-section').classList.add('hidden');
+      showMessage(`No invoices found within the last ${daysToLookBackCalendar} days to check for ${statusName} status.`, 'info');
+       document.getElementById('results-count').textContent = '(0)';
+       document.getElementById('pagination').innerHTML = ''; // Clear pagination
     }
   } catch (error) {
-    console.error("Error loading invoices by status:", error);
-    throw error;
+    console.error(`Error loading invoices by status (${status}):`, error);
+    showError(`Error loading ${status} invoices: ${error.message}`);
+     document.getElementById('results-section').classList.add('hidden');
+  } finally {
+    toggleLoading(false);
   }
 }
 
-// Function to fetch all pages of results while respecting rate limits
+// Modify fetchAllPages to show better progress
 async function fetchAllPages(baseUrl, accessToken) {
   let page = 1;
-  const pageSize = 100;
+  const pageSize = 100; // Keep Xero page size reasonable
   let allResults = [];
   let hasMorePages = true;
-  
-  // Show progress message
+  let initialMessageShown = false;
+
+  // Show initial message only once
   showMessage("Fetching invoices, please wait...", "info");
-  
+  initialMessageShown = true;
+  toggleLoading(true); // Ensure main loading spinner is visible
+
+
   while (hasMorePages) {
     try {
-      // Add page parameters
       const url = new URL(baseUrl);
       url.searchParams.set('page', page.toString());
       url.searchParams.set('pageSize', pageSize.toString());
-      
+
       const response = await fetch(url.toString(), {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Xero-Tenant-Id': window.tenantId
         }
       });
-      
+
       if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
+         const errorText = await response.text();
+         throw new Error(`API Error ${response.status}: ${errorText}`);
       }
-      
+
       const data = await response.json();
       const invoices = data?.Invoices || [];
-      
+
       if (invoices.length > 0) {
         allResults = [...allResults, ...invoices];
-        
-        // Update progress message
-        showMessage(`Fetched ${allResults.length} invoices so far...`, "info");
-        
-        // Check if we need to continue paging
+
+        // Update progress message periodically
+        if (allResults.length % (pageSize * 2) === 0 || invoices.length < pageSize) { // Update every ~200 or on last page
+           showMessage(`Fetched ${allResults.length} invoices so far...`, "info");
+        }
+
+
         hasMorePages = invoices.length === pageSize;
         page++;
-        
-        // Add a small delay to respect rate limits
-        if (hasMorePages) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
+
+        // Optional: Add smaller delay if needed, but focus on user feedback
+        // await new Promise(resolve => setTimeout(resolve, 100));
+
       } else {
         hasMorePages = false;
       }
-      
-      // Safety limit - don't fetch more than 500 invoices total to avoid rate limits
-      if (allResults.length >= 500) {
-        showMessage(`Limiting results to 500 invoices to respect Xero's rate limits`, "info");
+
+      // Safety limit (keep or adjust)
+      if (allResults.length >= 1000) { // Increased limit slightly, adjust based on typical volume
+        showMessage(`Limiting results to ${allResults.length} invoices to optimize performance. Refine search if needed.`, "warning");
         hasMorePages = false;
       }
     } catch (error) {
       console.error(`Error fetching page ${page}:`, error);
-      hasMorePages = false;
+       showError(`Error fetching invoice data (page ${page}): ${error.message}. Partial results shown.`); // Inform user
+      hasMorePages = false; // Stop fetching on error
     }
   }
-  
+
+  // Hide loading spinner *after* loop finishes or breaks
+  toggleLoading(false);
+   // Hide the progress message after a short delay
+   setTimeout(() => {
+       const msgElement = document.getElementById('error-message');
+       if(msgElement.textContent.includes("Fetching") || msgElement.textContent.includes("Fetched")) {
+           msgElement.classList.add('hidden');
+       }
+   }, 2000);
+
+
+  console.log(`fetchAllPages finished. Total fetched: ${allResults.length}`);
   return allResults;
 }
 
-// Keep only this version of the function
+// Modify updatePagination
 function updatePagination() {
   const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
-  
-  // Get the right set of results depending on whether we have a filter applied
-  const resultsToUse = window.filteredResults || currentResults;
-  
-  const totalPages = Math.ceil(resultsToUse.length / resultsPerPage);
-  
-  if (totalPages <= 1) return;
-  
-  // Create the pagination container with a flex layout
+  pagination.innerHTML = ''; // Clear existing buttons
+
+  let resultsToUse;
+  let totalResultsCount;
+  let totalPages;
+  const isJobFilterActive = document.getElementById('job-status-filter').value;
+  const isSpecificFilterActive = window.filteredResults !== null && window.filteredResults !== undefined;
+
+  if (isJobFilterActive && isSpecificFilterActive) {
+    // Using specific status filter results (Borderline/Deadline)
+    resultsToUse = window.filteredResults;
+    totalResultsCount = resultsToUse.length;
+    totalPages = Math.ceil(totalResultsCount / resultsPerPage);
+    console.log(`Pagination: Using filteredResults. Total: ${totalResultsCount}, Pages: ${totalPages}`);
+  } else {
+    // Using "All" filter results (dynamically loaded)
+    resultsToUse = currentResults;
+    totalResultsCount = resultsToUse.length; // Count of currently *loaded* items
+
+    // Estimate total pages: If we know there are more pages from the API,
+    // calculate pages based on loaded data BUT ensure 'Next' can be shown.
+    // If apiHasMorePages is true, we know there's at least one more page than currently loaded data shows.
+     if (apiHasMorePages) {
+         // Calculate pages based on loaded data, but add 1 conceptually for 'Next' button logic
+         totalPages = Math.ceil(totalResultsCount / resultsPerPage) + 1; // Add 1 to ensure 'Next' can appear
+         console.log(`Pagination: Using currentResults (API has more). Loaded: ${totalResultsCount}, Estimated Pages: ${totalPages}`);
+     } else {
+          // API has no more pages, calculate exactly based on loaded data
+         totalPages = Math.ceil(totalResultsCount / resultsPerPage);
+          console.log(`Pagination: Using currentResults (API complete). Total: ${totalResultsCount}, Pages: ${totalPages}`);
+     }
+
+  }
+
+   // Handle case where totalPages might be 0
+   if (totalPages <= 1 && !(isJobFilterActive && isSpecificFilterActive) && !apiHasMorePages) {
+        console.log("Pagination: Not needed (<= 1 page and API complete or no filter results).");
+       return; // No pagination needed if only one page or less and no more API pages
+   }
+
+
+  // Create the pagination container styling (already exists)
   pagination.style.display = 'flex';
   pagination.style.justifyContent = 'center';
   pagination.style.gap = '10px';
   pagination.style.marginTop = '20px';
-  
-  // Add Previous button if not on first page
-  if (currentPage > 1) {
-    const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous';
-    prevButton.className = 'btn secondary';
-    prevButton.addEventListener('click', () => {
-      // Save current scroll position before changing page
-      window.lastScrollPosition = window.scrollY;
-      
+
+  // --- Previous Button ---
+  const prevButton = document.createElement('button');
+  prevButton.textContent = 'Previous';
+  prevButton.className = 'btn secondary';
+  prevButton.disabled = currentPage === 1; // Disable on first page
+  prevButton.addEventListener('click', () => {
+    if (currentPage > 1) {
+      window.lastScrollPosition = window.scrollY; // Save scroll before navigating
       currentPage--;
-      if (window.filteredResults) {
-        displayFilteredResults();
+      if (isJobFilterActive && isSpecificFilterActive) {
+        displayFilteredResults(); // Use filtered display function
       } else {
-        displayResultItems();
+        displayResultItems(); // Use default display function for "All"
       }
-      
-      // Add a subtle transition effect
-      const resultsSection = document.getElementById('results-section');
-      resultsSection.style.opacity = '0.7';
-      setTimeout(() => {
-        resultsSection.style.opacity = '1';
-      }, 300);
-    });
-    pagination.appendChild(prevButton);
-  }
-  
-  // Next Page button
-  if (currentPage < totalPages) {
-    const nextButton = document.createElement('button');
-    nextButton.textContent = 'Next Page';
-    nextButton.className = 'btn primary';
-    nextButton.addEventListener('click', () => {
-      // Save current scroll position before changing page
-      window.lastScrollPosition = window.scrollY;
-      
-      currentPage++;
-      if (window.filteredResults) {
-        displayFilteredResults();
-      } else {
-        displayResultItems();
-      }
-      
-      // Add a subtle transition effect
-      const resultsSection = document.getElementById('results-section');
-      resultsSection.style.opacity = '0.7';
-      setTimeout(() => {
-        resultsSection.style.opacity = '1';
-        // Scroll to top of results on next page
-        resultsSection.scrollIntoView({ behavior: 'smooth' });
-      }, 300);
-    });
-    pagination.appendChild(nextButton);
-  }
+      // Optional transition effect (can be added back if desired)
+    }
+  });
+  pagination.appendChild(prevButton);
+
+
+  // --- Next Button ---
+   const nextButton = document.createElement('button');
+   nextButton.textContent = 'Next Page';
+   nextButton.className = 'btn primary';
+
+    // Determine if 'Next' should be enabled
+    let hasNextPage = false;
+    if (isJobFilterActive && isSpecificFilterActive) {
+        // For filtered results, enable if current page is less than total calculated pages
+        hasNextPage = currentPage < totalPages;
+    } else {
+        // For "All" results, enable if there are more items loaded than shown OR if API has more pages
+        hasNextPage = (currentPage * resultsPerPage < totalResultsCount) || apiHasMorePages;
+    }
+
+   nextButton.disabled = !hasNextPage; // Disable if there's no next page
+
+   nextButton.addEventListener('click', () => {
+      if (hasNextPage) { // Check again just in case state changed
+            window.lastScrollPosition = window.scrollY; // Save scroll
+            currentPage++;
+             if (isJobFilterActive && isSpecificFilterActive) {
+                displayFilteredResults();
+            } else {
+                 // For "All", displayResultItems will handle fetching more API data if needed
+                displayResultItems();
+            }
+             // Optional transition effect & scroll to top (already in display functions)
+       }
+   });
+   pagination.appendChild(nextButton);
 }
 
 function createInvoiceItem(invoice) {
@@ -2172,147 +2311,209 @@ function sortResults() {
   updatePagination();
 }
 
-function displayResultItems() {
+// Modify displayResultItems
+async function displayResultItems() {
   const resultsList = document.getElementById('results-list');
-  const jobStatusFilter = document.getElementById('job-status-filter').value;
+  const jobStatusFilter = document.getElementById('job-status-filter').value; // Check if "All" is active
 
-  // Add a small loading indicator temporarily
+  // --- Check if more data needs to be fetched from API (ONLY for "All" filter) ---
+  const isAllFilterActive = !jobStatusFilter && !window.filteredResults; // Check if we're in the "All" state
+  const requiredIndex = (currentPage - 1) * resultsPerPage;
+
+  if (isAllFilterActive && requiredIndex >= currentResults.length && apiHasMorePages && !isLoadingMoreApiData) {
+    isLoadingMoreApiData = true; // Set loading flag
+    toggleLoading(true); // Show global loading indicator
+    showMessage("Loading more invoices from Xero...", "info");
+    console.log(`Need data beyond index ${currentResults.length}, fetching API page ${currentApiPage + 1}`);
+    try {
+      const nextPageData = await fetchInvoicePageApi(currentApiPage + 1, 100);
+      currentResults = [...currentResults, ...nextPageData.invoices]; // Append new results
+      currentApiPage++; // Increment API page tracker
+      apiHasMorePages = nextPageData.hasMore; // Update hasMore status
+      console.log(`Appended ${nextPageData.invoices.length}. Total loaded: ${currentResults.length}. API has more: ${apiHasMorePages}`);
+      // Update count display to reflect newly loaded items
+      document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`;
+
+    } catch (error) {
+      showError(`Failed to load more invoices: ${error.message}`);
+      // Decide how to proceed - maybe stop pagination?
+      apiHasMorePages = false; // Assume no more can be loaded on error
+    } finally {
+      isLoadingMoreApiData = false; // Reset loading flag
+      toggleLoading(false); // Hide global loading indicator
+       // Hide the temporary message after a short delay
+       setTimeout(() => {
+           const msgElement = document.getElementById('error-message');
+           if(msgElement.textContent.includes("Loading more invoices")) {
+               msgElement.classList.add('hidden');
+           }
+       }, 1500);
+    }
+  }
+  // --- End API data fetching logic ---
+
+
+  // --- Continue with displaying items from currentResults ---
+  resultsList.innerHTML = ''; // Clear list before displaying current page
+
   const loadingElement = document.createElement('div');
   loadingElement.className = 'loading-indicator';
-  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Loading page...</p>';
-  // Prepend loading indicator if list is empty, otherwise append? Or just show it always briefly.
-  resultsList.innerHTML = ''; // Clear previous content before showing loading
+  loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Rendering page...</p>';
   resultsList.appendChild(loadingElement);
 
 
-  // Filter results by job status if needed (using currentResults as the source)
-  let resultsToDisplay = currentResults;
-  if (jobStatusFilter) {
-    resultsToDisplay = currentResults.filter(invoice => {
-      // Ensure getJobStatus handles PAID/ACCPAY invoices correctly (should return null)
-      const status = getJobStatus(invoice);
-      return status === jobStatusFilter;
-    });
-     console.log(`Filtered by job status '${jobStatusFilter}', ${resultsToDisplay.length} results.`);
+  // Use currentResults as the source for "All" filter display
+  const resultsToDisplay = currentResults; // Use the potentially updated currentResults
+
+  // Update total count display (reflects loaded count for "All")
+  if (isAllFilterActive) {
+     document.getElementById('results-count').textContent = `(${resultsToDisplay.length}${apiHasMorePages ? '+ loaded' : ' total'})`;
   } else {
-      console.log(`No job status filter applied, using all ${currentResults.length} current results.`);
+      // Should not happen if called correctly, displayFilteredResults handles other cases
+      console.warn("displayResultItems called unexpectedly when a filter might be active.");
+      document.getElementById('results-count').textContent = `(${resultsToDisplay.length})`;
   }
 
-  // Update total count display (reflects filtered count if filter is active)
-  document.getElementById('results-count').textContent = `(${resultsToDisplay.length})`;
 
   // Generate a cache key including the active tenant ID
-  const cacheKey = `${window.tenantId}_${currentPage}_${jobStatusFilter || 'all'}`;
-  console.log(`Checking cache for key: ${cacheKey}`);
+  // Cache key might need refinement if mixing API pagination and client pagination
+  // For simplicity here, let's cache based on the client page number of loaded data
+   const cacheKey = `${window.tenantId}_page_${currentPage}_all`; // Simple key for "All" state
+   console.log(`Checking cache for key: ${cacheKey}`);
 
 
-  // Check if we already have this page cached
-  if (cachedPages[cacheKey]) {
-    console.log('Using cached page:', cacheKey);
-    resultsList.innerHTML = cachedPages[cacheKey]; // Replace loading indicator with cached content
-
-    // Re-attach click event listeners
-    const items = resultsList.querySelectorAll('.result-item[data-id]');
-    items.forEach(item => {
-      const invoiceId = item.dataset.id;
-      if (invoiceId) {
-        // Avoid attaching multiple listeners if somehow cached HTML already had them (unlikely but safe)
-        item.removeEventListener('click', showInvoiceDetailById); // Use a named handler if possible
-        item.addEventListener('click', showInvoiceDetailById);
-      }
-    });
-
-    // Restore scroll position if going back to a previously viewed page
-    if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
-        console.log(`Restoring scroll position to ${window.lastScrollPosition}`);
-      setTimeout(() => {
-        window.scrollTo(0, window.lastScrollPosition);
-        window.lastScrollPosition = 0; // Reset after restoring
-      }, 50); // Small delay to allow rendering
-    } else {
-        // If navigating to a new page (forward or direct jump), scroll to top of results
-        console.log("Scrolling to top of results.");
-        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
-    }
+  // NOTE: Caching with dynamically loaded API pages gets complex.
+  // For now, let's *disable caching* when the "All" filter is active to ensure freshness,
+  // or implement a more sophisticated cache invalidation strategy.
+  // Disabling cache for "All" filter:
+  const useCache = !isAllFilterActive; // Only use cache if NOT in "All" state
 
 
-    // Update last page viewed
-    window.lastPageViewed = currentPage;
+  if (useCache && cachedPages[cacheKey]) {
+     // ... (Keep existing cache logic here if needed for other scenarios, but it's likely displayFilteredResults covers those) ...
+     console.log('Using cached page (non-"All" scenario):', cacheKey);
+     resultsList.innerHTML = cachedPages[cacheKey];
+     // Re-attach listeners etc.
+      const items = resultsList.querySelectorAll('.result-item[data-id]');
+      items.forEach(item => {
+         const invoiceId = item.dataset.id;
+         if (invoiceId) {
+            item.removeEventListener('click', showInvoiceDetailById);
+            item.addEventListener('click', showInvoiceDetailById);
+         }
+      });
 
-    // Update pagination controls (important!)
-    updatePagination(); // Needs to be called even when using cache
-
-    return; // Exit function, no need to regenerate
+      // Scroll/restore logic...
+        if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
+            setTimeout(() => window.scrollTo(0, window.lastScrollPosition), 50);
+             window.lastScrollPosition = 0;
+        } else {
+             document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+        window.lastPageViewed = currentPage;
+        updatePagination(); // Update pagination based on cached view
+        return; // Exit
   }
 
-   console.log('Cache miss, generating page:', cacheKey);
+  console.log('Generating page content (cache disabled or miss):', cacheKey);
 
-  // Calculate pagination based on the potentially filtered results
-  const totalFilteredResults = resultsToDisplay.length;
-  const totalPages = Math.ceil(totalFilteredResults / resultsPerPage);
+
+  // Calculate pagination for the *currently loaded* data in currentResults
+  const totalLoadedResults = resultsToDisplay.length;
   const startIndex = (currentPage - 1) * resultsPerPage;
-  const endIndex = Math.min(startIndex + resultsPerPage, totalFilteredResults);
-  const pageResults = resultsToDisplay.slice(startIndex, endIndex);
+  // Ensure startIndex is valid even if data just loaded
+  if (startIndex >= totalLoadedResults && totalLoadedResults > 0) {
+      console.warn(`startIndex ${startIndex} is out of bounds for loaded results ${totalLoadedResults}. Resetting to page 1.`);
+      currentPage = 1; // Reset to page 1 if out of bounds
+      // Re-call displayResultItems to render page 1 correctly? Or adjust startIndex?
+      // Safest might be to adjust startIndex for this render pass:
+       // startIndex = 0; // Display first page instead
+       // Better: Re-trigger display for page 1. Let's adjust start/end for now.
+       const adjustedStartIndex = Math.max(0, totalLoadedResults - resultsPerPage); // Show last available page
+       const adjustedEndIndex = totalLoadedResults;
+       currentPage = Math.floor(adjustedStartIndex / resultsPerPage) + 1; // Update current page number
+
+        console.log(`Adjusted display to page ${currentPage}, startIndex ${adjustedStartIndex}`);
+       const pageResults = resultsToDisplay.slice(adjustedStartIndex, adjustedEndIndex);
+       resultsList.innerHTML = ''; // Clear loading indicator
 
 
-  // Clear the loading indicator before adding actual items
-  resultsList.innerHTML = '';
+        if (pageResults.length === 0 && totalLoadedResults === 0) {
+             resultsList.innerHTML = `<div class="message info">No invoices loaded yet.</div>`;
+             updatePagination();
+             return;
+        } else if (pageResults.length === 0) {
+             resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
+             updatePagination();
+             return;
+        }
 
-  // If no results for this page (either no results at all, or filter resulted in empty)
-  if (pageResults.length === 0) {
-    if (totalFilteredResults === 0) {
-         resultsList.innerHTML = `<div class="message info">No invoices match${jobStatusFilter ? ' the selected job status filter' : ' your criteria'}.</div>`;
-    } else {
-        // This case should ideally not happen with correct pagination logic, but handle it
-         resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
-    }
-     updatePagination(); // Still update pagination (it might show 0 pages)
-    return;
+        // Render adjusted page results
+        const pageContent = document.createDocumentFragment();
+        pageResults.forEach(invoice => {
+             try {
+                 const item = createInvoiceItem(invoice);
+                 pageContent.appendChild(item);
+             } catch (error) { console.error("Error rendering invoice:", error, invoice); /* ... error item ... */ }
+         });
+         resultsList.appendChild(pageContent);
+
+         // Don't cache this adjusted view? Or cache with the adjusted page number?
+         // Let's avoid caching for now when adjustment happens.
+
+          if (!window.lastScrollPosition || currentPage !== window.lastPageViewed) {
+             document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+          }
+          window.lastScrollPosition = 0;
+          updatePagination(); // Update pagination based on adjusted reality
+          return; // Exit after rendering adjusted page
+
+
+  } else {
+       // Normal path: startIndex is within bounds
+       const endIndex = Math.min(startIndex + resultsPerPage, totalLoadedResults);
+       const pageResults = resultsToDisplay.slice(startIndex, endIndex);
+       resultsList.innerHTML = ''; // Clear loading indicator
+
+        if (pageResults.length === 0 && totalLoadedResults === 0) {
+             resultsList.innerHTML = `<div class="message info">No invoices found.</div>`;
+             updatePagination();
+             return;
+         } else if (pageResults.length === 0) {
+             // This might happen if currentPage > actual pages available but apiHasMorePages was false
+             resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
+             updatePagination();
+             return;
+         }
+
+
+       // Create result items for the current page
+       const pageContent = document.createDocumentFragment();
+       pageResults.forEach(invoice => {
+         try {
+           const item = createInvoiceItem(invoice);
+           pageContent.appendChild(item);
+         } catch (error) { console.error("Error rendering invoice:", error, invoice); /* ... error item ... */ }
+       });
+       resultsList.appendChild(pageContent);
+
+
+        // Cache if enabled
+        if (useCache) {
+            cachedPages[cacheKey] = resultsList.innerHTML;
+            console.log('Page cached:', cacheKey);
+        }
+
+        // Scroll/restore logic...
+        if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
+            setTimeout(() => window.scrollTo(0, window.lastScrollPosition), 50);
+            window.lastScrollPosition = 0;
+        } else {
+            document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+        window.lastPageViewed = currentPage;
   }
 
-
-  // Create result items for the current page
-  const pageContent = document.createDocumentFragment();
-
-  pageResults.forEach(invoice => {
-    try {
-      // Use the existing createInvoiceItem function
-      const item = createInvoiceItem(invoice); // createInvoiceItem handles attaching listener
-      pageContent.appendChild(item);
-    } catch (error) {
-      console.error("Error rendering invoice:", error, invoice);
-      // Optionally display a placeholder for the failed item
-       const errorItem = document.createElement('div');
-       errorItem.className = 'result-item message error';
-       errorItem.textContent = `Error displaying invoice ${invoice.InvoiceNumber || invoice.InvoiceID || '(Unknown ID)'}`;
-       pageContent.appendChild(errorItem);
-    }
-  });
-
-  // Add content to the results list
-  resultsList.appendChild(pageContent);
-
-  // Cache this newly generated page HTML
-  cachedPages[cacheKey] = resultsList.innerHTML;
-  console.log('Page cached:', cacheKey);
-
-
-  // Update last page viewed (only needed if not restoring scroll)
-  // window.lastPageViewed = currentPage;
-
-  // If not restoring scroll, scroll to top
-  if (!window.lastScrollPosition || currentPage !== window.lastPageViewed) {
-        console.log("Scrolling to top after generating new page.");
-      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
-  }
-   window.lastScrollPosition = 0; // Reset scroll position tracking after page load
-
-
-  // Add a simple transition effect (optional)
-  resultsList.style.opacity = '0';
-  setTimeout(() => {
-    resultsList.style.opacity = '1';
-  }, 50); // Short delay for effect
 
   // Update pagination controls AFTER rendering the page
   updatePagination();
@@ -2511,7 +2712,13 @@ const dueDate = formatDate(invoice.DueDate);
 let currentResults = [];
 let currentPage = 1;
 let cachedPages = {};
-const resultsPerPage = 20;
+const resultsPerPage = 20; // Keep this
+
+// --- NEW STATE VARIABLES ---
+let currentApiPage = 1; // Track the last API page fetched for "All" filter
+let apiHasMorePages = true; // Track if the API likely has more pages for "All"
+let isLoadingMoreApiData = false; // Prevent multiple simultaneous API fetches
+// --- END NEW STATE VARIABLES ---
 
 // Helper function to parse Xero date format
 function parseXeroDate(xeroDateString) {
