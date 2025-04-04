@@ -575,12 +575,13 @@
           </select>
         </div>
       </div>
-
+      
+      <div id="results-list"></div>
+      
       <div id="load-more-container" class="hidden" style="text-align: center; margin-top: 1.5rem;">
         <button id="load-more-btn" class="btn secondary">Load More Invoices</button>
       </div>
       
-      <div id="results-list"></div>
       <div id="pagination"></div>
     </section>
 
@@ -1001,6 +1002,94 @@ function updateUI(isAuthenticated) {
     document.getElementById('logout-btn').classList.add('hidden');
     document.getElementById('auth-message').classList.remove('hidden');
     document.getElementById('search-section').classList.add('hidden');
+  }
+}
+
+// Load initial invoices on page load
+async function loadInitialInvoices() {
+  try {
+    toggleLoading(true);
+    const tokens = await getValidTokens();
+    if (!tokens) {
+      console.warn("No valid tokens available");
+      return;
+    }
+    
+    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+    url.searchParams.set('order', 'Date DESC');
+    url.searchParams.set('page', '1');
+    url.searchParams.set('pageSize', '10');
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.Invoices?.length) {
+        currentResults = data.Invoices;
+        currentPage = 1;
+        displayResults();
+        
+        // Show or hide "Load More" based on results
+        document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
+      }
+    }
+  } catch (error) {
+    console.error("Error loading initial invoices:", error);
+  } finally {
+    toggleLoading(false);
+  }
+}
+
+// Load more invoices when "Load More" button is clicked
+async function loadMoreInvoices() {
+  try {
+    toggleLoading(true);
+    currentPage++;
+    
+    const tokens = await getValidTokens();
+    if (!tokens) return;
+    
+    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+    url.searchParams.set('order', 'Date DESC');
+    url.searchParams.set('page', currentPage.toString());
+    url.searchParams.set('pageSize', '10');
+    
+    // Add any active filters
+    const statusFilter = document.getElementById('status-filter').value;
+    if (statusFilter) {
+      url.searchParams.append('where', `Status=="${statusFilter}"`);
+    }
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.Invoices?.length) {
+        // Append new invoices to existing results
+        currentResults = [...currentResults, ...data.Invoices];
+        displayResults();
+        
+        // Hide "Load More" if fewer results than requested
+        document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
+      } else {
+        // No more results
+        document.getElementById('load-more-container').classList.add('hidden');
+      }
+    }
+  } catch (error) {
+    console.error("Error loading more invoices:", error);
+  } finally {
+    toggleLoading(false);
   }
 }
 
