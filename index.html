@@ -490,6 +490,40 @@
   margin-right: 15px;
 }
 
+/* Job status indicators */
+.job-age {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.job-recent {
+  background-color: #e6f7ff;
+  color: #0070d1;
+}
+
+.job-approaching {
+  background-color: #fff7e6;
+  color: #d46b08;
+}
+
+.job-overdue {
+  background-color: #fff1f0;
+  color: #cf1322;
+  font-weight: bold;
+}
+
+/* Highlight overdue items */
+.result-item.overdue {
+  border-left: 3px solid #cf1322;
+}
+
+.result-item.approaching {
+  border-left: 3px solid #d46b08;
+}
+
   </style>
 </head>
 <body>
@@ -530,13 +564,12 @@
       
       <div class="filters">
         <div class="filter-group">
-          <label for="status-filter">Status:</label>
-          <select id="status-filter">
-            <option value="">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="AUTHORISED">Authorised</option>
-            <option value="PAID">Paid</option>
+          <label for="job-status-filter">Job Status:</label>
+          <select id="job-status-filter">
+            <option value="">All Jobs</option>
+            <option value="approaching">Approaching Deadline (8-10 days)</option>
+            <option value="overdue">Overdue (>10 days)</option>
+            <option value="recent">Recent (<7 days)</option>
           </select>
         </div>
         
@@ -825,6 +858,14 @@ function setupEventListeners() {
       searchInvoices();
     }
   });
+
+// Job status filter change
+document.getElementById('job-status-filter').addEventListener('change', () => {
+  // Re-render results with the new filter
+  const resultsList = document.getElementById('results-list');
+  resultsList.innerHTML = '';
+  displayResultItems();
+});  
   
  // Sort options
 document.getElementById('sort-by').addEventListener('change', () => {
@@ -1160,6 +1201,13 @@ async function loadMoreInvoices() {
     if (dateTo) {
       whereConditions.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
     }
+
+    // Add this to your searchInvoices function, in the section where you build where conditions
+const jobStatusFilter = document.getElementById('job-status-filter').value;
+if (jobStatusFilter) {
+  // We'll handle this on the client side by filtering results after they come back
+  // because business days calculation is complex to do in the Xero API query
+}
     
     // Add search term if provided - focus on invoice number, reference, contact name
     if (searchTerm) {
@@ -1437,20 +1485,44 @@ function sortResults() {
   updatePagination();
 }
 
-// Display just the result items (extracted from displayResults)
 function displayResultItems() {
   const resultsList = document.getElementById('results-list');
+  const jobStatusFilter = document.getElementById('job-status-filter').value;
+  
+  // Filter results by job status if needed
+  let filteredResults = currentResults;
+  if (jobStatusFilter) {
+    filteredResults = currentResults.filter(invoice => {
+      const status = getJobStatus(invoice);
+      return status === jobStatusFilter;
+    });
+  }
+  
+  // Update count
+  document.getElementById('results-count').textContent = `(${filteredResults.length})`;
+  
+  // If no results after filtering
+  if (filteredResults.length === 0) {
+    resultsList.innerHTML = '<div class="message info">No invoices match the selected job status filter.</div>';
+    return;
+  }
   
   // Calculate pagination
   const startIndex = (currentPage - 1) * resultsPerPage;
-  const endIndex = Math.min(startIndex + resultsPerPage, currentResults.length);
-  const pageResults = currentResults.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + resultsPerPage, filteredResults.length);
+  const pageResults = filteredResults.slice(startIndex, endIndex);
   
   // Create result items
   pageResults.forEach(invoice => {
     try {
       const item = document.createElement('div');
       item.className = 'result-item';
+      
+      // Get job status and add appropriate class
+      const jobStatus = getJobStatus(invoice);
+      if (jobStatus) {
+        item.classList.add(jobStatus);
+      }
       
       // Safety check for invoice ID
       if (invoice.InvoiceID) {
@@ -1460,6 +1532,22 @@ function displayResultItems() {
       // Format dates safely
       const date = formatDate(invoice.Date);
       const dueDate = formatDate(invoice.DueDate);
+      
+      // Calculate business days from invoice date to now
+      const invoiceDate = parseXeroDate(invoice.Date);
+      const businessDays = invoiceDate ? getBusinessDaysDifference(invoiceDate, new Date()) : null;
+      
+      // Create status badge based on age
+      let jobAgeHtml = '';
+      if (businessDays !== null) {
+        if (businessDays > 10) {
+          jobAgeHtml = `<div class="job-age job-overdue">Overdue: ${businessDays} business days</div>`;
+        } else if (businessDays >= 8) {
+          jobAgeHtml = `<div class="job-age job-approaching">Due soon: ${businessDays} business days</div>`;
+        } else {
+          jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
+        }
+      }
 
       // Create HTML safely
       item.innerHTML = `
@@ -1479,6 +1567,7 @@ function displayResultItems() {
           <div>
             <span>Date</span>
             <span>${date}</span>
+            ${jobAgeHtml}
           </div>
           <div>
             <span>Due Date</span>
@@ -1722,6 +1811,58 @@ function formatDate(dateValue) {
 
 // Initialize the application when the document is ready
 document.addEventListener('DOMContentLoaded', initApp);
+
+// Calculate business days between two dates (excluding weekends)
+function getBusinessDaysDifference(startDate, endDate) {
+  if (!startDate || !endDate) return null;
+  
+  // Convert to date objects if they aren't already
+  const start = startDate instanceof Date ? startDate : new Date(startDate);
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
+  
+  // Validate dates
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+  
+  // Calculate days, excluding weekends
+  let count = 0;
+  let current = new Date(start);
+  
+  while (current <= end) {
+    // Skip weekends (0 = Sunday, 6 = Saturday)
+    const dayOfWeek = current.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++;
+    }
+    
+    // Move to next day
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return count;
+}
+
+// Determine job status based on age (business days)
+function getJobStatus(invoice) {
+  // Use invoice date as start date
+  const startDate = parseXeroDate(invoice.Date);
+  if (!startDate) return null;
+  
+  // Use current date as end date
+  const endDate = new Date();
+  
+  // Calculate business days difference
+  const businessDays = getBusinessDaysDifference(startDate, endDate);
+  if (businessDays === null) return null;
+  
+  // Determine status based on business days
+  if (businessDays > 10) {
+    return 'overdue';
+  } else if (businessDays >= 8) {
+    return 'approaching';
+  } else {
+    return 'recent';
+  }
+}
 
 
 
