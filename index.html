@@ -813,16 +813,25 @@ function displayTenantDropdown(tenants) {
   if (tenants && tenants.length > 0) {
     document.getElementById('tenant-selector').classList.remove('hidden');
     
-    // Set up change event to switch between organizations
-    dropdown.addEventListener('change', function() {
-      window.tenantId = this.value;
-      window.tenantName = this.options[this.selectedIndex].textContent;
-      console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
-      
-      // Save selected tenant in cookie
-      document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
-      document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
-    });
+// Set up change event to switch between organizations
+dropdown.addEventListener('change', function() {
+  window.tenantId = this.value;
+  window.tenantName = this.options[this.selectedIndex].textContent;
+  console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
+  
+  // Save selected tenant in cookie
+  document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
+  document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
+  
+  // Clear current results
+  currentResults = [];
+  
+  // Reload invoices for the new organization
+  loadInitialInvoices();
+  
+  // Show a message to the user
+  showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
+});
   } else {
     document.getElementById('tenant-selector').classList.add('hidden');
   }
