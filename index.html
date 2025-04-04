@@ -829,22 +829,52 @@ function displayTenantDropdown(tenants) {
     
 // Set up change event to switch between organizations
 dropdown.addEventListener('change', function() {
-  window.tenantId = this.value;
-  window.tenantName = this.options[this.selectedIndex].textContent;
-  console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
+  // Store the new tenant ID and name
+  const newTenantId = this.value;
+  const newTenantName = this.options[this.selectedIndex].textContent;
   
-  // Save selected tenant in cookie
-  document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
-  document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
-  
-  // Clear current results
-  currentResults = [];
-  
-  // Reload invoices for the new organization
-  loadInitialInvoices();
-  
-  // Show a message to the user
-  showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
+  // Only proceed if actually changing tenants
+  if (newTenantId !== window.tenantId) {
+    console.log(`Switching organization from ${window.tenantName} to ${newTenantName}`);
+    
+    // Update window variables
+    window.tenantId = newTenantId;
+    window.tenantName = newTenantName;
+    
+    // Save selected tenant in localStorage and cookies
+    localStorage.setItem('xero_tenant_id', window.tenantId);
+    localStorage.setItem('xero_tenant_name', window.tenantName);
+    
+    document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
+    document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
+    
+    // Completely reset all data
+    currentResults = [];
+    currentPage = 1;
+    cachedPages = {}; // Clear the page cache
+    window.filteredResults = null;
+    
+    // Clear the results list and show loading
+    const resultsList = document.getElementById('results-list');
+    if (resultsList) resultsList.innerHTML = '';
+    
+    // Hide results section until new data is loaded
+    const resultsSection = document.getElementById('results-section');
+    if (resultsSection) resultsSection.classList.add('hidden');
+    
+    // Clear any shown messages
+    const errorMessage = document.getElementById('error-message');
+    if (errorMessage) errorMessage.classList.add('hidden');
+    
+    // Show loading indicator
+    toggleLoading(true);
+    
+    // Show a message to the user
+    showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
+    
+    // Reload invoices for the new organization - with a slight delay to ensure UI updates first
+    setTimeout(() => loadInitialInvoices(), 100);
+  }
 });
   } else {
     document.getElementById('tenant-selector').classList.add('hidden');
