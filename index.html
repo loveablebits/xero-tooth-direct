@@ -1077,54 +1077,113 @@ async function loadInitialInvoices() {
       return;
     }
     
+    // Reset pagination state
+    currentPage = 1;
+    loadedPages = {};
+    currentResults = [];
+    
     // Calculate date 45 days ago
     const daysAgo = new Date();
     daysAgo.setDate(daysAgo.getDate() - 45);
     const formattedDate = daysAgo.toISOString().split('T')[0];
     
-    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-    // Filter for ACCREC only, exclude PAID
-    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`);
-    url.searchParams.set('order', 'Date DESC');
+    // Load just the first page
+    await loadPage(1);
     
-    // Fetch all pages of results
-    const allInvoices = await fetchAllPages(url.toString(), tokens.access_token);
+    // Display the first page
+    displayCurrentPage();
     
-    if (allInvoices.length > 0) {
-      currentResults = allInvoices;
-      currentPage = 1;
-      
-      // Count items in each category
-      const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
-      const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
-      const recent = currentResults.filter(invoice => getJobStatus(invoice) === 'recent').length;
-      
-      // Display the results section
-      document.getElementById('results-section').classList.remove('hidden');
-      document.getElementById('results-count').textContent = `(${currentResults.length})`;
-      
-      // Display counts in a message
-      showMessage(`Found ${currentResults.length} sales invoices from last 45 days: ${overdue} deadline, ${approaching} borderline, ${recent} recent`, 'info');
-      
-      // Apply any active job status filter
-      const jobStatusFilter = document.getElementById('job-status-filter').value;
-      if (jobStatusFilter) {
-        window.filteredResults = currentResults.filter(invoice => getJobStatus(invoice) === jobStatusFilter);
-        displayFilteredResults();
-      } else {
-        // Sort and display all results
-        sortResults();
-      }
-    } else {
-      console.log("No invoices returned from API");
-      showMessage("No sales invoices found for the last 45 days", 'info');
-    }
+    // Get overall count for message
+    const allInvoices = Object.values(loadedPages).flat();
+    currentResults = allInvoices;
+    
+    // Count items in each category
+    const overdue = allInvoices.filter(invoice => getJobStatus(invoice) === 'overdue').length;
+    const approaching = allInvoices.filter(invoice => getJobStatus(invoice) === 'approaching').length;
+    const recent = allInvoices.filter(invoice => getJobStatus(invoice) === 'recent').length;
+    
+    // Display counts in a message
+    showMessage(`Found ${allInvoices.length} sales invoices from last 45 days: ${overdue} deadline, ${approaching} borderline, ${recent} recent`, 'info');
+    
   } catch (error) {
     console.error("Error loading initial invoices:", error);
     showError("Error loading invoices: " + error.message);
   } finally {
     toggleLoading(false);
   }
+}
+
+// Function to load a specific page
+async function loadPage(pageNumber) {
+  // Check if already loaded
+  if (loadedPages[pageNumber]) {
+    return loadedPages[pageNumber];
+  }
+  
+  const tokens = await getValidTokens();
+  if (!tokens) return null;
+  
+  // Calculate date 45 days ago
+  const daysAgo = new Date();
+  daysAgo.setDate(daysAgo.getDate() - 45);
+  const formattedDate = daysAgo.toISOString().split('T')[0];
+  
+  const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+  // Filter for ACCREC only, exclude PAID
+  url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`);
+  url.searchParams.set('order', 'Date DESC');
+  url.searchParams.set('page', pageNumber.toString());
+  url.searchParams.set('pageSize', resultsPerPage.toString());
+  
+  const response = await fetch(url.toString(), {
+    headers: {
+      'Authorization': `Bearer ${tokens.access_token}`,
+      'Xero-Tenant-Id': window.tenantId
+    }
+  });
+  
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
+  
+  const data = await response.json();
+  const invoices = data?.Invoices || [];
+  
+  // Store in cache
+  loadedPages[pageNumber] = invoices;
+  
+  return invoices;
+}
+
+// Display results for the current page
+function displayCurrentPage() {
+  const invoices = loadedPages[currentPage] || [];
+  
+  // Get all loaded invoices
+  const allLoadedInvoices = Object.values(loadedPages).flat();
+  
+  // Show total loaded items in counter
+  document.getElementById('results-count').textContent = `(${allLoadedInvoices.length})`;
+  
+  // Update results section visibility
+  const resultsSection = document.getElementById('results-section');
+  if (invoices.length === 0) {
+    resultsSection.classList.add('hidden');
+    showMessage('No invoices found matching your search criteria.', 'info');
+    return;
+  }
+  
+  resultsSection.classList.remove('hidden');
+  
+  // Clear and display current page items
+  const resultsList = document.getElementById('results-list');
+  resultsList.innerHTML = '';
+  
+  invoices.forEach(invoice => {
+    const item = createInvoiceItem(invoice);
+    resultsList.appendChild(item);
+  });
+  
+  // Update pagination controls
+  updatePaginationControls();
 }
 
 function applyJobStatusFilter(statusFilter) {
@@ -2089,6 +2148,7 @@ const dueDate = formatDate(invoice.DueDate);
 let currentResults = [];
 let currentPage = 1;
 const resultsPerPage = 20;
+let loadedPages = {}; // Cache to store loaded pages
 
 // Helper function to parse Xero date format
 function parseXeroDate(xeroDateString) {
