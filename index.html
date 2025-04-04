@@ -1354,10 +1354,10 @@ function displayResults() {
         item.dataset.id = invoice.InvoiceID;
       }
       
-      // Format dates safely
-      const date = invoice.Date ? new Date(invoice.Date).toLocaleDateString() : 'N/A';
-      const dueDate = invoice.DueDate ? new Date(invoice.DueDate).toLocaleDateString() : 'N/A';
-      
+    // Format dates safely
+const date = formatDate(invoice.Date);
+const dueDate = formatDate(invoice.DueDate);
+
       // Create HTML safely
       item.innerHTML = `
         <div class="result-header">
@@ -1542,11 +1542,11 @@ async function showInvoiceDetail(invoiceId) {
       detailSection.classList.remove('hidden');
       
       const detailElement = document.getElementById('invoice-detail');
-      
-      // Format dates
-      const date = invoice.Date ? new Date(invoice.Date).toLocaleDateString() : 'N/A';
-      const dueDate = invoice.DueDate ? new Date(invoice.DueDate).toLocaleDateString() : 'N/A';
-      
+     
+      // Format dates safely
+const date = formatDate(invoice.Date);
+const dueDate = formatDate(invoice.DueDate);
+        
       // Build line items HTML safely
       const lineItemsHtml = (invoice.LineItems || []).map(item => `
         <tr>
@@ -1625,6 +1625,45 @@ async function showInvoiceDetail(invoiceId) {
 let currentResults = [];
 let currentPage = 1;
 const resultsPerPage = 10;
+
+// Helper function to parse Xero date format
+function parseXeroDate(xeroDateString) {
+  if (!xeroDateString) return null;
+  
+  // Check if it's in the Xero JSON format \/Date(timestamp)\/
+  const dateRegex = /\/Date\((\d+)(?:[-+]\d+)?\)\//;
+  const match = dateRegex.exec(xeroDateString);
+  
+  if (match && match[1]) {
+    // Extract the timestamp and create a date
+    return new Date(parseInt(match[1], 10));
+  }
+  
+  // If we have a DateString property available (ISO format)
+  if (typeof xeroDateString === 'string' && xeroDateString.includes('T')) {
+    return new Date(xeroDateString);
+  }
+  
+  // Fallback - try direct parsing
+  const directDate = new Date(xeroDateString);
+  if (!isNaN(directDate.getTime())) {
+    return directDate;
+  }
+  
+  return null;
+}
+
+// Format date safely for display
+function formatDate(dateValue) {
+  if (!dateValue) return 'N/A';
+  
+  const date = parseXeroDate(dateValue);
+  if (!date || isNaN(date.getTime())) {
+    return 'N/A';
+  }
+  
+  return date.toLocaleDateString();
+}
 
 // Initialize the application when the document is ready
 document.addEventListener('DOMContentLoaded', initApp);
