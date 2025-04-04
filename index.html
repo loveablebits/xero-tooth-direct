@@ -635,13 +635,6 @@
   function initApp() {
   console.log("Initializing app...");
   
-// Remove the "Load more" button and its container 
-const loadMoreContainer = document.getElementById('load-more-container');
-  if (loadMoreContainer) {
-    loadMoreContainer.remove();
-  }
-}
-  
   // Check for authentication result in URL parameters
   checkAuthResult();
   
@@ -655,6 +648,7 @@ const loadMoreContainer = document.getElementById('load-more-container');
   if (localStorage.getItem('xero_authenticated') === 'true') {
     loadInitialInvoices();
   }
+}
 
 // Check for auth result in URL parameters
 function checkAuthResult() {
@@ -822,17 +816,8 @@ dropdown.addEventListener('change', function() {
   document.cookie = `xero_tenant_id=${window.tenantId}; path=/; secure; samesite=lax`;
   document.cookie = `xero_tenant_name=${window.tenantName}; path=/; secure; samesite=lax`;
   
-  // Reset all pagination state
+  // Clear current results
   currentResults = [];
-  currentPage = 1;
-  loadedPages = {};
-  window.filteredResults = null;
-  
-  // Remove the load more container if it exists
-  const loadMoreContainer = document.getElementById('load-more-container');
-  if (loadMoreContainer) {
-    loadMoreContainer.remove();
-  }
   
   // Reload invoices for the new organization
   loadInitialInvoices();
@@ -912,11 +897,9 @@ document.getElementById('sort-by').addEventListener('change', () => {
     document.getElementById('results-section').classList.remove('hidden');
   });
   
-// Remove the "Load more" button and its container 
-const loadMoreContainer = document.getElementById('load-more-container');
-  if (loadMoreContainer) {
-    loadMoreContainer.remove();
-  }
+  // Load more button
+  document.getElementById('load-more-btn').addEventListener('click', loadMoreInvoices);
+}
 
 // Check if tokens need refreshing
 async function checkAndRefreshTokens() {
@@ -1094,189 +1077,54 @@ async function loadInitialInvoices() {
       return;
     }
     
-    // Reset pagination state and clear any previous results
-    currentPage = 1;
-    loadedPages = {}; // Clear the cache
-    currentResults = [];
+    // Calculate date 45 days ago
+    const daysAgo = new Date();
+    daysAgo.setDate(daysAgo.getDate() - 45);
+    const formattedDate = daysAgo.toISOString().split('T')[0];
     
-    // Load just the first page
-    await loadPage(1);
+    const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+    // Filter for ACCREC only, exclude PAID
+    url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`);
+    url.searchParams.set('order', 'Date DESC');
     
-    // Display the first page
-    displayCurrentPage();
+    // Fetch all pages of results
+    const allInvoices = await fetchAllPages(url.toString(), tokens.access_token);
     
-    // Get overall count for message
-    const allInvoices = Object.values(loadedPages).flat();
-    currentResults = allInvoices;
-    
-    // Count items in each category
-    const overdue = allInvoices.filter(invoice => getJobStatus(invoice) === 'overdue').length;
-    const approaching = allInvoices.filter(invoice => getJobStatus(invoice) === 'approaching').length;
-    const recent = allInvoices.filter(invoice => getJobStatus(invoice) === 'recent').length;
-    
-    // Display counts in a message
-    showMessage(`Found ${allInvoices.length} sales invoices from last 45 days: ${overdue} deadline, ${approaching} borderline, ${recent} recent`, 'info');
-    
+    if (allInvoices.length > 0) {
+      currentResults = allInvoices;
+      currentPage = 1;
+      
+      // Count items in each category
+      const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
+      const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
+      const recent = currentResults.filter(invoice => getJobStatus(invoice) === 'recent').length;
+      
+      // Display the results section
+      document.getElementById('results-section').classList.remove('hidden');
+      document.getElementById('results-count').textContent = `(${currentResults.length})`;
+      
+      // Display counts in a message
+      showMessage(`Found ${currentResults.length} sales invoices from last 45 days: ${overdue} deadline, ${approaching} borderline, ${recent} recent`, 'info');
+      
+      // Apply any active job status filter
+      const jobStatusFilter = document.getElementById('job-status-filter').value;
+      if (jobStatusFilter) {
+        window.filteredResults = currentResults.filter(invoice => getJobStatus(invoice) === jobStatusFilter);
+        displayFilteredResults();
+      } else {
+        // Sort and display all results
+        sortResults();
+      }
+    } else {
+      console.log("No invoices returned from API");
+      showMessage("No sales invoices found for the last 45 days", 'info');
+    }
   } catch (error) {
     console.error("Error loading initial invoices:", error);
     showError("Error loading invoices: " + error.message);
   } finally {
     toggleLoading(false);
   }
-}
-
-// Function to load a specific page
-async function loadPage(pageNumber) {
-  // Check if already loaded
-  if (loadedPages[pageNumber]) {
-    return loadedPages[pageNumber];
-  }
-  
-  const tokens = await getValidTokens();
-  if (!tokens) return null;
-  
-  // Calculate date 45 days ago
-  const daysAgo = new Date();
-  daysAgo.setDate(daysAgo.getDate() - 45);
-  const formattedDate = daysAgo.toISOString().split('T')[0];
-  
-  const url = new URL(`/api/xero-api/invoices`, window.location.origin);
-  // Filter for ACCREC only, exclude PAID
-  url.searchParams.set('where', `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`);
-  url.searchParams.set('order', 'Date DESC');
-  url.searchParams.set('page', pageNumber.toString());
-  url.searchParams.set('pageSize', resultsPerPage.toString());
-  
-  const response = await fetch(url.toString(), {
-    headers: {
-      'Authorization': `Bearer ${tokens.access_token}`,
-      'Xero-Tenant-Id': window.tenantId
-    }
-  });
-  
-  if (!response.ok) throw new Error(`API returned ${response.status}`);
-  
-  const data = await response.json();
-  const invoices = data?.Invoices || [];
-  
-  // Create a map of existing invoices for deduplication
-  const existingInvoiceIds = new Set();
-  Object.values(loadedPages).flat().forEach(invoice => {
-    if (invoice.InvoiceID) {
-      existingInvoiceIds.add(invoice.InvoiceID);
-    }
-  });
-  
-  // Filter out any duplicates before storing
-  const uniqueInvoices = invoices.filter(invoice => 
-    !existingInvoiceIds.has(invoice.InvoiceID)
-  );
-  
-  // Store in cache
-  loadedPages[pageNumber] = uniqueInvoices;
-  
-  return uniqueInvoices;
-}
-
-function displayCurrentPage() {
-  const invoices = loadedPages[currentPage] || [];
-  
-  // Get all loaded invoices for count display only
-  const allLoadedInvoices = Object.values(loadedPages).flat();
-  
-  // Show total loaded items in counter
-  document.getElementById('results-count').textContent = `(${allLoadedInvoices.length})`;
-  
-  // Update results section visibility
-  const resultsSection = document.getElementById('results-section');
-  if (invoices.length === 0) {
-    resultsSection.classList.add('hidden');
-    showMessage('No invoices found matching your search criteria.', 'info');
-    return;
-  }
-  
-  resultsSection.classList.remove('hidden');
-  
-  // Clear and display current page items
-  const resultsList = document.getElementById('results-list');
-  resultsList.innerHTML = ''; // Clear previous results
-  
-  // Create a Set to track unique invoice IDs
-  const addedInvoiceIds = new Set();
-  
-  invoices.forEach(invoice => {
-    // Only add if we haven't added this invoice already
-    if (invoice.InvoiceID && !addedInvoiceIds.has(invoice.InvoiceID)) {
-      addedInvoiceIds.add(invoice.InvoiceID);
-      const item = createInvoiceItem(invoice);
-      resultsList.appendChild(item);
-    }
-  });
-  
-  // Update pagination controls
-  updatePaginationControls();
-}
-
-// Create pagination controls
-function updatePaginationControls() {
-  const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
-  
-  // Remove the load more container entirely
-  const loadMoreContainer = document.getElementById('load-more-container');
-  if (loadMoreContainer) {
-    loadMoreContainer.remove();
-  }
-  
-  const currentInvoices = loadedPages[currentPage] || [];
-  const hasMorePages = currentInvoices.length === resultsPerPage;
-  
-  // Create container for buttons
-  const buttonContainer = document.createElement('div');
-  buttonContainer.style.display = 'flex';
-  buttonContainer.style.justifyContent = 'center';
-  buttonContainer.style.gap = '10px';
-  buttonContainer.style.marginTop = '20px';
-  
-  // Previous button if not on first page
-  if (currentPage > 1) {
-    const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous Page';
-    prevButton.className = 'btn secondary';
-    prevButton.addEventListener('click', () => {
-      currentPage--;
-      displayCurrentPage();
-    });
-    buttonContainer.appendChild(prevButton);
-  }
-  
-  // Next button if likely more pages
-  if (hasMorePages) {
-    const nextButton = document.createElement('button');
-    nextButton.textContent = 'Next Page';
-    nextButton.className = 'btn primary';
-    nextButton.addEventListener('click', async () => {
-      try {
-        toggleLoading(true);
-        
-        // Try to load next page if not already cached
-        if (!loadedPages[currentPage + 1]) {
-          await loadPage(currentPage + 1);
-        }
-        
-        currentPage++;
-        displayCurrentPage();
-      } catch (error) {
-        console.error("Error loading next page:", error);
-        showError("Error loading next page: " + error.message);
-      } finally {
-        toggleLoading(false);
-      }
-    });
-    buttonContainer.appendChild(nextButton);
-  }
-  
-  pagination.appendChild(buttonContainer);
 }
 
 function applyJobStatusFilter(statusFilter) {
@@ -1853,7 +1701,6 @@ const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
   }
 }
 
-// Modify your displayResults function to not call updatePagination
 function displayResults() {
   const resultsList = document.getElementById('results-list');
   
@@ -1877,60 +1724,15 @@ function displayResults() {
   
   // If it's the first page, sort results
   if (currentPage === 1) {
-    // Sort the results
+    // This will sort and display
     sortResults();
-    // Display items for current page
-    displayResultItems();
   } else {
     // Just display items for current page
     displayResultItems();
   }
   
-  // IMPORTANT: Clear pagination and set up simple Next/Previous navigation
-  createSimplePagination();
-}
-
-// New function to create simplified Next/Previous pagination
-function createSimplePagination() {
-  const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
-  
-  // Get the right set of results depending on whether we have a filter applied
-  const resultsToUse = window.filteredResults || currentResults;
-  
-  const totalPages = Math.ceil(resultsToUse.length / resultsPerPage);
-  
-  if (totalPages <= 1) return;
-  
-  // Add Previous button if not on first page
-  if (currentPage > 1) {
-    const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous Page';
-    prevButton.className = 'btn secondary';
-    prevButton.addEventListener('click', () => {
-      currentPage--;
-      displayResultItems();
-    });
-    pagination.appendChild(prevButton);
-  }
-  
-  // Add page indicator
-  const pageIndicator = document.createElement('span');
-  pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
-  pageIndicator.style.margin = '0 10px';
-  pagination.appendChild(pageIndicator);
-  
-  // Add Next button if not on last page
-  if (currentPage < totalPages) {
-    const nextButton = document.createElement('button');
-    nextButton.textContent = 'Next Page';
-    nextButton.className = 'btn secondary';
-    nextButton.addEventListener('click', () => {
-      currentPage++;
-      displayResultItems();
-    });
-    pagination.appendChild(nextButton);
-  }
+  // IMPORTANT: Hide standard pagination controls - we'll use only the Load More button
+  document.getElementById('pagination').innerHTML = '';
 }
 
 // Sort the current results
@@ -1944,17 +1746,70 @@ function sortResults() {
   
   console.log(`Sorting by ${sortBy} in ${sortOrder} order`);
   
-  // ... rest of your sorting code ...
+  currentResults.sort((a, b) => {
+    let valueA, valueB;
+    
+    // Special handling for dates
+    if (sortBy === 'Date' || sortBy === 'DueDate') {
+      valueA = parseXeroDate(a[sortBy]);
+      valueB = parseXeroDate(b[sortBy]);
+      
+      // Convert to timestamps for comparison
+      valueA = valueA ? valueA.getTime() : 0;
+      valueB = valueB ? valueB.getTime() : 0;
+    } 
+    // Handle nested properties like Contact.Name
+    else if (sortBy.includes('.')) {
+      const parts = sortBy.split('.');
+      valueA = a;
+      valueB = b;
+      
+      // Navigate through the object path
+      for (const part of parts) {
+        valueA = valueA && valueA[part];
+        valueB = valueB && valueB[part];
+      }
+    } 
+    // Regular properties
+    else {
+      valueA = a[sortBy];
+      valueB = b[sortBy];
+    }
+    
+    // Handle undefined values
+    if (valueA === undefined) return sortOrder === 'asc' ? -1 : 1;
+    if (valueB === undefined) return sortOrder === 'asc' ? 1 : -1;
+    
+    // Handle different data types
+    if (typeof valueA === 'string' && typeof valueB === 'string') {
+      return sortOrder === 'asc' 
+        ? valueA.localeCompare(valueB) 
+        : valueB.localeCompare(valueA);
+    } else {
+      // Convert to number if possible for numerical comparison
+      const numA = parseFloat(valueA);
+      const numB = parseFloat(valueB);
+      
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return sortOrder === 'asc' ? numA - numB : numB - numA;
+      }
+      
+      // Fallback comparison
+      return sortOrder === 'asc' 
+        ? (valueA < valueB ? -1 : valueA > valueB ? 1 : 0)
+        : (valueB < valueA ? -1 : valueB > valueA ? 1 : 0);
+    }
+  });
   
   // Clear and redisplay the results
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
   
-  // Display results for current page
+  // Display all current results
   displayResultItems();
   
-  // Use the simplified pagination instead
-  createSimplePagination();
+  // Update pagination if needed
+  updatePagination();
 }
 
 function displayResultItems() {
@@ -2241,7 +2096,6 @@ const dueDate = formatDate(invoice.DueDate);
 let currentResults = [];
 let currentPage = 1;
 const resultsPerPage = 20;
-let loadedPages = {}; // Cache to store loaded pages
 
 // Helper function to parse Xero date format
 function parseXeroDate(xeroDateString) {
@@ -2361,4 +2215,4 @@ function getJobStatus(invoice) {
 
   </script>
 </body>
-</html> 
+</html>  
