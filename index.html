@@ -568,6 +568,8 @@
             <option value="DueDate">Sort by Due Date</option>
             <option value="Total">Sort by Amount</option>
             <option value="Reference">Sort by Reference</option>
+            <option value="Contact.Name">Sort by Customer</option>
+            <option value="InvoiceNumber">Sort by Invoice Number</option>
           </select>
           <select id="sort-order">
             <option value="desc">Newest First</option>
@@ -824,9 +826,15 @@ function setupEventListeners() {
     }
   });
   
-  // Sort options
-  document.getElementById('sort-by').addEventListener('change', sortResults);
-  document.getElementById('sort-order').addEventListener('change', sortResults);
+ // Sort options
+document.getElementById('sort-by').addEventListener('change', () => {
+  console.log('Sort by changed');
+  sortResults();
+});
+document.getElementById('sort-order').addEventListener('change', () => {
+  console.log('Sort order changed');  
+  sortResults();
+});
   
   // Back button (invoice details)
   document.getElementById('back-btn').addEventListener('click', () => {
@@ -1334,8 +1342,10 @@ function displayResults() {
   resultsSection.classList.remove('hidden');
   resultsCount.textContent = `(${currentResults.length})`;
   
-  // Apply sorting
+// Sort results if it's the first page load (sorting is already applied when changing sort options)
+if (currentPage === 1) {
   sortResults();
+}
   
   // Calculate pagination - only show current page's worth
   const startIndex = (currentPage - 1) * resultsPerPage;
@@ -1407,45 +1417,67 @@ function sortResults() {
   const sortBy = document.getElementById('sort-by').value;
   const sortOrder = document.getElementById('sort-order').value;
   
+  console.log(`Sorting by ${sortBy} in ${sortOrder} order`);
+  
   currentResults.sort((a, b) => {
     let valueA, valueB;
     
-    try {
-      // Handle nested properties safely
-      if (sortBy.includes('.')) {
-        const parts = sortBy.split('.');
-        valueA = a;
-        valueB = b;
-        
-        // Navigate safely through the object path
-        for (const part of parts) {
-          valueA = valueA && valueA[part];
-          valueB = valueB && valueB[part];
-        }
-      } else {
-        valueA = a[sortBy];
-        valueB = b[sortBy];
+    // Special handling for dates
+    if (sortBy === 'Date' || sortBy === 'DueDate') {
+      valueA = parseXeroDate(a[sortBy]);
+      valueB = parseXeroDate(b[sortBy]);
+      
+      // Convert to timestamps for comparison
+      valueA = valueA ? valueA.getTime() : 0;
+      valueB = valueB ? valueB.getTime() : 0;
+    } 
+    // Handle nested properties like Contact.Name
+    else if (sortBy.includes('.')) {
+      const parts = sortBy.split('.');
+      valueA = a;
+      valueB = b;
+      
+      // Navigate through the object path
+      for (const part of parts) {
+        valueA = valueA && valueA[part];
+        valueB = valueB && valueB[part];
+      }
+    } 
+    // Regular properties
+    else {
+      valueA = a[sortBy];
+      valueB = b[sortBy];
+    }
+    
+    // Handle undefined values
+    if (valueA === undefined) return sortOrder === 'asc' ? -1 : 1;
+    if (valueB === undefined) return sortOrder === 'asc' ? 1 : -1;
+    
+    // Handle different data types
+    if (typeof valueA === 'string' && typeof valueB === 'string') {
+      return sortOrder === 'asc' 
+        ? valueA.localeCompare(valueB) 
+        : valueB.localeCompare(valueA);
+    } else {
+      // Convert to number if possible for numerical comparison
+      const numA = parseFloat(valueA);
+      const numB = parseFloat(valueB);
+      
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return sortOrder === 'asc' ? numA - numB : numB - numA;
       }
       
-      // Handle undefined values
-      if (valueA === undefined) return sortOrder === 'asc' ? -1 : 1;
-      if (valueB === undefined) return sortOrder === 'asc' ? 1 : -1;
-      
-      // Handle different data types
-      if (typeof valueA === 'string') {
-        return sortOrder === 'asc' 
-          ? valueA.localeCompare(valueB || '') 
-          : (valueB || '').localeCompare(valueA);
-      } else {
-        return sortOrder === 'asc' 
-          ? (valueA || 0) - (valueB || 0)
-          : (valueB || 0) - (valueA || 0);
-      }
-    } catch (error) {
-      console.error("Error comparing values:", error);
-      return 0; // Return equal if comparison fails
+      // Fallback comparison
+      return sortOrder === 'asc' 
+        ? (valueA < valueB ? -1 : valueA > valueB ? 1 : 0)
+        : (valueB < valueA ? -1 : valueB > valueA ? 1 : 0);
     }
   });
+  
+  // Re-render the results with the new order
+  const resultsList = document.getElementById('results-list');
+  resultsList.innerHTML = '';
+  displayResults();
 }
 
 // Update pagination controls
