@@ -883,24 +883,28 @@
     </div>
 
     <!-- Search Section -->
-    <div class="search-container">
-      <input
-        type="text"
-        id="search-input"
-        placeholder="Search by invoice number, reference, or customer name..."
-      >
-      <div id="autocomplete-suggestions" class="autocomplete-items hidden"></div>
-      <button id="search-btn" class="btn primary">Search</button>
-      {/* --- ADD THIS BUTTON --- */}
-      <button id="date-range-btn" class="btn secondary" title="Select Date Range">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
-          <path d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146L11 10.146l-1.146 1.147a.5.5 0 0 1-.708-.708l.647-.646H5.5a.5.5 0 0 1 0-1h4.293l-.647-.646a.5.5 0 1 1 .708-.708z"/>
-        </svg>
-        <span id="date-range-display">All Dates</span> {/* Text to show selected range */}
-      </button>
-      {/* --- END ADDED BUTTON --- */}
-    </div>
-      
+    <!-- Search Section -->
+    <section id="search-section" class="hidden">
+      <h2>Search Invoices</h2>
+
+      {/* The search bar and its buttons go here */}
+      <div class="search-container">
+        <input
+          type="text"
+          id="search-input"
+          placeholder="Search by invoice number, reference, or customer name..."
+        >
+        <div id="autocomplete-suggestions" class="autocomplete-items hidden"></div>
+        <button id="search-btn" class="btn primary">Search</button>
+        <button id="date-range-btn" class="btn secondary" title="Select Date Range">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146L11 10.146l-1.146 1.147a.5.5 0 0 1-.708-.708l.647-.646H5.5a.5.5 0 0 1 0-1h4.293l-.647-.646a.5.5 0 1 1 .708-.708z"/>
+          </svg>
+          <span id="date-range-display">All Dates</span>
+        </button>
+      </div>
+
+      {/* The filters (job status, hidden dates) go below the search bar */}
       <div class="filters">
         <div class="filter-group">
           <label for="job-status-filter">Job Status:</label>
@@ -910,19 +914,21 @@
             <option value="overdue">Deadline (10+ days)</option>
           </select>
         </div>
-        
-        <div class="filter-group date-filter-group"> {/* ADD class */}
+
+        {/* You can optionally DELETE these two divs entirely now */}
+        <div class="filter-group date-filter-group">
           <label for="date-from">From:</label>
           <input type="date" id="date-from">
         </div>
-       
-        <div class="filter-group date-filter-group"> {/* ADD class */}
+        <div class="filter-group date-filter-group">
           <label for="date-to">To:</label>
           <input type="date" id="date-to">
         </div>
+        {/* End of optional deletion */}
 
       </div>
     </section>
+    <!-- End Search Section -->
 
     <!-- Loading Indicator -->
     <div id="loading" class="hidden">
@@ -3188,6 +3194,11 @@ const resultsPerPage = 20; // Keep this
 // const dateFrom = dateFromElement ? dateFromElement.value : ''; // Remove or comment out
 // const dateToElement = document.getElementById('date-to'); // Remove or comment out
 // const dateTo = dateToElement ? dateToElement.value : ''; // Remove or comment out
+
+// --- Date Range State ---
+let selectedDateFrom = ''; // Store as 'YYYY-MM-DD'
+let selectedDateTo = '';   // Store as 'YYYY-MM-DD'
+// --- End Date Range State ---
 
 // --- Autocomplete State ---
 let invoiceNumberSuggestions = [];
