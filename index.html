@@ -2223,27 +2223,31 @@ function createInvoiceItem(invoice) {
         <span>Customer</span>
         <span>${invoice.Contact?.Name || 'N/A'}</span>
       </div>
+
+      {/* --- MODIFIED REFERENCE BLOCK --- */}
       <div>
         <span>Reference</span>
-        <span>
-            ${invoice.Reference || 'N/A'}
-            ${ invoice.InvoiceNumber ? `
-              <br><a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
-                  (invoice.InvoiceNumber || '').replace('INV-', '') /* Remove prefix */
-              }.jpg?role=personal"
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 class="rx-link"  /* Specific class for this link */
-                 style="margin-left: 10px; font-size: 0.8em; text-decoration: underline; color: var(--primary-color);">
-                View Lab Form
-              </a>
-            ` : '' }
-        </span>
+        <span>${invoice.Reference || 'N/A'}</span> {/* Reference text ONLY */}
+        ${ invoice.InvoiceNumber ? `
+          <div style="margin-top: 0.25rem;"> {/* Optional wrapper div for spacing */}
+            <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
+                (invoice.InvoiceNumber || '').replace('INV-', '') /* Remove prefix */
+            }.jpg?role=personal"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="rx-link"  /* Keep class */
+               style="font-size: 0.8em; text-decoration: underline; color: var(--primary-color);">
+              View RX
+            </a>
+          </div>
+        ` : '' }
       </div>
+      {/* --- END MODIFIED BLOCK --- */}
+
       <div>
         <span>Date</span>
         <span>${date}</span>
-        ${jobAgeHtml}
+        ${jobAgeHtml} {/* Job age is already correctly placed after span */}
       </div>
       <div>
         <span>Due Date</span>
@@ -2260,8 +2264,6 @@ function createInvoiceItem(invoice) {
   // Add main click listener to the whole item for showing details
   if (invoice.InvoiceID) {
     item.addEventListener('click', () => {
-        // Check if the click target itself was the RX link; if so, maybe don't show detail?
-        // Although stopPropagation should handle this better.
         console.log('Result item clicked, showing detail for', invoice.InvoiceID);
         showInvoiceDetail(invoice.InvoiceID);
     });
@@ -2270,10 +2272,10 @@ function createInvoiceItem(invoice) {
   // Add specific listener for the RX link to prevent detail view opening
   const rxLink = item.querySelector('.rx-link');
   if (rxLink) {
+    // Ensure the listener is attached to the link itself, even if wrapped in a div now
     rxLink.addEventListener('click', (event) => {
       console.log('RX link specifically clicked, stopping propagation.');
-      event.stopPropagation(); // Prevent the click from bubbling up to the parent 'item' listener
-      // The browser will handle opening the link in a new tab via target="_blank"
+      event.stopPropagation();
     });
   }
 
