@@ -788,6 +788,50 @@
 }
 /* --- End Invoice Detail View Enhancements --- */
 
+/* --- Autocomplete Styles --- */
+.search-container {
+  position: relative; /* Needed for absolute positioning of suggestions */
+}
+
+.autocomplete-items {
+  position: absolute;
+  border: 1px solid var(--border-color);
+  border-top: none;
+  background-color: var(--card-background);
+  z-index: 99;
+  /* Position it below the input */
+  top: 100%; /* Start right below the container */
+  left: 0;
+  right: 0;
+  max-height: 250px; /* Limit height and add scroll */
+  overflow-y: auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.autocomplete-items div {
+  padding: 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+}
+.autocomplete-items div:last-child {
+  border-bottom: none; /* Remove border from last item */
+}
+
+.autocomplete-items div:hover {
+  background-color: #e9e9e9;
+}
+
+/* Style for highlighting the matching part (optional) */
+.autocomplete-items div strong {
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+/* --- End Autocomplete Styles --- */
+
   </style>
 </head>
 <body>
@@ -823,6 +867,7 @@
           id="search-input" 
           placeholder="Search by invoice number, reference, or customer name..."
         >
+        <div id="autocomplete-suggestions" class="autocomplete-items hidden"></div>
         <button id="search-btn" class="btn primary">Search</button>
       </div>
       
@@ -1339,6 +1384,30 @@ function setupEventListeners() {
     }
   });
 
+    // Autocomplete listener with debounce
+    const searchInput = document.getElementById('search-input');
+  const debouncedAutocomplete = debounce(handleAutocomplete, DEBOUNCE_DELAY);
+  searchInput.addEventListener('input', debouncedAutocomplete);
+
+  // Hide suggestions on blur (losing focus), but delay slightly
+  // This allows a click on a suggestion to register first
+  searchInput.addEventListener('blur', () => {
+      setTimeout(() => {
+          const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+           if (!suggestionsContainer.matches(':hover')) { // Don't hide if mouse is over suggestions
+              suggestionsContainer.innerHTML = '';
+              suggestionsContainer.classList.add('hidden');
+           }
+      }, 150); // Delay ms
+  });
+
+  // Ensure suggestions are shown when input gets focus back and has text
+   searchInput.addEventListener('focus', () => {
+       if (searchInput.value.trim().length > 0) {
+           handleAutocomplete(); // Re-show suggestions if there's text
+       }
+   });
+
 // Job status filter change
 document.getElementById('job-status-filter').addEventListener('change', async function() {
   const selectedStatus = this.value;
@@ -1588,6 +1657,7 @@ async function loadInitialInvoices() {
 
     if (initialData && initialData.invoices.length > 0) {
       currentResults = initialData.invoices; // Store the first batch
+      updateAutocompleteSources(currentResults); // Populate suggestions
       apiHasMorePages = initialData.hasMore; // Update based on API response
 
       console.log(`Fetched initial ${currentResults.length} invoices. API has more: ${apiHasMorePages}`);
@@ -1869,6 +1939,8 @@ async function loadInvoicesByStatus(status) {
 
        // Store the *complete* filtered list
       window.filteredResults = accuratelyFilteredInvoices;
+
+      updateAutocompleteSources(window.filteredResults); // Populate suggestions from filtered list
 
 
       if (window.filteredResults.length > 0) {
@@ -2193,6 +2265,8 @@ async function loadMoreInvoices() {
         // Append new invoices to existing results
         currentResults = [...currentResults, ...data.Invoices];
         displayResults();
+
+        updateAutocompleteSources(currentResults); // Populate suggestions from search results
         
         // Hide "Load More" if fewer results than requested
         document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 10);
@@ -2296,22 +2370,29 @@ async function loadMoreInvoices() {
     const data = await response.json();
     console.log('Xero API response:', data);
     
-    // Process results
-    if (data?.Invoices?.length) {
+     // Process results
+     if (data?.Invoices?.length) {
       console.log(`Found ${data.Invoices.length} invoices`);
       currentResults = data.Invoices;
+      updateAutocompleteSources(currentResults); // <<< ADD THIS LINE
       currentPage = 1;
-      
+
       // Reset any existing filter
       window.filteredResults = null;
-      
-      displayResults();
-      
-      // Show/hide load more button
-      document.getElementById('load-more-container').classList.toggle('hidden', data.Invoices.length < 50);
+
+      displayResults(); // displayResults will handle sorting and rendering
+
+      // The load-more-container logic is likely outdated/removed due to pagination changes
+      // if (document.getElementById('load-more-container')) {
+      //    document.getElementById('load-more-container').classList.add('hidden');
+      // }
+
     } else {
+      // No results logic...
       document.getElementById('results-section').classList.add('hidden');
-      document.getElementById('load-more-container').classList.add('hidden');
+      // if (document.getElementById('load-more-container')) {
+      //    document.getElementById('load-more-container').classList.add('hidden');
+      // }
       showMessage('No sales invoices found matching your search criteria.', 'info');
     }
   } catch (error) {
@@ -2466,6 +2547,74 @@ function displayResults() {
   document.getElementById('load-more-container').classList.add('hidden');
 }
 
+// Function to handle autocomplete logic
+function handleAutocomplete() {
+  const input = document.getElementById('search-input');
+  const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+  const value = input.value.trim().toLowerCase();
+
+  if (value.length < 1) { // Minimum characters to trigger autocomplete (adjust if needed)
+    suggestionsContainer.innerHTML = '';
+    suggestionsContainer.classList.add('hidden');
+    return;
+  }
+
+  const maxSuggestions = 10;
+  let suggestions = [];
+
+  // Filter Invoice Numbers
+  invoiceNumberSuggestions.forEach(num => {
+    if (num.toLowerCase().startsWith(value)) {
+      suggestions.push({ type: 'Invoice #', text: num });
+    }
+  });
+
+  // Filter References
+  referenceSuggestions.forEach(ref => {
+     // Check length and avoid duplicates already added from invoice numbers
+    if (ref.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === ref)) {
+      suggestions.push({ type: 'Reference', text: ref });
+    }
+  });
+
+  // Filter Contact Names
+  contactNameSuggestions.forEach(name => {
+      // Check length and avoid duplicates
+    if (name.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === name)) {
+      suggestions.push({ type: 'Customer', text: name });
+    }
+  });
+
+  // Limit total suggestions
+  suggestions = suggestions.slice(0, maxSuggestions);
+
+  // Display
+  suggestionsContainer.innerHTML = ''; // Clear previous
+  if (suggestions.length > 0) {
+    suggestions.forEach(suggestion => {
+      const div = document.createElement('div');
+      // Highlight matching part (optional but nice)
+      const matchIndex = suggestion.text.toLowerCase().indexOf(value);
+      const highlightedText = matchIndex === 0 // Only highlight if startsWith
+         ? `<strong>${suggestion.text.substring(0, value.length)}</strong>${suggestion.text.substring(value.length)}`
+         : suggestion.text; // Fallback if something weird happens
+
+      div.innerHTML = `${highlightedText} <span style="color: #888; font-size: 0.8em; float: right;">(${suggestion.type})</span>`;
+      div.addEventListener('click', () => {
+        input.value = suggestion.text; // Set input value
+        suggestionsContainer.innerHTML = ''; // Clear suggestions
+        suggestionsContainer.classList.add('hidden');
+        // Optionally trigger search immediately
+        // searchInvoices();
+      });
+      suggestionsContainer.appendChild(div);
+    });
+    suggestionsContainer.classList.remove('hidden'); // Show container
+  } else {
+    suggestionsContainer.classList.add('hidden'); // Hide if no matches
+  }
+}
+
 // Sort the current results
 function sortResults() {
   if (!currentResults || currentResults.length === 0) return;
@@ -2561,6 +2710,7 @@ async function displayResultItems() {
     try {
       const nextPageData = await fetchInvoicePageApi(currentApiPage + 1, 100);
       currentResults = [...currentResults, ...nextPageData.invoices]; // Append new results
+      updateAutocompleteSources(nextPageData.invoices); // Update suggestions with newly loaded page
       currentApiPage++; // Increment API page tracker
       apiHasMorePages = nextPageData.hasMore; // Update hasMore status
       console.log(`Appended ${nextPageData.invoices.length}. Total loaded: ${currentResults.length}. API has more: ${apiHasMorePages}`);
@@ -2961,6 +3111,14 @@ let currentPage = 1;
 let cachedPages = {};
 const resultsPerPage = 20; // Keep this
 
+// --- Autocomplete State ---
+let invoiceNumberSuggestions = [];
+let referenceSuggestions = new Set();
+let contactNameSuggestions = new Set();
+let autocompleteDebounceTimer;
+const DEBOUNCE_DELAY = 300; // milliseconds
+// --- End Autocomplete State ---
+
 // --- NEW STATE VARIABLES ---
 let currentApiPage = 1; // Track the last API page fetched for "All" filter
 let apiHasMorePages = true; // Track if the API likely has more pages for "All"
@@ -2992,6 +3150,49 @@ function parseXeroDate(xeroDateString) {
   }
   
   return null;
+}
+
+// Debounce function
+function debounce(func, delay) {
+  return function(...args) {
+    clearTimeout(autocompleteDebounceTimer);
+    autocompleteDebounceTimer = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
+
+// Function to update suggestion sources from current data
+function updateAutocompleteSources(invoices) {
+  if (!invoices || invoices.length === 0) return;
+
+  // Clear previous sources for this batch/filter
+  // Note: For the "All" filter with API pagination, decide if you want suggestions
+  // to *only* reflect loaded data or accumulate across loads. Accumulating is simpler here.
+  // If clearing per batch:
+  // invoiceNumberSuggestions = [];
+  // referenceSuggestions.clear();
+  // contactNameSuggestions.clear();
+
+  invoices.forEach(invoice => {
+    if (invoice.InvoiceNumber) {
+      // Invoice numbers are usually unique, array is fine
+      if (!invoiceNumberSuggestions.includes(invoice.InvoiceNumber)) {
+          invoiceNumberSuggestions.push(invoice.InvoiceNumber);
+      }
+    }
+    if (invoice.Reference) {
+      referenceSuggestions.add(invoice.Reference);
+    }
+    if (invoice.Contact?.Name) {
+      contactNameSuggestions.add(invoice.Contact.Name);
+    }
+  });
+
+  // Optional: Sort suggestions for better display
+  invoiceNumberSuggestions.sort();
+  // Convert sets to arrays for easier filtering later if needed, or filter directly
+  // console.log('Autocomplete sources updated');
 }
 
 // Format date safely for display
