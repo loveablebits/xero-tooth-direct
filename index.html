@@ -3136,14 +3136,13 @@ async function showInvoiceDetail(invoiceId) {
           ${ extractedLabFormNumber ? `
 <div>
   <strong>Lab Form:</strong>
-  {/* Link is now placed after the strong tag, wrapped in its own div for block layout */}
-  <div style="margin-top: 0.2rem;"> {/* Optional small top margin */}
+  <div style="margin-top: 0.2rem;">
     <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
         (invoice.InvoiceNumber || '').replace('INV-', '') /* Keep prefix removal */
     }.jpg?role=personal"
        target="_blank"
        rel="noopener noreferrer"
-       style="text-decoration: underline; color: var(--primary-color); font-size: 0.9rem;"> {/* Standard link style */}
+       style="text-decoration: underline; color: var(--primary-color); font-size: 0.9rem;">
       View lab form
     </a>
   </div>
