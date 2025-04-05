@@ -393,24 +393,31 @@
 
 /* --- Styling for Line Items Section --- */
 .invoice-items {
-  /* This container holds the table */
-  margin-top: 2rem; /* Ensure space above line items heading */
+  /* Explicitly ensure it's a block taking full width */
+  display: block; /* Override any potential flex/grid context from parent */
+  width: 100%;   /* Ensure the container tries to fill available width */
+  box-sizing: border-box; /* Consistent width calculation */
+  margin-top: 2rem; /* Space above the heading */
   /* Overflow for scrolling is handled in the media query */
 }
 
-.invoice-items > h3 { /* Target only the H3 directly inside .invoice-items */
+/* Keep H3 styling as is */
+.invoice-items > h3 {
    font-size: 1.25rem;
    color: var(--secondary-color);
-   margin-bottom: 1.5rem; /* More space below "Line Items" heading */
+   margin-bottom: 1.5rem;
 }
 
 /* Base style for the line items table (applies to all widths) */
 .invoice-items table {
-  width: 100%; /* Make the table take full width by default */
-  border-collapse: collapse; /* Keep existing collapse style */
-  margin-bottom: 2rem; /* Keep existing margin */
+  width: 100%; /* Table fills the .invoice-items container */
+  border-collapse: collapse;
+  margin-bottom: 2rem;
+  /* Optional: may help if column widths are inconsistent on resize */
+  /* table-layout: fixed; */
 }
 
+/* Keep th, td, tfoot, .text-right, .total-row styles as they are */
 .invoice-items th {
   text-align: left;
   padding: 0.75rem;
@@ -439,38 +446,42 @@
   background-color: rgba(0, 0, 0, 0.02);
 }
 
-/* --- End Invoice Detail View Enhancements --- */
+/* --- End Invoice Detail View Layout Styles --- */
+
 
 /* --- Responsive adjustments for metadata and table --- */
-/* (These should be placed inside your existing @media (max-width: 768px) block) */
+/* (Ensure this @media block exists or integrate these rules into your existing one) */
 @media (max-width: 768px) {
+  /* Stack meta section */
   .invoice-meta {
-    grid-template-columns: 1fr; /* Stack meta to 1 column */
-    gap: 1.8rem; /* Adjust gap for stacked layout */
+    grid-template-columns: 1fr;
+    gap: 1.8rem;
   }
 
-   /* Remove address indentation on mobile for simpler layout */
+   /* Reset address indentation on mobile */
    .invoice-meta-group .address-block span {
        margin-left: 0;
-       margin-top: 0.2rem; /* Reset margin-top */
+       margin-top: 0.2rem;
    }
     .invoice-meta-group .address-block span:first-child {
-       margin-top: 0.2rem; /* Ensure first line also has normal spacing */
+       margin-top: 0.2rem;
    }
 
-   /* Add horizontal scrolling for line items container on mobile */
-    .invoice-items {
+   /* Add horizontal scrolling ONLY to the container on mobile */
+   .invoice-items {
       overflow-x: auto;
       padding-bottom: 10px;
       -webkit-overflow-scrolling: touch;
-    }
-    /* Force table minimum width on mobile to trigger scrolling */
-    .invoice-items table {
+      /* display/width are inherited from base styles */
+   }
+
+   /* Force table minimum width ONLY on mobile to trigger scrolling */
+   .invoice-items table {
        min-width: 600px;
-    }
+       /* width: 100% is inherited from base styles */
+   }
 }
 /* --- End Responsive Adjustments --- */
-/* NEW CODE - Updated pagination styles for Previous/Next buttons */
 
 #pagination {
   display: flex;
