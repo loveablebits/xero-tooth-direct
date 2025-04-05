@@ -2241,10 +2241,8 @@ function createInvoiceItem(invoice) {
       </div>
       <div>
         <span>Reference</span>
-        {/* Use the processed display value */}
         <span>${displayValueForReference}</span>
-        ${ /* Optional: Add link only if extracted number exists and you want a link here */ ''}
-        ${ extractedNumber ? `<br><a href="${dropboxLink}" target="_blank" style="font-size:0.8em;">View Rx</a>` : '' }
+        ${ extractedNumber ? `<br><a href="${dropboxLink}" target="_blank" style="font-size:0.8em;">View Lab Form</a>` : '' }
       </div>
       <div>
         <span>Date</span>
@@ -3097,10 +3095,17 @@ const dueDate = formatDate(invoice.DueDate);
 
             ${ invoice.InvoiceNumber ? `
             <div>
-              <strong>Lab Form:</strong>
+              <h3>Lab Form:</h3>
               <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${invoice.InvoiceNumber}.jpg?role=personal" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; margin-left: 5px;">
                 View lab form
               </a>
+
+                    <div>
+        <span>Reference</span>
+        <span>${displayValueForReference}</span>
+        ${ extractedNumber ? `<br><a href="${dropboxLink}" target="_blank" style="font-size:0.8em;">View Lab Form</a>` : '' }
+      </div>
+              
             </div>
             ` : '' }
 
