@@ -2224,12 +2224,11 @@ function createInvoiceItem(invoice) {
         <span>${invoice.Contact?.Name || 'N/A'}</span>
       </div>
 
-      {/* --- MODIFIED REFERENCE BLOCK --- */}
       <div>
         <span>Reference</span>
-        <span>${invoice.Reference || 'N/A'}</span> {/* Reference text ONLY */}
+        <span>${invoice.Reference || 'N/A'}</span>
         ${ invoice.InvoiceNumber ? `
-          <div style="margin-top: 0.25rem;"> {/* Optional wrapper div for spacing */}
+          <div style="margin-top: 0.25rem;">
             <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
                 (invoice.InvoiceNumber || '').replace('INV-', '') /* Remove prefix */
             }.jpg?role=personal"
@@ -2242,12 +2241,11 @@ function createInvoiceItem(invoice) {
           </div>
         ` : '' }
       </div>
-      {/* --- END MODIFIED BLOCK --- */}
 
       <div>
         <span>Date</span>
         <span>${date}</span>
-        ${jobAgeHtml} {/* Job age is already correctly placed after span */}
+        ${jobAgeHtml}
       </div>
       <div>
         <span>Due Date</span>
