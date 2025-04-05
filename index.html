@@ -2782,7 +2782,6 @@ const dueDate = formatDate(invoice.DueDate);
             <div>
                 <strong>Address:</strong>
                 <div class="address-block">
-                    ${ /* REMOVE THIS LINE */ }
                     ${ invoice.Contact?.Addresses?.[0] ? `
                         <span>${invoice.Contact.Addresses[0].AddressLine1 || ''}</span>
                         ${invoice.Contact.Addresses[0].AddressLine2 ? `<span>${invoice.Contact.Addresses[0].AddressLine2}</span>` : ''}
