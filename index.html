@@ -2187,7 +2187,7 @@ function createInvoiceItem(invoice) {
     item.classList.add(jobStatus);
   }
 
-  // Safety check for invoice ID
+  // Safety check for invoice ID and set data attribute
   if (invoice.InvoiceID) {
     item.dataset.id = invoice.InvoiceID;
   }
@@ -2212,23 +2212,7 @@ function createInvoiceItem(invoice) {
     }
   }
 
-  // --- START: Process Reference Field ---
-  const originalReference = invoice.Reference || ''; // Get original reference or empty string
-  const extractedNumber = extractSixDigitInvoiceNumber(originalReference); // Try to extract 6 digits
-  const displayValueForReference = extractedNumber || originalReference || 'N/A'; // Decide what to show
-  // --- END: Process Reference Field ---
-
-  // --- START: Example Dropbox Link Construction ---
-  let dropboxLink = '#'; // Default link
-  if (extractedNumber) {
-      // Construct link ONLY if 6 digits were found
-      // Ensure encoding if needed, but likely okay for digits
-      dropboxLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${extractedNumber}.jpg?role=personal`;
-  }
-  // --- END: Example Dropbox Link Construction ---
-
-
-  // Create HTML safely
+  // --- Construct Inner HTML ---
   item.innerHTML = `
     <div class="result-header">
       <div class="invoice-number">Invoice #${invoice.InvoiceNumber || 'N/A'}</div>
@@ -2237,12 +2221,26 @@ function createInvoiceItem(invoice) {
     <div class="result-details">
       <div>
         <span>Customer</span>
-        <span>${invoice.Contact && invoice.Contact.Name ? invoice.Contact.Name : 'N/A'}</span>
+        <span>${invoice.Contact?.Name || 'N/A'}</span>
       </div>
       <div>
         <span>Reference</span>
-        <span>${displayValueForReference}</span>
-        ${ extractedNumber ? `<br><a href="${dropboxLink}" target="_blank" style="font-size:0.8em;">View Lab Form</a>` : '' }
+        <span>
+            ${invoice.Reference || 'N/A'}
+            ${ /* --- START: View RX Link --- */ }
+            ${ invoice.InvoiceNumber ? `
+              <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
+                  (invoice.InvoiceNumber || '').replace('INV-', '') /* Remove prefix */
+              }.jpg?role=personal"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 class="rx-link"  /* Specific class for this link */
+                 style="margin-left: 10px; font-size: 0.8em; text-decoration: underline; color: var(--primary-color);">
+                View RX
+              </a>
+            ` : '' }
+            ${ /* --- END: View RX Link --- */ }
+        </span>
       </div>
       <div>
         <span>Date</span>
@@ -2259,12 +2257,26 @@ function createInvoiceItem(invoice) {
       </div>
     </div>
   `;
+  // --- End Inner HTML ---
 
-  // Add event listener to the whole item if we have an invoice ID
+  // Add main click listener to the whole item for showing details
   if (invoice.InvoiceID) {
-      // Use the helper function to correctly pass the ID
-      item.removeEventListener('click', showInvoiceDetailById); // Remove potential duplicates if re-rendering
-      item.addEventListener('click', showInvoiceDetailById);
+    item.addEventListener('click', () => {
+        // Check if the click target itself was the RX link; if so, maybe don't show detail?
+        // Although stopPropagation should handle this better.
+        console.log('Result item clicked, showing detail for', invoice.InvoiceID);
+        showInvoiceDetail(invoice.InvoiceID);
+    });
+  }
+
+  // Add specific listener for the RX link to prevent detail view opening
+  const rxLink = item.querySelector('.rx-link');
+  if (rxLink) {
+    rxLink.addEventListener('click', (event) => {
+      console.log('RX link specifically clicked, stopping propagation.');
+      event.stopPropagation(); // Prevent the click from bubbling up to the parent 'item' listener
+      // The browser will handle opening the link in a new tab via target="_blank"
+    });
   }
 
   return item;
