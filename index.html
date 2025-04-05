@@ -555,6 +555,120 @@
   padding: 20px;
 }
 
+/* --- Invoice Detail View Enhancements --- */
+
+#detail-section {
+  /* Optional: Increase padding slightly if needed */
+  /* padding: 2rem; */
+}
+
+.invoice-header {
+   margin-bottom: 2rem; /* Increase space below header */
+   align-items: center; /* Vertically align status badge better with title */
+   flex-wrap: wrap; /* Allow wrapping if needed on very small screens */
+   gap: 1rem; /* Add gap if header wraps */
+}
+
+.invoice-meta {
+  display: grid; /* Use explicit grid */
+  grid-template-columns: repeat(2, 1fr); /* Default to 2 equal columns */
+  gap: 2.5rem; /* Increase gap between Details and Customer columns */
+  margin-bottom: 2rem; /* Increase space below meta info block */
+  padding-bottom: 1.5rem; /* Add padding below meta */
+  border-bottom: 1px solid var(--border-color); /* Separator line before line items */
+}
+
+.invoice-meta-group h3 {
+  margin-bottom: 0.8rem; /* Slightly more space below heading */
+  color: var(--secondary-color); /* Make heading darker */
+  font-size: 0.9rem; /* Slightly smaller heading */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.invoice-meta-group div {
+    line-height: 1.5; /* Adjust line height for readability */
+    margin-bottom: 0.4rem; /* Consistent space between meta lines */
+    font-size: 0.9rem; /* Match font size */
+}
+
+/* Style the labels within the meta groups */
+ .invoice-meta-group strong {
+   color: #555; /* Make labels slightly less prominent than values */
+   min-width: 85px; /* Ensure labels align somewhat */
+   display: inline-block; /* Needed for min-width */
+   margin-right: 0.5rem; /* Space between label and value */
+   font-weight: 500; /* Less heavy font weight */
+ }
+
+/* Target the address block specifically for better formatting */
+.invoice-meta-group .address-block {
+    margin-top: 0.2rem; /* Add a little space above the address */
+}
+
+.invoice-meta-group .address-block span {
+    display: block; /* Make each address line a block */
+    margin-left: 90px; /* Indent address lines (adjust value as needed based on label width) */
+    margin-top: -1.6em; /* Pull first address line up closer to "Address:" label */
+    line-height: 1.4; /* Tighter line height for address */
+}
+/* Adjust margin-top only for the first span inside address-block */
+.invoice-meta-group .address-block span:first-child {
+   margin-top: -1.6em;
+}
+/* Reset margin-top for subsequent spans */
+.invoice-meta-group .address-block span + span {
+    margin-top: 0;
+}
+
+/* Hide the initial <br> after the Address label if it exists */
+ .invoice-meta-group strong + br {
+     display: none;
+ }
+
+
+.invoice-items {
+  /* This section contains the table */
+  margin-top: 2rem; /* Ensure space above line items */
+}
+
+.invoice-items > h3 { /* Target only the H3 directly inside .invoice-items */
+   font-size: 1.25rem;
+   color: var(--secondary-color);
+   margin-bottom: 1.5rem; /* More space below "Line Items" heading */
+}
+
+/* Responsive adjustments for metadata layout */
+@media (max-width: 768px) {
+  .invoice-meta {
+    grid-template-columns: 1fr; /* Stack to 1 column */
+    gap: 1.8rem; /* Adjust gap for stacked layout */
+  }
+
+   /* Remove address indentation on mobile for simpler layout */
+   .invoice-meta-group .address-block span {
+       margin-left: 0;
+       margin-top: 0.2rem; /* Reset margin-top */
+   }
+    .invoice-meta-group .address-block span:first-child {
+       margin-top: 0.2rem; /* Ensure first line also has normal spacing */
+   }
+}
+
+/* Ensure table scrolling is applied robustly */
+@media (max-width: 768px) {
+    .invoice-items {
+      overflow-x: auto; /* Essential for preventing table breaking layout */
+      padding-bottom: 10px; /* Add some padding so scrollbar isn't tight against table */
+      -webkit-overflow-scrolling: touch; /* Smoother scrolling on iOS */
+    }
+    .invoice-items table {
+        min-width: 600px; /* Force table to a min-width to necessitate scrolling */
+        width: 100%; /* Prevent table from shrinking below min-width */
+    }
+}
+/* --- End Invoice Detail View Enhancements --- */
+
   </style>
 </head>
 <body>
@@ -2662,13 +2776,22 @@ const dueDate = formatDate(invoice.DueDate);
           
           <div class="invoice-meta-group">
             <h3>Customer</h3>
-            <div><strong>Name:</strong> ${invoice.Contact?.Name || 'N/A'}</div>
             <div>
-                <strong>Address:</strong><br>
-                ${invoice.Contact?.Addresses?.[0]?.AddressLine1 || ''}<br>
-                ${invoice.Contact?.Addresses?.[0]?.AddressLine2 ? (invoice.Contact.Addresses[0].AddressLine2 + '<br>') : ''}
-                ${invoice.Contact?.Addresses?.[0]?.City || ''}${invoice.Contact?.Addresses?.[0]?.City && invoice.Contact?.Addresses?.[0]?.Region ? ', ' : ''}${invoice.Contact?.Addresses?.[0]?.Region || ''} ${invoice.Contact?.Addresses?.[0]?.PostalCode || ''}<br>
-                ${invoice.Contact?.Addresses?.[0]?.Country || ''}
+                <strong>Name:</strong> ${invoice.Contact?.Name || 'N/A'}
+            </div>
+            <div>
+                <strong>Address:</strong>
+                <div class="address-block">
+                    ${ /* Check if address exists before trying to display lines */ }
+                    ${ invoice.Contact?.Addresses?.[0] ? `
+                        <span>${invoice.Contact.Addresses[0].AddressLine1 || ''}</span>
+                        ${invoice.Contact.Addresses[0].AddressLine2 ? `<span>${invoice.Contact.Addresses[0].AddressLine2}</span>` : ''}
+                        <span>
+                            ${invoice.Contact.Addresses[0].City || ''}${invoice.Contact.Addresses[0].City && invoice.Contact.Addresses[0].Region ? ', ' : ''}${invoice.Contact.Addresses[0].Region || ''} ${invoice.Contact.Addresses[0].PostalCode || ''}
+                        </span>
+                        ${invoice.Contact.Addresses[0].Country ? `<span>${invoice.Contact.Addresses[0].Country}</span>` : ''}
+                    ` : '<span>N/A</span>' }
+                </div>
             </div>
           </div>
         
