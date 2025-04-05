@@ -413,8 +413,7 @@
   width: 100%; /* Table fills the .invoice-items container */
   border-collapse: collapse;
   margin-bottom: 2rem;
-  /* Optional: may help if column widths are inconsistent on resize */
-  /* table-layout: fixed; */
+  table-layout: fixed; /* ADDED THIS LINE - Uses fixed layout algorithm */
 }
 
 /* Keep th, td, tfoot, .text-right, .total-row styles as they are */
@@ -425,12 +424,18 @@
   font-weight: 600;
   color: var(--secondary-color);
   border-bottom: 1px solid var(--border-color);
+  /* Optional: If using table-layout: fixed, you might want explicit widths */
+  /* E.g., &:nth-child(1) { width: 40%; } ... etc. */
 }
 
 .invoice-items td {
   padding: 0.75rem;
   border-bottom: 1px solid var(--border-color);
   font-size: 0.875rem;
+   /* Optional with table-layout: fixed - handle overflow if content is too long */
+   /* overflow: hidden; */
+   /* text-overflow: ellipsis; */
+   /* white-space: nowrap; */
 }
 
 .invoice-items .text-right {
@@ -476,9 +481,11 @@
    }
 
    /* Force table minimum width ONLY on mobile to trigger scrolling */
+   /* Note: table-layout: fixed might make min-width less critical, but keep for safety */
    .invoice-items table {
        min-width: 600px;
-       /* width: 100% is inherited from base styles */
+       /* width: 100% is inherited */
+       /* table-layout: fixed is inherited */
    }
 }
 /* --- End Responsive Adjustments --- */
