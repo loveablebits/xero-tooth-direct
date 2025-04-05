@@ -3041,6 +3041,18 @@ const dueDate = formatDate(invoice.DueDate);
             <div><strong>Due Date:</strong> ${dueDate}</div>
             <div><strong>Reference:</strong> ${invoice.Reference || 'N/A'}</div>
             <div><strong>Type:</strong> ${invoice.Type || 'N/A'}</div>
+
+            {/* --- ADDED LAB FORM LINK --- */}
+            ${ invoice.InvoiceNumber ? `
+            <div>
+              <strong>Lab Form:</strong>
+              <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${invoice.InvoiceNumber}.jpg?role=personal" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; margin-left: 5px;">
+                View lab form
+              </a>
+            </div>
+            ` : '' }
+            {/* --- END ADDED LINK --- */}
+
           </div>
           
           <div class="invoice-meta-group">
