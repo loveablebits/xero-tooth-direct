@@ -2662,9 +2662,15 @@ const dueDate = formatDate(invoice.DueDate);
           
           <div class="invoice-meta-group">
             <h3>Customer</h3>
-            <div><strong>Name:</strong> ${invoice.Contact && invoice.Contact.Name || 'N/A'}</div>
+            <div><strong>Name:</strong> ${invoice.Contact?.Name || 'N/A'}</div>
+            <div>
+                <strong>Address:</strong><br>
+                ${invoice.Contact?.Addresses?.[0]?.AddressLine1 || ''}<br>
+                ${invoice.Contact?.Addresses?.[0]?.AddressLine2 ? (invoice.Contact.Addresses[0].AddressLine2 + '<br>') : ''}
+                ${invoice.Contact?.Addresses?.[0]?.City || ''}${invoice.Contact?.Addresses?.[0]?.City && invoice.Contact?.Addresses?.[0]?.Region ? ', ' : ''}${invoice.Contact?.Addresses?.[0]?.Region || ''} ${invoice.Contact?.Addresses?.[0]?.PostalCode || ''}<br>
+                ${invoice.Contact?.Addresses?.[0]?.Country || ''}
+            </div>
           </div>
-        </div>
         
         <div class="invoice-items">
           <h3>Line Items</h3>
