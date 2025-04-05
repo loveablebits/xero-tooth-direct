@@ -832,30 +832,6 @@
 
 /* --- End Autocomplete Styles --- */
 
-.date-filter-group {
-  display: none; /* Hide the original date inputs */
-}
-
-#date-range-btn {
-  padding: 0.5rem 0.8rem; /* Adjust padding for icon */
-  flex-shrink: 0; /* Prevent button from shrinking too much */
-}
-#date-range-btn svg {
-   pointer-events: none; /* Make icon non-interactive */
-}
-#date-range-display {
-    vertical-align: middle;
-    font-size: 0.8rem; /* Smaller text for date range */
-}
-
-.search-container {
-  display: flex;
-  align-items: center; /* Align items vertically */
-  margin-bottom: 1rem;
-  gap: 0.75rem; /* Adjust gap if needed */
-  position: relative; /* Keep for autocomplete */
-}
-
   </style>
 </head>
 <body>
@@ -883,28 +859,18 @@
     </div>
 
     <!-- Search Section -->
-    <!-- Search Section -->
     <section id="search-section" class="hidden">
       <h2>Search Invoices</h2>
-
-      {/* The search bar and its buttons go here */}
       <div class="search-container">
-        <input
-          type="text"
-          id="search-input"
+        <input 
+          type="text" 
+          id="search-input" 
           placeholder="Search by invoice number, reference, or customer name..."
         >
         <div id="autocomplete-suggestions" class="autocomplete-items hidden"></div>
         <button id="search-btn" class="btn primary">Search</button>
-        <button id="date-range-btn" class="btn secondary" title="Select Date Range">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
-            <path d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-5.146-5.146L11 10.146l-1.146 1.147a.5.5 0 0 1-.708-.708l.647-.646H5.5a.5.5 0 0 1 0-1h4.293l-.647-.646a.5.5 0 1 1 .708-.708z"/>
-          </svg>
-          <span id="date-range-display">All Dates</span>
-        </button>
       </div>
-
-      {/* The filters (job status, hidden dates) go below the search bar */}
+      
       <div class="filters">
         <div class="filter-group">
           <label for="job-status-filter">Job Status:</label>
@@ -914,21 +880,18 @@
             <option value="overdue">Deadline (10+ days)</option>
           </select>
         </div>
-
-        {/* You can optionally DELETE these two divs entirely now */}
-        <div class="filter-group date-filter-group">
+        
+        <div class="filter-group">
           <label for="date-from">From:</label>
           <input type="date" id="date-from">
         </div>
-        <div class="filter-group date-filter-group">
+        
+        <div class="filter-group">
           <label for="date-to">To:</label>
           <input type="date" id="date-to">
         </div>
-        {/* End of optional deletion */}
-
       </div>
     </section>
-    <!-- End Search Section -->
 
     <!-- Loading Indicator -->
     <div id="loading" class="hidden">
@@ -1149,27 +1112,6 @@ function checkAuthResult() {
     const currentPath = window.location.pathname;
     window.history.replaceState({}, document.title, currentPath);
   }
-}
-
-// Helper to update the date range button display
-function updateDateRangeDisplay() {
-    const displayEl = document.getElementById('date-range-display');
-    if (selectedDateFrom && selectedDateTo) {
-        // Format dates nicely if possible (e.g., using locale)
-        try {
-            const from = new Date(selectedDateFrom + 'T00:00:00'); // Avoid timezone issues
-            const to = new Date(selectedDateTo + 'T00:00:00');
-            displayEl.textContent = `${from.toLocaleDateString()} - ${to.toLocaleDateString()}`;
-        } catch(e) {
-            displayEl.textContent = `${selectedDateFrom} - ${selectedDateTo}`; // Fallback
-        }
-    } else if (selectedDateFrom) {
-         displayEl.textContent = `From ${selectedDateFrom}`;
-    } else if (selectedDateTo) {
-         displayEl.textContent = `To ${selectedDateTo}`;
-    } else {
-        displayEl.textContent = 'All Dates';
-    }
 }
 
 // Check if we're already authenticated - using localStorage approach
@@ -1501,26 +1443,6 @@ document.getElementById('sort-by').addEventListener('change', () => {
     document.getElementById('detail-section').classList.add('hidden');
     document.getElementById('results-section').classList.remove('hidden');
   });
-
-  // Date Range Button Listener (placeholder for picker)
-const dateRangeBtn = document.getElementById('date-range-btn');
-dateRangeBtn.addEventListener('click', () => {
-    // **TODO: Integrate a real date range picker library here**
-    // For now, simulate selecting "Last 7 days" and trigger search
-    console.log("Date range button clicked - simulating selection");
-    const today = new Date();
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 7);
-
-    selectedDateFrom = sevenDaysAgo.toISOString().split('T')[0];
-    selectedDateTo = today.toISOString().split('T')[0];
-
-    updateDateRangeDisplay(); // Update button text
-    searchInvoices(); // Trigger search with new dates
-    showMessage(`Date range set to Last 7 Days (${selectedDateFrom} to ${selectedDateTo}). Searching...`, 'info');
-
-    // Later, this would open flatpickr or similar
-});
   
 }
 
@@ -2369,7 +2291,10 @@ async function loadMoreInvoices() {
   try {
     // Safely get filter values, providing defaults if elements don't exist
     const searchTerm = document.getElementById('search-input')?.value.trim() || '';
-
+    const dateFromElement = document.getElementById('date-from');
+    const dateFrom = dateFromElement ? dateFromElement.value : '';
+    const dateToElement = document.getElementById('date-to');
+    const dateTo = dateToElement ? dateToElement.value : '';
 
     const tokens = await getValidTokens();
     if (!tokens) throw new Error('No valid authentication tokens available');
@@ -2386,30 +2311,26 @@ async function loadMoreInvoices() {
       'Xero-Tenant-Id': window.tenantId
     };
     
-// Build where conditions
-const whereConditions = [];
-
-// Always filter for ACCREC only
-whereConditions.push(`Type=="ACCREC"`);
-
-// --- MODIFIED DATE LOGIC ---
-if (selectedDateFrom) {
-  whereConditions.push(`Date>=DateTime(${selectedDateFrom.replace(/-/g, ',')})`);
-  console.log(`Using selected date from: ${selectedDateFrom}`);
-} else {
-  // Default to last 30 days if no specific start date is selected
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const formattedDate = thirtyDaysAgo.toISOString().split('T')[0];
-  whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
-   console.log(`No date from selected, defaulting to >= ${formattedDate}`);
-}
-
-if (selectedDateTo) {
-  whereConditions.push(`Date<=DateTime(${selectedDateTo.replace(/-/g, ',')})`);
-   console.log(`Using selected date to: ${selectedDateTo}`);
-}
-// --- END MODIFIED DATE LOGIC ---
+    // Build where conditions
+    const whereConditions = [];
+    
+    // Always filter for ACCREC only
+    whereConditions.push(`Type=="ACCREC"`);
+    
+    // Add date filters if provided
+    if (dateFrom) {
+      whereConditions.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
+    } else {
+      // Default to last 30 days if no date provided (increased from 14)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const formattedDate = thirtyDaysAgo.toISOString().split('T')[0];
+      whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
+    }
+    
+    if (dateTo) {
+      whereConditions.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
+    }
     
     // Add search term if provided
     if (searchTerm) {
@@ -3189,12 +3110,6 @@ let currentResults = [];
 let currentPage = 1;
 let cachedPages = {};
 const resultsPerPage = 20; // Keep this
-
-
-// --- Date Range State ---
-let selectedDateFrom = ''; // Store as 'YYYY-MM-DD'
-let selectedDateTo = '';   // Store as 'YYYY-MM-DD'
-// --- End Date Range State ---
 
 // --- Autocomplete State ---
 let invoiceNumberSuggestions = [];
