@@ -1004,26 +1004,6 @@ function initApp() {
   // Set up event listeners AFTER potential UI updates from checkAuthStatus
   setupEventListeners();
 
-    // Date Range Button Listener (placeholder for picker)
-    const dateRangeBtn = document.getElementById('date-range-btn');
-  dateRangeBtn.addEventListener('click', () => {
-      // **TODO: Integrate a real date range picker library here**
-      // For now, simulate selecting "Last 7 days" and trigger search
-      console.log("Date range button clicked - simulating selection");
-      const today = new Date();
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(today.getDate() - 7);
-
-      selectedDateFrom = sevenDaysAgo.toISOString().split('T')[0];
-      selectedDateTo = today.toISOString().split('T')[0];
-
-      updateDateRangeDisplay(); // Update button text
-      searchInvoices(); // Trigger search with new dates
-      showMessage(`Date range set to Last 7 Days (${selectedDateFrom} to ${selectedDateTo}). Searching...`, 'info');
-
-      // Later, this would open flatpickr or similar
-  });
-
   // Load initial invoices *only if* authenticated and tenant is set
   // checkAuthStatus now handles setting window.tenantId correctly
   if (localStorage.getItem('xero_authenticated') === 'true' && window.tenantId) {
@@ -1521,6 +1501,26 @@ document.getElementById('sort-by').addEventListener('change', () => {
     document.getElementById('detail-section').classList.add('hidden');
     document.getElementById('results-section').classList.remove('hidden');
   });
+
+  // Date Range Button Listener (placeholder for picker)
+const dateRangeBtn = document.getElementById('date-range-btn');
+dateRangeBtn.addEventListener('click', () => {
+    // **TODO: Integrate a real date range picker library here**
+    // For now, simulate selecting "Last 7 days" and trigger search
+    console.log("Date range button clicked - simulating selection");
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    selectedDateFrom = sevenDaysAgo.toISOString().split('T')[0];
+    selectedDateTo = today.toISOString().split('T')[0];
+
+    updateDateRangeDisplay(); // Update button text
+    searchInvoices(); // Trigger search with new dates
+    showMessage(`Date range set to Last 7 Days (${selectedDateFrom} to ${selectedDateTo}). Searching...`, 'info');
+
+    // Later, this would open flatpickr or similar
+});
   
 }
 
@@ -3190,10 +3190,6 @@ let currentPage = 1;
 let cachedPages = {};
 const resultsPerPage = 20; // Keep this
 
-// const dateFromElement = document.getElementById('date-from'); // Remove or comment out
-// const dateFrom = dateFromElement ? dateFromElement.value : ''; // Remove or comment out
-// const dateToElement = document.getElementById('date-to'); // Remove or comment out
-// const dateTo = dateToElement ? dateToElement.value : ''; // Remove or comment out
 
 // --- Date Range State ---
 let selectedDateFrom = ''; // Store as 'YYYY-MM-DD'
