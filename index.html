@@ -3028,13 +3028,13 @@ function updatePagination() {
 async function showInvoiceDetail(invoiceId) {
   try {
     toggleLoading(true);
-    
+
     // Get valid tokens
     const tokens = await getValidTokens();
     if (!tokens) {
       throw new Error('No valid authentication tokens available');
     }
-    
+
     // Fetch the invoice details from Xero API - use absolute URL
     const url = `${window.location.origin}/api/xero-api/invoices/${invoiceId}`;
     const response = await fetch(url, {
@@ -3044,30 +3044,30 @@ async function showInvoiceDetail(invoiceId) {
         'Xero-Tenant-Id': window.tenantId
       }
     });
-    
-    
+
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || `Server returned ${response.status}`);
     }
-    
+
     const data = await response.json();
     console.log('Invoice detail:', data);
-    
+
     if (data && data.Invoices && data.Invoices.length > 0) {
       const invoice = data.Invoices[0];
-      
+
       // Hide results section and show detail section
       document.getElementById('results-section').classList.add('hidden');
       const detailSection = document.getElementById('detail-section');
       detailSection.classList.remove('hidden');
-      
+
       const detailElement = document.getElementById('invoice-detail');
-     
+
       // Format dates safely
-const date = formatDate(invoice.Date);
-const dueDate = formatDate(invoice.DueDate);
-        
+      const date = formatDate(invoice.Date);
+      const dueDate = formatDate(invoice.DueDate);
+
       // Build line items HTML safely
       const lineItemsHtml = (invoice.LineItems || []).map(item => `
         <tr>
@@ -3077,40 +3077,34 @@ const dueDate = formatDate(invoice.DueDate);
           <td class="text-right">${invoice.CurrencyCode || ''} ${item.LineAmount ? item.LineAmount.toFixed(2) : '0.00'}</td>
         </tr>
       `).join('');
-      
+
+      // --- START: Extract 6 Digits from INVOICE NUMBER for Lab Form Link ---
+      const invoiceNumberForLink = invoice.InvoiceNumber || '';
+      const extractedLabFormNumber = extractSixDigitInvoiceNumber(invoiceNumberForLink); // Use the helper
+      let labFormDropboxLink = '#'; // Default invalid link
+      if (extractedLabFormNumber) {
+          labFormDropboxLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${extractedLabFormNumber}.jpg?role=personal`;
+      }
+      // --- END: Extract 6 Digits ---
+
       // Build the detail view HTML
       detailElement.innerHTML = `
         <div class="invoice-header">
           <h2>Invoice #${invoice.InvoiceNumber || 'N/A'}</h2>
           <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
         </div>
-        
+
         <div class="invoice-meta">
+          {/* Details Group */}
           <div class="invoice-meta-group">
             <h3>Details</h3>
             <div><strong>Date:</strong> ${date}</div>
             <div><strong>Due Date:</strong> ${dueDate}</div>
             <div><strong>Reference:</strong> ${invoice.Reference || 'N/A'}</div>
             <div><strong>Type:</strong> ${invoice.Type || 'N/A'}</div>
-
-            ${ invoice.InvoiceNumber ? `
-            <div>
-              <h3>Lab Form:</h3>
-              <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${invoice.InvoiceNumber}.jpg?role=personal" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; margin-left: 5px;">
-                View lab form
-              </a>
-
-                    <div>
-        <span>Reference</span>
-        <span>${displayValueForReference}</span>
-        ${ extractedNumber ? `<br><a href="${dropboxLink}" target="_blank" style="font-size:0.8em;">View Lab Form</a>` : '' }
-      </div>
-              
-            </div>
-            ` : '' }
-
           </div>
-          
+
+          {/* Customer Group */}
           <div class="invoice-meta-group">
             <h3>Customer</h3>
             <div>
@@ -3130,7 +3124,23 @@ const dueDate = formatDate(invoice.DueDate);
                 </div>
             </div>
           </div>
-        
+
+          {/* --- START: SIMPLIFIED Lab Form Group --- */}
+          ${ /* Conditionally add based on successful extraction */ ''}
+          ${ extractedLabFormNumber ? `
+            <div class="invoice-meta-group">
+              <h3>Lab Form</h3>
+              <div>
+                <a href="${labFormDropboxLink}" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                  View lab form
+                </a>
+              </div>
+            </div>
+          ` : '' }
+          {/* --- END: SIMPLIFIED Lab Form Group --- */}
+
+        </div> {/* End of invoice-meta */}
+
         <div class="invoice-items">
           <h3>Line Items</h3>
           <table>
@@ -3161,7 +3171,8 @@ const dueDate = formatDate(invoice.DueDate);
             </tfoot>
           </table>
         </div>
-      `;
+      `; // End of innerHTML assignment
+
     } else {
       showError('Invoice not found');
     }
