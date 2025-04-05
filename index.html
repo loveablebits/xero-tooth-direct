@@ -2227,7 +2227,6 @@ function createInvoiceItem(invoice) {
         <span>Reference</span>
         <span>
             ${invoice.Reference || 'N/A'}
-            ${ /* --- START: View RX Link --- */ }
             ${ invoice.InvoiceNumber ? `
               <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
                   (invoice.InvoiceNumber || '').replace('INV-', '') /* Remove prefix */
@@ -2236,10 +2235,9 @@ function createInvoiceItem(invoice) {
                  rel="noopener noreferrer"
                  class="rx-link"  /* Specific class for this link */
                  style="margin-left: 10px; font-size: 0.8em; text-decoration: underline; color: var(--primary-color);">
-                View RX
+                View Lab Form
               </a>
             ` : '' }
-            ${ /* --- END: View RX Link --- */ }
         </span>
       </div>
       <div>
