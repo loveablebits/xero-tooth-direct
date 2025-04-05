@@ -2228,7 +2228,7 @@ function createInvoiceItem(invoice) {
         <span>
             ${invoice.Reference || 'N/A'}
             ${ invoice.InvoiceNumber ? `
-              <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
+              <br><a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${
                   (invoice.InvoiceNumber || '').replace('INV-', '') /* Remove prefix */
               }.jpg?role=personal"
                  target="_blank"
@@ -3133,13 +3133,12 @@ async function showInvoiceDetail(invoiceId) {
             </div>
           </div>
 
-          ${ /* Conditionally add based on successful extraction */ ''}
           ${ extractedLabFormNumber ? `
             <div class="invoice-meta-group">
               <h3>Lab Form</h3>
               <div>
-                <a href="${labFormDropboxLink}" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">
-                  View lab form
+                <br><a href="${labFormDropboxLink}" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                View lab form
                 </a>
               </div>
             </div>
