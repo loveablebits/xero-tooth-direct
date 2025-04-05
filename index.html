@@ -1560,6 +1560,23 @@ function clearCookies() {
   console.log('All Xero authentication data cleared from localStorage and cookies.');
 }
 
+/**
+ * Extracts the first sequence of exactly 6 digits from a string.
+ * @param {string} text The string to search within.
+ * @returns {string|null} The 6-digit number as a string, or null if not found.
+ */
+ function extractSixDigitInvoiceNumber(text) {
+  if (!text) {
+    return null; // Return null if the input is empty or null
+  }
+  // Regex to find exactly 6 consecutive digits
+  const regex = /\d{6}/;
+  const match = text.match(regex);
+
+  // Return the first match found, or null otherwise
+  return (match && match[0]) ? match[0] : null;
+}
+
 // Cookie helper functions
 function getCookie(name) {
   const value = `; ${document.cookie}`;
@@ -2163,39 +2180,53 @@ function updatePagination() {
 function createInvoiceItem(invoice) {
   const item = document.createElement('div');
   item.className = 'result-item';
-  
+
   // Get job status and add appropriate class
   const jobStatus = getJobStatus(invoice);
   if (jobStatus) {
     item.classList.add(jobStatus);
   }
-  
+
   // Safety check for invoice ID
   if (invoice.InvoiceID) {
     item.dataset.id = invoice.InvoiceID;
   }
-  
+
   // Format dates safely
   const date = formatDate(invoice.Date);
   const dueDate = formatDate(invoice.DueDate);
-  
+
   // Calculate business days from invoice date to now
   const invoiceDate = parseXeroDate(invoice.Date);
   const businessDays = invoiceDate ? getBusinessDaysDifference(invoiceDate, new Date()) : null;
-  
+
   // Create status badge based on age
-// Find this in your displayResultItems function
-// Create status badge based on age
-let jobAgeHtml = '';
-if (businessDays !== null) {
-  if (businessDays > 10) {
-    jobAgeHtml = `<div class="job-age job-overdue">Deadline: ${businessDays} business days</div>`;
-  } else if (businessDays >= 7) {
-    jobAgeHtml = `<div class="job-age job-approaching">Borderline: ${businessDays} business days</div>`;
-  } else {
-    jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
+  let jobAgeHtml = '';
+  if (businessDays !== null) {
+    if (businessDays > 10) {
+      jobAgeHtml = `<div class="job-age job-overdue">Deadline: ${businessDays} business days</div>`;
+    } else if (businessDays >= 7) {
+      jobAgeHtml = `<div class="job-age job-approaching">Borderline: ${businessDays} business days</div>`;
+    } else {
+      jobAgeHtml = `<div class="job-age job-recent">${businessDays} business days</div>`;
+    }
   }
-}
+
+  // --- START: Process Reference Field ---
+  const originalReference = invoice.Reference || ''; // Get original reference or empty string
+  const extractedNumber = extractSixDigitInvoiceNumber(originalReference); // Try to extract 6 digits
+  const displayValueForReference = extractedNumber || originalReference || 'N/A'; // Decide what to show
+  // --- END: Process Reference Field ---
+
+  // --- START: Example Dropbox Link Construction ---
+  let dropboxLink = '#'; // Default link
+  if (extractedNumber) {
+      // Construct link ONLY if 6 digits were found
+      // Ensure encoding if needed, but likely okay for digits
+      dropboxLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${extractedNumber}.jpg?role=personal`;
+  }
+  // --- END: Example Dropbox Link Construction ---
+
 
   // Create HTML safely
   item.innerHTML = `
@@ -2210,7 +2241,10 @@ if (businessDays !== null) {
       </div>
       <div>
         <span>Reference</span>
-        <span>${invoice.Reference || 'N/A'}</span>
+        {/* Use the processed display value */}
+        <span>${displayValueForReference}</span>
+        ${ /* Optional: Add link only if extracted number exists and you want a link here */ ''}
+        ${ extractedNumber ? `<br><a href="${dropboxLink}" target="_blank" style="font-size:0.8em;">View Rx</a>` : '' }
       </div>
       <div>
         <span>Date</span>
@@ -2227,13 +2261,32 @@ if (businessDays !== null) {
       </div>
     </div>
   `;
-  
-  // Add event listener if we have an invoice ID
+
+  // Add event listener to the whole item if we have an invoice ID
   if (invoice.InvoiceID) {
-    item.addEventListener('click', () => showInvoiceDetail(invoice.InvoiceID));
+      // Use the helper function to correctly pass the ID
+      item.removeEventListener('click', showInvoiceDetailById); // Remove potential duplicates if re-rendering
+      item.addEventListener('click', showInvoiceDetailById);
   }
-  
+
   return item;
+}
+
+/**
+ * Extracts the first sequence of exactly 6 digits from a string.
+ * @param {string} text The string to search within.
+ * @returns {string|null} The 6-digit number as a string, or null if not found.
+ */
+function extractSixDigitInvoiceNumber(text) {
+  if (!text) {
+    return null; // Return null if the input is empty or null
+  }
+  // Regex to find exactly 6 consecutive digits
+  const regex = /\d{6}/;
+  const match = text.match(regex);
+
+  // Return the first match found, or null otherwise
+  return (match && match[0]) ? match[0] : null;
 }
 
 async function loadMoreInvoices() {
@@ -3042,7 +3095,6 @@ const dueDate = formatDate(invoice.DueDate);
             <div><strong>Reference:</strong> ${invoice.Reference || 'N/A'}</div>
             <div><strong>Type:</strong> ${invoice.Type || 'N/A'}</div>
 
-            {/* --- ADDED LAB FORM LINK --- */}
             ${ invoice.InvoiceNumber ? `
             <div>
               <strong>Lab Form:</strong>
@@ -3051,7 +3103,6 @@ const dueDate = formatDate(invoice.DueDate);
               </a>
             </div>
             ` : '' }
-            {/* --- END ADDED LINK --- */}
 
           </div>
           
