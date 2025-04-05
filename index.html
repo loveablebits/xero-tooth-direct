@@ -3095,7 +3095,6 @@ async function showInvoiceDetail(invoiceId) {
         </div>
 
         <div class="invoice-meta">
-          {/* Details Group */}
           <div class="invoice-meta-group">
             <h3>Details</h3>
             <div><strong>Date:</strong> ${date}</div>
@@ -3104,7 +3103,6 @@ async function showInvoiceDetail(invoiceId) {
             <div><strong>Type:</strong> ${invoice.Type || 'N/A'}</div>
           </div>
 
-          {/* Customer Group */}
           <div class="invoice-meta-group">
             <h3>Customer</h3>
             <div>
@@ -3125,7 +3123,6 @@ async function showInvoiceDetail(invoiceId) {
             </div>
           </div>
 
-          {/* --- START: SIMPLIFIED Lab Form Group --- */}
           ${ /* Conditionally add based on successful extraction */ ''}
           ${ extractedLabFormNumber ? `
             <div class="invoice-meta-group">
@@ -3137,9 +3134,8 @@ async function showInvoiceDetail(invoiceId) {
               </div>
             </div>
           ` : '' }
-          {/* --- END: SIMPLIFIED Lab Form Group --- */}
 
-        </div> {/* End of invoice-meta */}
+        </div>
 
         <div class="invoice-items">
           <h3>Line Items</h3>
