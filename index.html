@@ -309,68 +309,169 @@
       margin-bottom: 1.5rem;
     }
 
-    .invoice-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 1.5rem;
-    }
+/* --- Invoice Detail View Enhancements --- */
 
-    .invoice-header h2 {
-      font-size: 1.5rem;
-      color: var(--secondary-color);
-    }
+#detail-section {
+  /* Optional: Increase padding slightly if needed */
+  /* padding: 2rem; */
+}
 
-    .invoice-meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
+/* --- Styling for Invoice Header (Invoice # / Status) --- */
+.invoice-header {
+   display: flex; /* Keep flex layout */
+   justify-content: space-between; /* Keep space between */
+   align-items: center; /* Vertically align status badge better with title */
+   margin-bottom: 2rem; /* Increased space below header */
+   flex-wrap: wrap; /* Allow wrapping if needed on very small screens */
+   gap: 1rem; /* Add gap if header wraps */
+}
 
-    .invoice-meta-group h3 {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #6b7280;
-      margin-bottom: 0.5rem;
-      text-transform: uppercase;
-    }
+.invoice-header h2 {
+  font-size: 1.5rem;
+  color: var(--secondary-color);
+  /* No changes needed here unless desired */
+}
 
+/* --- Styling for Metadata Section (Details / Customer) --- */
+.invoice-meta {
+  display: grid; /* Use explicit grid */
+  grid-template-columns: repeat(2, 1fr); /* Default to 2 equal columns */
+  gap: 2.5rem; /* Increased gap between Details and Customer columns */
+  margin-bottom: 2rem; /* Increased space below meta info block */
+  padding-bottom: 1.5rem; /* Add padding below meta */
+  border-bottom: 1px solid var(--border-color); /* Separator line before line items */
+}
+
+.invoice-meta-group h3 {
+  margin-bottom: 0.8rem; /* Slightly more space below heading */
+  color: var(--secondary-color); /* Make heading darker */
+  font-size: 0.9rem; /* Slightly smaller heading */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600; /* Keep original weight */
+}
+
+.invoice-meta-group div {
+    line-height: 1.5; /* Adjust line height for readability */
+    margin-bottom: 0.4rem; /* Consistent space between meta lines */
+    font-size: 0.9rem; /* Match font size */
+}
+
+/* Style the labels (strong tags) within the meta groups */
+ .invoice-meta-group strong {
+   color: #555; /* Make labels slightly less prominent than values */
+   min-width: 85px; /* Ensure labels align somewhat */
+   display: inline-block; /* Needed for min-width */
+   margin-right: 0.5rem; /* Space between label and value */
+   font-weight: 500; /* Less heavy font weight */
+ }
+
+/* Target the address block specifically for better formatting */
+.invoice-meta-group .address-block {
+    margin-top: 0.2rem; /* Add a little space above the address */
+}
+
+.invoice-meta-group .address-block span {
+    display: block; /* Make each address line a block */
+    margin-left: 90px; /* Indent address lines (adjust value as needed based on label width) */
+    margin-top: -1.6em; /* Pull first address line up closer to "Address:" label */
+    line-height: 1.4; /* Tighter line height for address */
+}
+/* Adjust margin-top only for the first span inside address-block */
+.invoice-meta-group .address-block span:first-child {
+   margin-top: -1.6em;
+}
+/* Reset margin-top for subsequent spans */
+.invoice-meta-group .address-block span + span {
+    margin-top: 0;
+}
+
+/* Hide the initial <br> after the Address label if it exists */
+ .invoice-meta-group strong + br {
+     display: none;
+ }
+
+/* --- Styling for Line Items Section --- */
+.invoice-items {
+  /* This container holds the table */
+  margin-top: 2rem; /* Ensure space above line items heading */
+  /* Overflow for scrolling is handled in the media query */
+}
+
+.invoice-items > h3 { /* Target only the H3 directly inside .invoice-items */
+   font-size: 1.25rem;
+   color: var(--secondary-color);
+   margin-bottom: 1.5rem; /* More space below "Line Items" heading */
+}
+
+/* Base style for the line items table (applies to all widths) */
+.invoice-items table {
+  width: 100%; /* Make the table take full width by default */
+  border-collapse: collapse; /* Keep existing collapse style */
+  margin-bottom: 2rem; /* Keep existing margin */
+}
+
+.invoice-items th {
+  text-align: left;
+  padding: 0.75rem;
+  background-color: rgba(0, 0, 0, 0.02);
+  font-weight: 600;
+  color: var(--secondary-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.invoice-items td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.875rem;
+}
+
+.invoice-items .text-right {
+  text-align: right;
+}
+
+.invoice-items tfoot td {
+  font-weight: 600;
+}
+
+.invoice-items .total-row {
+  font-size: 1rem;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* --- End Invoice Detail View Enhancements --- */
+
+/* --- Responsive adjustments for metadata and table --- */
+/* (These should be placed inside your existing @media (max-width: 768px) block) */
+@media (max-width: 768px) {
+  .invoice-meta {
+    grid-template-columns: 1fr; /* Stack meta to 1 column */
+    gap: 1.8rem; /* Adjust gap for stacked layout */
+  }
+
+   /* Remove address indentation on mobile for simpler layout */
+   .invoice-meta-group .address-block span {
+       margin-left: 0;
+       margin-top: 0.2rem; /* Reset margin-top */
+   }
+    .invoice-meta-group .address-block span:first-child {
+       margin-top: 0.2rem; /* Ensure first line also has normal spacing */
+   }
+
+   /* Add horizontal scrolling for line items container on mobile */
+    .invoice-items {
+      overflow-x: auto;
+      padding-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+    /* Force table minimum width on mobile to trigger scrolling */
     .invoice-items table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 2rem;
+       min-width: 600px;
     }
-
-    .invoice-items th {
-      text-align: left;
-      padding: 0.75rem;
-      background-color: rgba(0, 0, 0, 0.02);
-      font-weight: 600;
-      color: var(--secondary-color);
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .invoice-items td {
-      padding: 0.75rem;
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.875rem;
-    }
-
-    .invoice-items .text-right {
-      text-align: right;
-    }
-
-    .invoice-items tfoot td {
-      font-weight: 600;
-    }
-
-    .invoice-items .total-row {
-      font-size: 1rem;
-      background-color: rgba(0, 0, 0, 0.02);
-    }
-
+}
+/* --- End Responsive Adjustments --- */
 /* NEW CODE - Updated pagination styles for Previous/Next buttons */
+
 #pagination {
   display: flex;
   justify-content: center;
