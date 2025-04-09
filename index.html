@@ -2831,39 +2831,62 @@ function setupEventListeners() {
       }
     }
 
-    // NEW CODE - Replace with this updated function
+    // Corrected displayResults function
     function displayResults() {
       const resultsList = document.getElementById('results-list');
-
-      // Clear results only if it's the first page
-      if (currentPage === 1) {
-        resultsList.innerHTML = '';
+      // Ensure resultsList exists before modifying
+      if (!resultsList) {
+          console.error("Cannot find results list element (#results-list)");
+          return;
       }
+
+      // Always clear results list before displaying new page/sorted data
+      resultsList.innerHTML = '';
 
       const resultsSection = document.getElementById('results-section');
       const resultsCount = document.getElementById('results-count');
 
+      // Check if resultsSection and resultsCount exist
+      if (!resultsSection || !resultsCount) {
+          console.error("Cannot find results section or results count element.");
+          // Decide if you want to show an error or just return
+          return;
+      }
+
       if (!currentResults || currentResults.length === 0) {
+        // If results are truly empty after a search/load, hide section and show message
         resultsSection.classList.add('hidden');
-        showMessage('No invoices found matching your search criteria.', 'info');
+        resultsCount.textContent = '(0)'; // Update count too
+        // Ensure pagination is also cleared/hidden
+        const paginationEl = document.getElementById('pagination');
+        if (paginationEl) paginationEl.innerHTML = '';
+
+        // Keep the showMessage from search function or add one here if needed
+        // showMessage('No invoices found matching your criteria.', 'info');
         return;
       }
 
-      // Show results section
+      // Show results section if it was hidden
       resultsSection.classList.remove('hidden');
-      resultsCount.textContent = `(${currentResults.length})`;
+      // Update count display (might be refined later based on filters/loaded status)
+      resultsCount.textContent = `(${currentResults.length})`; // Simple count for now
 
-      // If it's the first page, sort results
-      if (currentPage === 1) {
-        // This will sort and display
-        sortResults();
-      } else {
-        // Just display items for current page
-        displayResultItems();
-      }
+      // Sort results before displaying the first page, or if sorting is explicitly requested
+      // The sorting logic might be better placed just before calling displayResultItems
+      // For simplicity here, we assume sortResults is called when needed (e.g., initial load, sort change)
+      // and displayResultItems just renders the current state of currentResults for the currentPage
 
-      // Hide "Load More" button - we'll use our prev/next pagination instead
-      document.getElementById('load-more-container').classList.add('hidden');
+      // Display items for the current page
+      displayResultItems(); // This function handles pagination logic and rendering
+
+      // Update pagination controls (displayResultItems already calls updatePagination)
+      // updatePagination(); // No need to call it twice
+
+      // --- THIS LINE IS REMOVED ---
+      // document.getElementById('load-more-container').classList.add('hidden');
+      // --- LINE REMOVED ABOVE ---
+
+      console.log("displayResults completed."); // Added log for confirmation
     }
 
     // Function to handle autocomplete logic
