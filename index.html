@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Xero Invoice Search</title>
+  <title>Xero Search</title>
   
   <style>
     :root {
@@ -837,10 +837,9 @@
 <body>
   <header>
     <div class="container">
-      <h1>Xero Invoice Search</h1>
+      <h1>Xero Search</h1>
       <div id="user-section">
         <div id="tenant-selector" class="hidden" style="margin-right: 15px; display: flex; align-items: center;">
-          <span>Organization: </span>
           <select id="tenant-dropdown" style="margin-left: 8px; padding: 4px; border-radius: 4px; background-color: #fff; color: #333;">
             <!-- Options will be added via JavaScript -->
           </select>
@@ -931,7 +930,7 @@
 
   <footer>
     <div class="container">
-      <p>Xero Invoice Search App | Powered by Xero API</p>
+      <p>Xero Search App | Powered by Xero API</p>
     </div>
   </footer>
 
@@ -2624,27 +2623,38 @@ function handleAutocomplete() {
   let suggestions = [];
 
   // Filter Invoice Numbers
-  invoiceNumberSuggestions.forEach(num => {
-    if (num.toLowerCase().startsWith(value)) {
-      suggestions.push({ type: 'Invoice #', text: num });
-    }
-  });
+  // Ensure invoiceNumberSuggestions is an array before using forEach
+  if (Array.isArray(invoiceNumberSuggestions)) {
+    invoiceNumberSuggestions.forEach(num => {
+      // Added check for num existence and ensure it's a string
+      if (num && typeof num === 'string' && num.toLowerCase().startsWith(value)) {
+        suggestions.push({ type: 'Invoice #', text: num });
+      }
+    });
+  }
 
-  // Filter References
-  referenceSuggestions.forEach(ref => {
-     // Check length and avoid duplicates already added from invoice numbers
-    if (ref.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === ref)) {
-      suggestions.push({ type: 'Reference', text: ref });
-    }
-  });
 
-  // Filter Contact Names
-  contactNameSuggestions.forEach(name => {
-      // Check length and avoid duplicates
-    if (name.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === name)) {
-      suggestions.push({ type: 'Customer', text: name });
-    }
-  });
+  // Filter References (Make sure referenceSuggestions is iterable, e.g., an Array or Set)
+  if (typeof referenceSuggestions[Symbol.iterator] === 'function') {
+      referenceSuggestions.forEach(ref => {
+         // Added check for ref existence and ensure it's a string
+        if (ref && typeof ref === 'string' && ref.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === ref)) {
+          suggestions.push({ type: 'Reference', text: ref });
+        }
+      });
+  }
+
+
+  // Filter Contact Names (Make sure contactNameSuggestions is iterable)
+  if (typeof contactNameSuggestions[Symbol.iterator] === 'function') {
+      contactNameSuggestions.forEach(name => {
+          // Added check for name existence and ensure it's a string
+        if (name && typeof name === 'string' && name.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === name)) {
+          suggestions.push({ type: 'Customer', text: name });
+        }
+      });
+  }
+
 
   // Limit total suggestions
   suggestions = suggestions.slice(0, maxSuggestions);
@@ -2661,13 +2671,16 @@ function handleAutocomplete() {
          : suggestion.text; // Fallback if something weird happens
 
       div.innerHTML = `${highlightedText} <span style="color: #888; font-size: 0.8em; float: right;">(${suggestion.type})</span>`;
+
+      // --- MODIFICATION IS HERE ---
       div.addEventListener('click', () => {
         input.value = suggestion.text; // Set input value
         suggestionsContainer.innerHTML = ''; // Clear suggestions
         suggestionsContainer.classList.add('hidden');
-        // Optionally trigger search immediately
-        // searchInvoices();
+        searchInvoices(); // <<<--- ADDED THIS LINE TO TRIGGER SEARCH IMMEDIATELY
       });
+      // --- END MODIFICATION ---
+
       suggestionsContainer.appendChild(div);
     });
     suggestionsContainer.classList.remove('hidden'); // Show container
