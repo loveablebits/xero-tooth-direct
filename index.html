@@ -844,9 +844,9 @@
             <!-- Options will be added via JavaScript -->
           </select>
         </div>
-        <button id="clear-cookies-btn" class="btn secondary" style="margin-right: 10px;">Reset Connection</button>
+        <!-- Reset Connection button removed -->
         <button id="login-btn" class="btn primary">Connect to Xero</button>
-        <button id="logout-btn" class="btn secondary hidden">Disconnect</button>
+        <button id="logout-btn" class="btn secondary hidden">Log out</button>
       </div>
     </div>
   </header>
@@ -1350,17 +1350,11 @@ function setupEventListeners() {
     clearCookies();
     window.location.reload();
   });
-  
-  // Clear cookies button
-  document.getElementById('clear-cookies-btn').addEventListener('click', () => {
-    clearCookies();
-    showSuccess('All cookies cleared');
-    updateUI(false);
-  });
-  
+
+  // Event listener for clear-cookies-btn removed
+
   // Search button
   document.getElementById('search-btn').addEventListener('click', searchInvoices);
-  
   // Search input - enter key
   document.getElementById('search-input').addEventListener('keypress', event => {
     if (event.key === 'Enter') {
@@ -2218,7 +2212,7 @@ function createInvoiceItem(invoice) {
                rel="noopener noreferrer"
                class="rx-link"  /* Keep class */
                style="font-size: 0.8em; text-decoration: underline; color: var(--primary-color);">
-              View RX
+              View Lab Form
             </a>
           </div>
         ` : '' }
