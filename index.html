@@ -1546,30 +1546,46 @@ function setupEventListeners() {
       });
   } // End if(searchInput)
 
-  // Job status filter change
+
+  // Job status filter change - UPDATED LOGIC
   const jobStatusFilter = document.getElementById('job-status-filter');
   if (jobStatusFilter) { // Check if element exists
       jobStatusFilter.addEventListener('change', async function() {
         const selectedStatus = this.value;
-        console.log(`Job status filter changed to: "${selectedStatus}"`); // DEBUG LOG
+        const searchInput = document.getElementById('search-input');
+        const searchTerm = searchInput ? searchInput.value.trim() : ''; // Get current search term
+
+        console.log(`Job status filter changed to: "${selectedStatus}", Search term: "${searchTerm}"`);
         toggleLoading(true);
         const resultsSection = document.getElementById('results-section');
-        if(resultsSection) resultsSection.style.opacity = '0.5'; // Dim results while loading filter
+        if(resultsSection) resultsSection.style.opacity = '0.5';
 
         try {
-          if (selectedStatus) { // Value is "approaching" or "overdue"
-            console.log("Calling loadInvoicesByStatus..."); // DEBUG LOG
+          if (!selectedStatus) {
+            // --- Case 1: "All Invoices" selected ---
+            console.log("Resetting to All Invoices.");
+            // If there was a search term, re-run search which will now ignore status
+            // If no search term, loadInitialInvoices handles it.
+            // Simplest is to just load initial, as search term might be stale.
+             window.filteredResults = null;
+             currentApiPage = 1;
+             apiHasMorePages = true;
+             isLoadingMoreApiData = false;
+             cachedPages = {};
+             currentResults = [];
+             await loadInitialInvoices(); // Reload the initial "All" view
+
+          } else if (searchTerm) {
+            // --- Case 2: Status selected AND Search term exists ---
+            console.log("Status selected with active search term. Re-running search with status filter applied.");
+            // Re-run the search. searchInvoices will fetch by term and filter by status client-side.
+            await searchInvoices();
+
+          } else {
+            // --- Case 3: Status selected AND Search term is empty ---
+            console.log("Status selected with no search term. Calling loadInvoicesByStatus.");
+            // Load specifically by status (this fetches all candidates then filters)
             await loadInvoicesByStatus(selectedStatus);
-          } else { // Value is "" (All Invoices)
-            console.log("Resetting to All Invoices. Clearing filters and calling loadInitialInvoices..."); // DEBUG LOG
-            window.filteredResults = null; // Clear specific filter results
-            // Reset API pagination state for "All"
-            currentApiPage = 1;
-            apiHasMorePages = true; // Assume more pages initially
-            isLoadingMoreApiData = false;
-            cachedPages = {}; // Clear cache
-            currentResults = []; // Clear current results before loading initial page
-            await loadInitialInvoices(); // Reload the initial "All" view
           }
         } catch (error) {
           console.error("Error applying job status filter:", error);
@@ -2566,25 +2582,11 @@ function setupEventListeners() {
       }
     }
 
-    /**
-     * Searches Xero for invoices and bills based on various criteria including
-     * invoice number, reference, line item description, contact name/email,
-     * and contact address (City, PostalCode, Region).
-     */
-    /**
-     * Searches Xero for invoices based on search term.
-     * Always filters for ACCREC and defaults to last 30 days.
-     */
 /**
  * Searches Xero for invoices based on search term.
  * If the search term is empty, it loads the initial "All Invoices" view.
- * Always filters for ACCREC and defaults to last 30 days when searching.
- */
- /**
- * Searches Xero for invoices based on search term.
- * If the search term is empty, it loads the initial "All Invoices" view.
- * Always filters for ACCREC and defaults to last 30 days when searching.
- * Handles escaping quotes in the search term for the API query.
+ * After fetching by search term, it applies the currently selected Job Status filter client-side.
+ * Always filters API call for ACCREC and defaults to last 30 days when searching.
  */
  async function searchInvoices() {
   try {
@@ -2592,25 +2594,21 @@ function setupEventListeners() {
     const searchInput = document.getElementById('search-input');
     const searchTerm = searchInput ? searchInput.value.trim() : ''; // Ensure input exists
 
-    // --- Handle Empty Search Term (No changes needed here) ---
+    // --- Handle Empty Search Term (No change) ---
     if (!searchTerm) {
         console.log("Search triggered with empty input. Loading initial invoices...");
-        // Reset the job status filter dropdown
         const jobStatusFilter = document.getElementById('job-status-filter');
         if (jobStatusFilter) jobStatusFilter.value = '';
-        // Hide the inline clear button if it exists
         const clearSearchBtn = document.getElementById('clear-search-btn');
         if(clearSearchBtn) clearSearchBtn.classList.add('hidden');
-        // Hide autocomplete suggestions
         const suggestionsContainer = document.getElementById('autocomplete-suggestions');
         if (suggestionsContainer) {
            suggestionsContainer.innerHTML = '';
            suggestionsContainer.classList.add('hidden');
         }
-        // Call the function that loads the initial, unfiltered view
         await loadInitialInvoices();
         showMessage('Showing all recent invoices...', 'info');
-        return; // Stop execution here
+        return;
     }
     // --- End Handle Empty Search Term ---
 
@@ -2621,55 +2619,39 @@ function setupEventListeners() {
     if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
 
-    // Create base query and headers
+    // Create base query and headers (No change)
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
     url.searchParams.set('page', '1');
-    url.searchParams.set('pageSize', '50');
-
+    url.searchParams.set('pageSize', '50'); // Fetch reasonable size page for searching
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
       'Xero-Tenant-Id': window.tenantId
     };
 
-    // Build where conditions
+    // Build where conditions (No change)
     const whereConditions = [];
-    whereConditions.push(`Type=="ACCREC"`); // Always filter for ACCREC
-
-    // Default to last 30 days for all searches
+    whereConditions.push(`Type=="ACCREC"`);
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const formattedDate = thirtyDaysAgo.toISOString().split('T')[0];
     whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
-
-    // --- Prepare search term for API filter ---
-    // Escape backslashes first, then double quotes, then single quotes
-    const safeSearchTerm = searchTerm
-                            .replace(/\\/g, '\\\\') // Escape backslashes
-                            .replace(/"/g, '\\"')  // Escape double quotes
-                            .replace(/'/g, "''"); // Escape single quotes (OData/SQL style often uses '')
-    const lowerCaseSearchTerm = safeSearchTerm.toLowerCase(); // Apply ToLower AFTER escaping
-    // --- End Prepare search term ---
-
+    const safeSearchTerm = searchTerm.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "''");
+    const lowerCaseSearchTerm = safeSearchTerm.toLowerCase();
     whereConditions.push(`(
       (InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
       (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
       (Contact.Name!=null AND Contact.Name.ToLower().Contains("${lowerCaseSearchTerm}"))
     )`);
-
-    // Combine all conditions with AND
     const whereClause = whereConditions.join(' AND ');
     url.searchParams.append('where', whereClause);
-
-    // --- Add Logging ---
     console.log("Constructed where clause:", whereClause);
-    // --- End Logging ---
 
-    // Make the API call
+    // Make the API call (No change)
     console.log("Making API request:", url.toString());
     const response = await fetch(url.toString(), { method: 'GET', headers });
 
-    // --- Process response (No changes needed below this point in the try block) ---
+    // Process response (No change until results processing)
     if (!response.ok) {
       const errorText = await response.text();
       try {
@@ -2685,23 +2667,55 @@ function setupEventListeners() {
     const data = await response.json();
     console.log('Xero API response:', data);
 
-     if (data?.Invoices?.length) {
-      console.log(`Found ${data.Invoices.length} invoices`);
-      currentResults = data.Invoices;
-      updateAutocompleteSources(currentResults);
-      currentPage = 1;
-      window.filteredResults = null;
+    let fetchedInvoices = data?.Invoices || []; // Store fetched invoices temporarily
+
+     // --- NEW: Apply Job Status Filter Client-Side ---
+     const jobStatusFilterEl = document.getElementById('job-status-filter');
+     const selectedStatus = jobStatusFilterEl ? jobStatusFilterEl.value : '';
+
+     let finalResults = []; // Will hold the potentially filtered results
+
+     if (selectedStatus && fetchedInvoices.length > 0) {
+        console.log(`Applying client-side status filter: "${selectedStatus}" to ${fetchedInvoices.length} fetched invoices.`);
+        finalResults = fetchedInvoices.filter(invoice => getJobStatus(invoice) === selectedStatus);
+        console.log(`Filtered down to ${finalResults.length} invoices matching status.`);
+     } else {
+        // No status filter selected OR no invoices fetched, use the fetched results directly
+        finalResults = fetchedInvoices;
+     }
+     // --- End Apply Job Status Filter ---
+
+
+     // Process final results
+     if (finalResults.length > 0) {
+      console.log(`Displaying ${finalResults.length} final invoices.`);
+      currentResults = finalResults; // Use the final (potentially filtered) results
+      updateAutocompleteSources(currentResults); // Update autocomplete based on displayed results
+      currentPage = 1; // Reset to page 1 for new results display
+      window.filteredResults = null; // Clear specific filter state, as this is now main search result
+
+      // Reset API pagination state for the new search results
+      // Note: This assumes search always fetches *all* matches up to API limit.
+      // If API used paging during search, this needs adjustment.
       currentApiPage = 1;
-      apiHasMorePages = data.Invoices.length === 50;
-      displayResults();
+      apiHasMorePages = fetchedInvoices.length === 50; // Base 'hasMore' on original fetch size
+
+      displayResults(); // displayResults will handle sorting and rendering the first page
+
     } else {
-      currentResults = [];
+      // No results logic (either fetch returned none, or client-side filter removed all)
+      console.log("No invoices found after applying search term and status filter.");
+      currentResults = []; // Clear previous results
       window.filteredResults = null;
-      document.getElementById('results-list').innerHTML = '';
+      document.getElementById('results-list').innerHTML = ''; // Clear display
       document.getElementById('results-count').textContent = '(0)';
-      document.getElementById('pagination').innerHTML = '';
-      document.getElementById('results-section').classList.remove('hidden');
-      showMessage('No sales invoices found matching your search criteria.', 'info');
+      document.getElementById('pagination').innerHTML = ''; // Clear pagination
+      document.getElementById('results-section').classList.remove('hidden'); // Show section to display message
+      if (searchTerm && selectedStatus) {
+          showMessage(`No sales invoices found matching "${searchTerm}" and status "${selectedStatus}".`, 'info');
+      } else {
+          showMessage('No sales invoices found matching your search criteria.', 'info');
+      }
     }
   } catch (error) {
     // Keep the existing safe catch block here...
