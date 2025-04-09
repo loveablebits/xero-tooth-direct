@@ -964,8 +964,6 @@ function initApp() {
       // Reset filters before initial load
         document.getElementById('job-status-filter').value = '';
         document.getElementById('search-input').value = '';
-        document.getElementById('date-from').value = '';
-        document.getElementById('date-to').value = '';
       loadInitialInvoices();
   } else {
        console.log("Skipping initial invoice load: Not authenticated or no tenant ID determined.");
@@ -1289,8 +1287,6 @@ function handleTenantChange() {
   // Reset any active filters
   document.getElementById('job-status-filter').value = '';
   document.getElementById('search-input').value = '';
-  document.getElementById('date-from').value = '';
-  document.getElementById('date-to').value = '';
 
 
   // Reload invoices for the new organization
@@ -1333,8 +1329,6 @@ function handleTenantChange() {
   // Reset any active filters
   document.getElementById('job-status-filter').value = '';
   document.getElementById('search-input').value = '';
-  document.getElementById('date-from').value = '';
-  document.getElementById('date-to').value = '';
 
   // Reload invoices for the new organization
   loadInitialInvoices(); // This should now use the updated window.tenantId
@@ -1651,8 +1645,6 @@ async function loadInitialInvoices() {
   // Reset UI filters visually
    document.getElementById('job-status-filter').value = '';
    document.getElementById('search-input').value = '';
-   document.getElementById('date-from').value = '';
-   document.getElementById('date-to').value = '';
 
 
   console.log("loadInitialInvoices: Fetching initial page for 'All' filter.");
@@ -2338,117 +2330,120 @@ async function loadMoreInvoices() {
  * invoice number, reference, line item description, contact name/email,
  * and contact address (City, PostalCode, Region).
  */
+/**
+ * Searches Xero for invoices based on search term.
+ * Always filters for ACCREC and defaults to last 30 days.
+ */
  async function searchInvoices() {
   try {
-    // Safely get filter values, providing defaults if elements don't exist
+    // Safely get search term value
     const searchTerm = document.getElementById('search-input')?.value.trim() || '';
-    const dateFromElement = document.getElementById('date-from');
-    const dateFrom = dateFromElement ? dateFromElement.value : '';
-    const dateToElement = document.getElementById('date-to');
-    const dateTo = dateToElement ? dateToElement.value : '';
+
+    // No longer need to get dateFrom or dateTo
 
     const tokens = await getValidTokens();
     if (!tokens) throw new Error('No valid authentication tokens available');
     toggleLoading(true);
-    
+
     // Create base query and headers
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
     url.searchParams.set('page', '1');
-    url.searchParams.set('pageSize', '50');
-    
+    url.searchParams.set('pageSize', '50'); // Keep fetching a decent size for initial search
+
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
       'Xero-Tenant-Id': window.tenantId
     };
-    
+
     // Build where conditions
     const whereConditions = [];
-    
+
     // Always filter for ACCREC only
     whereConditions.push(`Type=="ACCREC"`);
-    
-    // Add date filters if provided
-    if (dateFrom) {
-      whereConditions.push(`Date>=DateTime(${dateFrom.replace(/-/g, ',')})`);
-    } else {
-      // Default to last 30 days if no date provided (increased from 14)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const formattedDate = thirtyDaysAgo.toISOString().split('T')[0];
-      whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
-    }
-    
-    if (dateTo) {
-      whereConditions.push(`Date<=DateTime(${dateTo.replace(/-/g, ',')})`);
-    }
-    
+
+    // Default to last 30 days for all searches now
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const formattedDate = thirtyDaysAgo.toISOString().split('T')[0];
+    whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
+
     // Add search term if provided
     if (searchTerm) {
       const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
       const lowerCaseSearchTerm = safeSearchTerm.toLowerCase();
-      
-      // Add search condition for the three main fields
+
+      // Add search condition for the main fields
       whereConditions.push(`(
         (InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
         (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
         (Contact.Name!=null AND Contact.Name.ToLower().Contains("${lowerCaseSearchTerm}"))
       )`);
+    } else {
+        // If search term is empty, maybe show a message or rely on the default date range only?
+        // Currently, it will just show invoices from the last 30 days.
+        console.log("Search term is empty, showing recent invoices (last 30 days).");
     }
-    
+
     // Combine all conditions with AND
     if (whereConditions.length > 0) {
       const whereClause = whereConditions.join(' AND ');
       url.searchParams.append('where', whereClause);
     }
-    
+
     // Make the API call
     console.log("Making API request:", url.toString());
     const response = await fetch(url.toString(), { method: 'GET', headers });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       try {
         const errorData = JSON.parse(errorText);
-        const detail = errorData.Detail || errorData.message || 
+        const detail = errorData.Detail || errorData.message ||
           (errorData.Elements && errorData.Elements[0]?.ValidationErrors?.[0]?.Message);
         throw new Error(detail || errorText || `Server returned ${response.status}`);
       } catch (parseError) {
         throw new Error(errorText || `Server returned ${response.status}`);
       }
     }
-    
+
     const data = await response.json();
     console.log('Xero API response:', data);
-    
+
      // Process results
      if (data?.Invoices?.length) {
       console.log(`Found ${data.Invoices.length} invoices`);
       currentResults = data.Invoices;
-      updateAutocompleteSources(currentResults); // <<< ADD THIS LINE
+      updateAutocompleteSources(currentResults);
       currentPage = 1;
+      window.filteredResults = null; // Reset any specific filter (like job status) when doing a text search
 
-      // Reset any existing filter
-      window.filteredResults = null;
+      // Crucially reset API pagination state for the new search results
+      currentApiPage = 1;
+      apiHasMorePages = data.Invoices.length === 50; // Assume more if full page returned
 
-      displayResults(); // displayResults will handle sorting and rendering
-
-      // The load-more-container logic is likely outdated/removed due to pagination changes
-      // if (document.getElementById('load-more-container')) {
-      //    document.getElementById('load-more-container').classList.add('hidden');
-      // }
+      displayResults(); // displayResults will handle sorting and rendering the first page
 
     } else {
       // No results logic...
-      document.getElementById('results-section').classList.add('hidden');
-      // if (document.getElementById('load-more-container')) {
-      //    document.getElementById('load-more-container').classList.add('hidden');
-      // }
+      currentResults = []; // Clear previous results
+      window.filteredResults = null;
+      document.getElementById('results-list').innerHTML = ''; // Clear display
+      document.getElementById('results-count').textContent = '(0)';
+      document.getElementById('pagination').innerHTML = ''; // Clear pagination
+      document.getElementById('results-section').classList.remove('hidden'); // Show section to display message
       showMessage('No sales invoices found matching your search criteria.', 'info');
     }
   } catch (error) {
     console.error("Error searching invoices:", error);
     showError(`Error searching sales invoices: ${error.message || 'Unknown error'}`);
+     // Clear results display on error too
+     currentResults = [];
+     window.filteredResults = null;
+     document.getElementById('results-list').innerHTML = '';
+     document.getElementById('results-count').textContent = '(0)';
+     document.getElementById('pagination').innerHTML = '';
+     document.getElementById('results-section').classList.remove('hidden'); // Show section to display error message
   } finally {
     toggleLoading(false);
   }
