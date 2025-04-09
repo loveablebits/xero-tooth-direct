@@ -1496,144 +1496,212 @@
       showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
     }
 
-    // Setup event listeners - simplified
-    function setupEventListeners() {
-      // Login button
-      document.getElementById('login-btn').addEventListener('click', () => {
-        console.log("Connect to Xero button clicked");
-        window.location.href = '/.netlify/functions/xero-auth';
-      });
+// Setup event listeners - COMBINED AND CORRECTED
+function setupEventListeners() {
+  // Login button
+  document.getElementById('login-btn').addEventListener('click', () => {
+    console.log("Connect to Xero button clicked");
+    window.location.href = '/.netlify/functions/xero-auth';
+  });
 
-      // Logout button
-      document.getElementById('logout-btn').addEventListener('click', () => {
-        clearCookies();
-        window.location.reload();
-      });
+  // Logout button
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    clearCookies();
+    window.location.reload();
+  });
 
-      // Event listener for clear-cookies-btn removed
+  // Event listener for clear-cookies-btn removed
 
-      // Search button
-      document.getElementById('search-btn').addEventListener('click', searchInvoices);
-      // Search input - enter key
-      document.getElementById('search-input').addEventListener('keypress', event => {
-        if (event.key === 'Enter') {
-          searchInvoices();
-        }
-      });
+  // Search button
+  document.getElementById('search-btn').addEventListener('click', searchInvoices);
 
-      // Autocomplete listener with debounce
-      const searchInput = document.getElementById('search-input');
-      const debouncedAutocomplete = debounce(handleAutocomplete, DEBOUNCE_DELAY);
-      searchInput.addEventListener('input', debouncedAutocomplete);
+  // Search input - enter key
+  document.getElementById('search-input').addEventListener('keypress', event => {
+    if (event.key === 'Enter') {
+      searchInvoices();
+    }
+  });
 
-      // Hide suggestions on blur (losing focus), but delay slightly
-      // This allows a click on a suggestion to register first
-      searchInput.addEventListener('blur', () => {
-        setTimeout(() => {
+    // Autocomplete listener with debounce
+    const searchInput = document.getElementById('search-input');
+  const debouncedAutocomplete = debounce(handleAutocomplete, DEBOUNCE_DELAY);
+  searchInput.addEventListener('input', debouncedAutocomplete);
+
+  // Hide suggestions on blur (losing focus), but delay slightly
+  // This allows a click on a suggestion to register first
+  searchInput.addEventListener('blur', () => {
+      setTimeout(() => {
           const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-          if (!suggestionsContainer.matches(':hover')) { // Don't hide if mouse is over suggestions
-            suggestionsContainer.innerHTML = '';
-            suggestionsContainer.classList.add('hidden');
-          }
-        }, 150); // Delay ms
-      });
-
-      // Ensure suggestions are shown when input gets focus back and has text
-      searchInput.addEventListener('focus', () => {
-        if (searchInput.value.trim().length > 0) {
-          handleAutocomplete(); // Re-show suggestions if there's text
-        }
-      });
-
-      // Job status filter change
-      document.getElementById('job-status-filter').addEventListener('change', async function () {
-        const selectedStatus = this.value;
-        toggleLoading(true);
-
-        try {
-          if (selectedStatus) {
-            // For any job status filter, we'll load specific data
-            await loadInvoicesByStatus(selectedStatus);
-          } else {
-            // Show all results (no job status filter)
-            window.filteredResults = null;
-            document.getElementById('results-count').textContent = `(${currentResults.length})`;
-            sortResults(); // This will redisplay all results
-          }
-        } catch (error) {
-          console.error("Error applying job status filter:", error);
-          showError("Error loading invoices. Please try again.");
-        } finally {
-          toggleLoading(false);
-        }
-      });
-
-      // Sort options
-      document.getElementById('sort-by').addEventListener('change', () => {
-        console.log('Sort by changed');
-        sortResults();
-      });
-
-
-      // Back button (invoice details)
-      document.getElementById('back-btn').addEventListener('click', () => {
-        document.getElementById('detail-section').classList.add('hidden');
-        document.getElementById('results-section').classList.remove('hidden');
-      });
-
-
-      // --- Add this block for Input Clear Button ---
-      const searchInputForClear = document.getElementById('search-input');
-      const clearSearchBtn = document.getElementById('clear-search-btn');
-
-      // Ensure elements exist before adding listeners
-      if (searchInputForClear && clearSearchBtn) {
-        // Show/hide clear button based on input value
-        searchInputForClear.addEventListener('input', () => {
-          if (searchInputForClear.value.length > 0) {
-            clearSearchBtn.classList.remove('hidden');
-          } else {
-            clearSearchBtn.classList.add('hidden');
-            // Also hide autocomplete when input is cleared manually
-            const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-            if (suggestionsContainer) { // Check if it exists
+           // Check if suggestionsContainer exists before accessing properties
+           if (suggestionsContainer && !suggestionsContainer.matches(':hover')) { // Don't hide if mouse is over suggestions
               suggestionsContainer.innerHTML = '';
               suggestionsContainer.classList.add('hidden');
-            }
-          }
-        });
+           }
+      }, 150); // Delay ms
+  });
 
-        // Handle click on the clear button
-        clearSearchBtn.addEventListener('click', () => {
-          searchInputForClear.value = ''; // Clear the input
-          clearSearchBtn.classList.add('hidden'); // Hide the button itself
+  // Ensure suggestions are shown when input gets focus back and has text
+   searchInput.addEventListener('focus', () => {
+       if (searchInput.value.trim().length > 0) {
+           handleAutocomplete(); // Re-show suggestions if there's text
+       }
+   });
 
-          // Hide autocomplete
+// Job status filter change
+document.getElementById('job-status-filter').addEventListener('change', async function() {
+  const selectedStatus = this.value;
+  toggleLoading(true);
+  document.getElementById('results-section').style.opacity = '0.5'; // Dim results while loading filter
+
+  try {
+    if (selectedStatus) {
+      // For any job status filter, we'll load specific data
+      await loadInvoicesByStatus(selectedStatus);
+    } else {
+      // Show all results (no job status filter)
+      window.filteredResults = null; // Clear specific filter results
+      // Reset API pagination state for "All"
+      currentApiPage = 1;
+      apiHasMorePages = true; // Assume more pages initially
+      isLoadingMoreApiData = false;
+      cachedPages = {}; // Clear cache
+      currentResults = []; // Clear current results before loading initial page
+      await loadInitialInvoices(); // Reload the initial "All" view
+    }
+  } catch (error) {
+    console.error("Error applying job status filter:", error);
+    showError("Error loading invoices. Please try again.");
+  } finally {
+    toggleLoading(false);
+    document.getElementById('results-section').style.opacity = '1'; // Restore opacity
+  }
+});
+
+ // Sort options
+document.getElementById('sort-by').addEventListener('change', () => {
+  console.log('Sort by changed');
+  // Determine if sorting filtered results or all results
+  if (window.filteredResults !== null) {
+      // Sort the filtered results array
+      sortSpecificResults(window.filteredResults); // Use a helper if needed or inline sort
+      displayFilteredResults(); // Redisplay the filtered (now sorted) results
+  } else {
+      // Sort the main currentResults array
+      sortResults(); // This sorts currentResults and calls displayResultItems
+  }
+});
+
+
+  // Back button (invoice details)
+  document.getElementById('back-btn').addEventListener('click', () => {
+    // Save scroll position from detail view if needed (optional)
+    // window.lastScrollPosition = window.scrollY;
+
+    document.getElementById('detail-section').classList.add('hidden');
+    const resultsSection = document.getElementById('results-section');
+    resultsSection.classList.remove('hidden');
+
+    // Decide whether to restore scroll or scroll to top of results
+    // If you have window.lastPageViewed and window.lastScrollPosition tracking:
+     if (window.lastScrollPosition && window.lastPageViewed) {
+         console.log(`Returning to results page ${window.lastPageViewed}, restoring scroll ${window.lastScrollPosition}`);
+         // Need to ensure the correct page is displayed first, then scroll
+         // This might require calling displayResultItems/displayFilteredResults again
+         // For simplicity now, let's scroll to the top of the results section
+         resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+         // Reset scroll tracking after returning
+         // window.lastScrollPosition = 0;
+     } else {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+     }
+
+  });
+
+  // --- Add this block for Input Clear Button ---
+  const searchInputForClear = document.getElementById('search-input');
+  const clearSearchBtn = document.getElementById('clear-search-btn');
+
+  // Ensure elements exist before adding listeners
+  if (searchInputForClear && clearSearchBtn) {
+      // Show/hide clear button based on input value
+      searchInputForClear.addEventListener('input', () => {
+        if (searchInputForClear.value.length > 0) {
+          clearSearchBtn.classList.remove('hidden');
+        } else {
+          clearSearchBtn.classList.add('hidden');
+          // Also hide autocomplete when input is cleared manually
           const suggestionsContainer = document.getElementById('autocomplete-suggestions');
           if (suggestionsContainer) { // Check if it exists
+              suggestionsContainer.innerHTML = '';
+              suggestionsContainer.classList.add('hidden');
+          }
+        }
+      });
+
+      // Handle click on the clear button
+      clearSearchBtn.addEventListener('click', () => {
+        searchInputForClear.value = ''; // Clear the input
+        clearSearchBtn.classList.add('hidden'); // Hide the button itself
+
+        // Hide autocomplete
+        const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+        if (suggestionsContainer) { // Check if it exists
+           suggestionsContainer.innerHTML = '';
+           suggestionsContainer.classList.add('hidden');
+        }
+
+        // Reset the job status filter dropdown
+        const jobStatusFilter = document.getElementById('job-status-filter');
+        if (jobStatusFilter) { // Check if it exists
+            jobStatusFilter.value = '';
+        }
+
+        // Reload all invoices
+        loadInitialInvoices();
+        // Optional: Bring focus back to the input
+        searchInputForClear.focus();
+        // Optional: User feedback
+        showMessage('Search cleared. Loading all invoices...', 'info');
+      });
+  } else {
+      console.error("Could not find search input or clear button elements for listeners.");
+  }
+  // --- End Input Clear Button block ---
+
+  // --- Listener for the external "Show All" button ---
+  const clearFiltersBtn = document.getElementById('clear-filters-btn');
+  if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', () => {
+        console.log("Show All button clicked");
+        // Clear the search input
+        const searchInputVal = document.getElementById('search-input');
+        if(searchInputVal) searchInputVal.value = '';
+
+        // Also hide the inline clear button if it exists and is visible
+        const inlineClearBtn = document.getElementById('clear-search-btn');
+        if(inlineClearBtn) inlineClearBtn.classList.add('hidden');
+
+        // Reset the job status filter dropdown
+        const jobStatusFilterVal = document.getElementById('job-status-filter');
+        if(jobStatusFilterVal) jobStatusFilterVal.value = '';
+
+        // Hide any lingering autocomplete suggestions
+        const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+        if(suggestionsContainer) {
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.classList.add('hidden');
-          }
+        }
 
-          // Reset the job status filter dropdown
-          const jobStatusFilter = document.getElementById('job-status-filter');
-          if (jobStatusFilter) { // Check if it exists
-            jobStatusFilter.value = '';
-          }
+        // Call the function that loads the initial, unfiltered view
+        loadInitialInvoices();
+        // Optional: Give user feedback
+        showMessage('Filters cleared. Loading all invoices...', 'info');
+      });
+  }
+  // --- End Show All button listener ---
 
-          // Reload all invoices
-          loadInitialInvoices();
-          // Optional: Bring focus back to the input
-          searchInputForClear.focus();
-          // Optional: User feedback
-          showMessage('Search cleared. Loading all invoices...', 'info');
-        });
-      } else {
-        console.error("Could not find search input or clear button elements for listeners.");
-      }
-      // --- End Input Clear Button block ---
 
-    }
+} // <<<--- ENSURE THIS FINAL CLOSING BRACE IS PRESENT FOR setupEventListeners
 
     // Check if tokens need refreshing
     async function checkAndRefreshTokens() {
