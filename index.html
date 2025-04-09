@@ -2958,60 +2958,6 @@ function showInvoiceDetailById(event) {
     }
 }
 
-// Update pagination controls
-function updatePagination() {
-  const pagination = document.getElementById('pagination');
-  pagination.innerHTML = '';
-  
-  const totalPages = Math.ceil(currentResults.length / resultsPerPage);
-  
-  if (totalPages <= 1) return;
-  
-  // Previous button
-  const prevButton = document.createElement('button');
-  prevButton.textContent = '« Previous';
-  prevButton.disabled = currentPage === 1;
-  prevButton.addEventListener('click', () => {
-    if (currentPage > 1) {
-      currentPage--;
-      displayResults();
-    }
-  });
-  pagination.appendChild(prevButton);
-  
-  // Page numbers
-  const maxButtons = 5; // Maximum number of page buttons to show
-  let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
-  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-  
-  // Adjust if we're near the end
-  if (endPage === totalPages) {
-    startPage = Math.max(1, endPage - maxButtons + 1);
-  }
-  
-  for (let i = startPage; i <= endPage; i++) {
-    const pageButton = document.createElement('button');
-    pageButton.textContent = i;
-    pageButton.classList.toggle('active', i === currentPage);
-    pageButton.addEventListener('click', () => {
-      currentPage = i;
-      displayResults();
-    });
-    pagination.appendChild(pageButton);
-  }
-  
-  // Next button
-  const nextButton = document.createElement('button');
-  nextButton.textContent = 'Next »';
-  nextButton.disabled = currentPage === totalPages;
-  nextButton.addEventListener('click', () => {
-    if (currentPage < totalPages) {
-      currentPage++;
-      displayResults();
-    }
-  });
-  pagination.appendChild(nextButton);
-}
 
 // Show invoice detail
 async function showInvoiceDetail(invoiceId) {
