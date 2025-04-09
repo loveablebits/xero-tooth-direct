@@ -1496,212 +1496,144 @@
       showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
     }
 
-// Setup event listeners - COMBINED AND CORRECTED
-function setupEventListeners() {
-  // Login button
-  document.getElementById('login-btn').addEventListener('click', () => {
-    console.log("Connect to Xero button clicked");
-    window.location.href = '/.netlify/functions/xero-auth';
-  });
+    // Setup event listeners - simplified
+    function setupEventListeners() {
+      // Login button
+      document.getElementById('login-btn').addEventListener('click', () => {
+        console.log("Connect to Xero button clicked");
+        window.location.href = '/.netlify/functions/xero-auth';
+      });
 
-  // Logout button
-  document.getElementById('logout-btn').addEventListener('click', () => {
-    clearCookies();
-    window.location.reload();
-  });
+      // Logout button
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        clearCookies();
+        window.location.reload();
+      });
 
-  // Event listener for clear-cookies-btn removed
+      // Event listener for clear-cookies-btn removed
 
-  // Search button
-  document.getElementById('search-btn').addEventListener('click', searchInvoices);
-
-  // Search input - enter key
-  document.getElementById('search-input').addEventListener('keypress', event => {
-    if (event.key === 'Enter') {
-      searchInvoices();
-    }
-  });
-
-    // Autocomplete listener with debounce
-    const searchInput = document.getElementById('search-input');
-  const debouncedAutocomplete = debounce(handleAutocomplete, DEBOUNCE_DELAY);
-  searchInput.addEventListener('input', debouncedAutocomplete);
-
-  // Hide suggestions on blur (losing focus), but delay slightly
-  // This allows a click on a suggestion to register first
-  searchInput.addEventListener('blur', () => {
-      setTimeout(() => {
-          const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-           // Check if suggestionsContainer exists before accessing properties
-           if (suggestionsContainer && !suggestionsContainer.matches(':hover')) { // Don't hide if mouse is over suggestions
-              suggestionsContainer.innerHTML = '';
-              suggestionsContainer.classList.add('hidden');
-           }
-      }, 150); // Delay ms
-  });
-
-  // Ensure suggestions are shown when input gets focus back and has text
-   searchInput.addEventListener('focus', () => {
-       if (searchInput.value.trim().length > 0) {
-           handleAutocomplete(); // Re-show suggestions if there's text
-       }
-   });
-
-// Job status filter change
-document.getElementById('job-status-filter').addEventListener('change', async function() {
-  const selectedStatus = this.value;
-  toggleLoading(true);
-  document.getElementById('results-section').style.opacity = '0.5'; // Dim results while loading filter
-
-  try {
-    if (selectedStatus) {
-      // For any job status filter, we'll load specific data
-      await loadInvoicesByStatus(selectedStatus);
-    } else {
-      // Show all results (no job status filter)
-      window.filteredResults = null; // Clear specific filter results
-      // Reset API pagination state for "All"
-      currentApiPage = 1;
-      apiHasMorePages = true; // Assume more pages initially
-      isLoadingMoreApiData = false;
-      cachedPages = {}; // Clear cache
-      currentResults = []; // Clear current results before loading initial page
-      await loadInitialInvoices(); // Reload the initial "All" view
-    }
-  } catch (error) {
-    console.error("Error applying job status filter:", error);
-    showError("Error loading invoices. Please try again.");
-  } finally {
-    toggleLoading(false);
-    document.getElementById('results-section').style.opacity = '1'; // Restore opacity
-  }
-});
-
- // Sort options
-document.getElementById('sort-by').addEventListener('change', () => {
-  console.log('Sort by changed');
-  // Determine if sorting filtered results or all results
-  if (window.filteredResults !== null) {
-      // Sort the filtered results array
-      sortSpecificResults(window.filteredResults); // Use a helper if needed or inline sort
-      displayFilteredResults(); // Redisplay the filtered (now sorted) results
-  } else {
-      // Sort the main currentResults array
-      sortResults(); // This sorts currentResults and calls displayResultItems
-  }
-});
-
-
-  // Back button (invoice details)
-  document.getElementById('back-btn').addEventListener('click', () => {
-    // Save scroll position from detail view if needed (optional)
-    // window.lastScrollPosition = window.scrollY;
-
-    document.getElementById('detail-section').classList.add('hidden');
-    const resultsSection = document.getElementById('results-section');
-    resultsSection.classList.remove('hidden');
-
-    // Decide whether to restore scroll or scroll to top of results
-    // If you have window.lastPageViewed and window.lastScrollPosition tracking:
-     if (window.lastScrollPosition && window.lastPageViewed) {
-         console.log(`Returning to results page ${window.lastPageViewed}, restoring scroll ${window.lastScrollPosition}`);
-         // Need to ensure the correct page is displayed first, then scroll
-         // This might require calling displayResultItems/displayFilteredResults again
-         // For simplicity now, let's scroll to the top of the results section
-         resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-         // Reset scroll tracking after returning
-         // window.lastScrollPosition = 0;
-     } else {
-        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-     }
-
-  });
-
-  // --- Add this block for Input Clear Button ---
-  const searchInputForClear = document.getElementById('search-input');
-  const clearSearchBtn = document.getElementById('clear-search-btn');
-
-  // Ensure elements exist before adding listeners
-  if (searchInputForClear && clearSearchBtn) {
-      // Show/hide clear button based on input value
-      searchInputForClear.addEventListener('input', () => {
-        if (searchInputForClear.value.length > 0) {
-          clearSearchBtn.classList.remove('hidden');
-        } else {
-          clearSearchBtn.classList.add('hidden');
-          // Also hide autocomplete when input is cleared manually
-          const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-          if (suggestionsContainer) { // Check if it exists
-              suggestionsContainer.innerHTML = '';
-              suggestionsContainer.classList.add('hidden');
-          }
+      // Search button
+      document.getElementById('search-btn').addEventListener('click', searchInvoices);
+      // Search input - enter key
+      document.getElementById('search-input').addEventListener('keypress', event => {
+        if (event.key === 'Enter') {
+          searchInvoices();
         }
       });
 
-      // Handle click on the clear button
-      clearSearchBtn.addEventListener('click', () => {
-        searchInputForClear.value = ''; // Clear the input
-        clearSearchBtn.classList.add('hidden'); // Hide the button itself
+      // Autocomplete listener with debounce
+      const searchInput = document.getElementById('search-input');
+      const debouncedAutocomplete = debounce(handleAutocomplete, DEBOUNCE_DELAY);
+      searchInput.addEventListener('input', debouncedAutocomplete);
 
-        // Hide autocomplete
-        const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-        if (suggestionsContainer) { // Check if it exists
-           suggestionsContainer.innerHTML = '';
-           suggestionsContainer.classList.add('hidden');
-        }
-
-        // Reset the job status filter dropdown
-        const jobStatusFilter = document.getElementById('job-status-filter');
-        if (jobStatusFilter) { // Check if it exists
-            jobStatusFilter.value = '';
-        }
-
-        // Reload all invoices
-        loadInitialInvoices();
-        // Optional: Bring focus back to the input
-        searchInputForClear.focus();
-        // Optional: User feedback
-        showMessage('Search cleared. Loading all invoices...', 'info');
-      });
-  } else {
-      console.error("Could not find search input or clear button elements for listeners.");
-  }
-  // --- End Input Clear Button block ---
-
-  // --- Listener for the external "Show All" button ---
-  const clearFiltersBtn = document.getElementById('clear-filters-btn');
-  if (clearFiltersBtn) {
-      clearFiltersBtn.addEventListener('click', () => {
-        console.log("Show All button clicked");
-        // Clear the search input
-        const searchInputVal = document.getElementById('search-input');
-        if(searchInputVal) searchInputVal.value = '';
-
-        // Also hide the inline clear button if it exists and is visible
-        const inlineClearBtn = document.getElementById('clear-search-btn');
-        if(inlineClearBtn) inlineClearBtn.classList.add('hidden');
-
-        // Reset the job status filter dropdown
-        const jobStatusFilterVal = document.getElementById('job-status-filter');
-        if(jobStatusFilterVal) jobStatusFilterVal.value = '';
-
-        // Hide any lingering autocomplete suggestions
-        const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-        if(suggestionsContainer) {
+      // Hide suggestions on blur (losing focus), but delay slightly
+      // This allows a click on a suggestion to register first
+      searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+          if (!suggestionsContainer.matches(':hover')) { // Don't hide if mouse is over suggestions
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.classList.add('hidden');
-        }
-
-        // Call the function that loads the initial, unfiltered view
-        loadInitialInvoices();
-        // Optional: Give user feedback
-        showMessage('Filters cleared. Loading all invoices...', 'info');
+          }
+        }, 150); // Delay ms
       });
-  }
-  // --- End Show All button listener ---
+
+      // Ensure suggestions are shown when input gets focus back and has text
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim().length > 0) {
+          handleAutocomplete(); // Re-show suggestions if there's text
+        }
+      });
+
+      // Job status filter change
+      document.getElementById('job-status-filter').addEventListener('change', async function () {
+        const selectedStatus = this.value;
+        toggleLoading(true);
+
+        try {
+          if (selectedStatus) {
+            // For any job status filter, we'll load specific data
+            await loadInvoicesByStatus(selectedStatus);
+          } else {
+            // Show all results (no job status filter)
+            window.filteredResults = null;
+            document.getElementById('results-count').textContent = `(${currentResults.length})`;
+            sortResults(); // This will redisplay all results
+          }
+        } catch (error) {
+          console.error("Error applying job status filter:", error);
+          showError("Error loading invoices. Please try again.");
+        } finally {
+          toggleLoading(false);
+        }
+      });
+
+      // Sort options
+      document.getElementById('sort-by').addEventListener('change', () => {
+        console.log('Sort by changed');
+        sortResults();
+      });
 
 
-} // <<<--- ENSURE THIS FINAL CLOSING BRACE IS PRESENT FOR setupEventListeners
+      // Back button (invoice details)
+      document.getElementById('back-btn').addEventListener('click', () => {
+        document.getElementById('detail-section').classList.add('hidden');
+        document.getElementById('results-section').classList.remove('hidden');
+      });
+
+
+      // --- Add this block for Input Clear Button ---
+      const searchInputForClear = document.getElementById('search-input');
+      const clearSearchBtn = document.getElementById('clear-search-btn');
+
+      // Ensure elements exist before adding listeners
+      if (searchInputForClear && clearSearchBtn) {
+        // Show/hide clear button based on input value
+        searchInputForClear.addEventListener('input', () => {
+          if (searchInputForClear.value.length > 0) {
+            clearSearchBtn.classList.remove('hidden');
+          } else {
+            clearSearchBtn.classList.add('hidden');
+            // Also hide autocomplete when input is cleared manually
+            const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+            if (suggestionsContainer) { // Check if it exists
+              suggestionsContainer.innerHTML = '';
+              suggestionsContainer.classList.add('hidden');
+            }
+          }
+        });
+
+        // Handle click on the clear button
+        clearSearchBtn.addEventListener('click', () => {
+          searchInputForClear.value = ''; // Clear the input
+          clearSearchBtn.classList.add('hidden'); // Hide the button itself
+
+          // Hide autocomplete
+          const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+          if (suggestionsContainer) { // Check if it exists
+            suggestionsContainer.innerHTML = '';
+            suggestionsContainer.classList.add('hidden');
+          }
+
+          // Reset the job status filter dropdown
+          const jobStatusFilter = document.getElementById('job-status-filter');
+          if (jobStatusFilter) { // Check if it exists
+            jobStatusFilter.value = '';
+          }
+
+          // Reload all invoices
+          loadInitialInvoices();
+          // Optional: Bring focus back to the input
+          searchInputForClear.focus();
+          // Optional: User feedback
+          showMessage('Search cleared. Loading all invoices...', 'info');
+        });
+      } else {
+        console.error("Could not find search input or clear button elements for listeners.");
+      }
+      // --- End Input Clear Button block ---
+
+    }
 
     // Check if tokens need refreshing
     async function checkAndRefreshTokens() {
@@ -2711,618 +2643,595 @@ document.getElementById('sort-by').addEventListener('change', () => {
         }
       } catch (error) {
         console.error("Error searching invoices:", error);
-        // Ensure error.message is displayed, provide fallback
-        showError(`Error searching sales invoices: ${error?.message || error || 'Unknown error'}`);
-
-        // Clear results display on error too - ADD NULL CHECKS
+        showError(`Error searching sales invoices: ${error.message || 'Unknown error'}`);
+        // Clear results display on error too
         currentResults = [];
         window.filteredResults = null;
+        document.getElementById('results-list').innerHTML = '';
+        document.getElementById('results-count').textContent = '(0)';
+        document.getElementById('pagination').innerHTML = '';
+        document.getElementById('results-section').classList.remove('hidden'); // Show section to display error message
+      } finally {
+        toggleLoading(false);
+      }
+    }
 
-        const resultsList = document.getElementById('results-list');
-        if (resultsList) {
-          resultsList.innerHTML = '';
+
+    // --- Helper functions assumed to exist ---
+    // async function getValidTokens() { /* ... returns { access_token } or null ... */ }
+    // function toggleLoading(isLoading) { /* ... shows/hides loading indicator ... */ }
+    // function showMessage(message, type) { /* ... displays user messages ... */ }
+    // function showError(message) { /* ... displays error messages ... */ }
+    // function displayResults() { /* ... renders currentResults to the page ... */ }
+    // let currentResults = [];
+    // let currentPage = 1;
+    // Assume window.tenantId is available
+
+
+    function displaySearchResults(invoices, contacts) {
+      const resultsContainer = document.getElementById("search-results");
+      resultsContainer.innerHTML = "";
+
+      if ((!invoices || invoices.length === 0) && (!contacts || contacts.length === 0)) {
+        resultsContainer.innerHTML = "<p>No results found.</p>";
+        return;
+      }
+
+      if (invoices && invoices.length > 0) {
+        const invoiceList = document.createElement("ul");
+        invoiceList.innerHTML = "<h3>Invoices</h3>";
+        invoices.forEach(invoice => {
+          const item = document.createElement("li");
+          item.textContent = `Invoice: ${invoice.InvoiceNumber} - ${invoice.Contact?.Name || 'Unknown Contact'} - ${invoice.Total}`;
+          invoiceList.appendChild(item);
+        });
+        resultsContainer.appendChild(invoiceList);
+      }
+
+      if (contacts && contacts.length > 0) {
+        const contactList = document.createElement("ul");
+        contactList.innerHTML = "<h3>Contacts</h3>";
+        contacts.forEach(contact => {
+          const item = document.createElement("li");
+          item.textContent = `Contact: ${contact.Name} - ${contact.EmailAddress || 'No Email'}`;
+          contactList.appendChild(item);
+        });
+        resultsContainer.appendChild(contactList);
+      }
+    }
+
+    function showError(message) {
+      const errorContainer = document.getElementById("error-message");
+      errorContainer.innerText = message;
+      errorContainer.style.display = "block";
+    }
+
+
+
+    // Get all recent invoices directly using Xero API
+    async function getAllInvoices() {
+      try {
+        // Get valid tokens
+        const tokens = await getValidTokens();
+        if (!tokens) {
+          throw new Error('No valid authentication tokens available');
         }
 
-        const resultsCount = document.getElementById('results-count');
-        if (resultsCount) {
-          resultsCount.textContent = '(0)';
+        // Show loading state
+        toggleLoading(true);
+
+        // Call the Xero API via our serverless function
+        const endpoint = 'invoices';
+        const params = {
+          order: 'Date DESC'
+        };
+
+        // Build URL with parameters
+        const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
+        if (params.order) url.searchParams.append('order', params.order);
+
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+            'Xero-Tenant-Id': window.tenantId
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Server returned ${response.status}`);
         }
 
-        const paginationEl = document.getElementById('pagination');
-        if (paginationEl) {
-          paginationEl.innerHTML = '';
+        const data = await response.json();
+        console.log('Xero API response for all invoices:', data);
+
+        // Process the response
+        if (data && data.Invoices && Array.isArray(data.Invoices)) {
+          console.log(`Found ${data.Invoices.length} invoices`);
+          currentResults = data.Invoices;
+          currentPage = 1;
+          displayResults();
+        } else {
+          // Show no results message
+          document.getElementById('results-section').classList.add('hidden');
+          showMessage('No invoices found. The organization may not have any invoices.', 'info');
         }
+      } catch (error) {
+        console.error("Error getting invoices:", error);
+        showError('Error getting invoices: ' + (error.message || 'Unknown error'));
+      } finally {
+        toggleLoading(false);
+      }
+    }
 
-        const resultsSection = document.getElementById('results-section');
-        if (resultsSection) {
-          // Show section to display error message within it, or hide if error shown elsewhere
-          // If showError displays messages in a dedicated error div outside results-section,
-          // you might want to HIDE results-section instead:
-          // resultsSection.classList.add('hidden');
-          // If you want the error context within the results area, remove hidden:
-          resultsSection.classList.remove('hidden'); // Assuming error message appears elsewhere or this provides context
-          // If resultsList was cleared above, maybe add a message here too?
-          if (resultsList) { // Check again
-            // Optional: resultsList.innerHTML = '<p>An error occurred while searching.</p>';
+    // NEW CODE - Replace with this updated function
+    function displayResults() {
+      const resultsList = document.getElementById('results-list');
+
+      // Clear results only if it's the first page
+      if (currentPage === 1) {
+        resultsList.innerHTML = '';
+      }
+
+      const resultsSection = document.getElementById('results-section');
+      const resultsCount = document.getElementById('results-count');
+
+      if (!currentResults || currentResults.length === 0) {
+        resultsSection.classList.add('hidden');
+        showMessage('No invoices found matching your search criteria.', 'info');
+        return;
+      }
+
+      // Show results section
+      resultsSection.classList.remove('hidden');
+      resultsCount.textContent = `(${currentResults.length})`;
+
+      // If it's the first page, sort results
+      if (currentPage === 1) {
+        // This will sort and display
+        sortResults();
+      } else {
+        // Just display items for current page
+        displayResultItems();
+      }
+
+      // Hide "Load More" button - we'll use our prev/next pagination instead
+      document.getElementById('load-more-container').classList.add('hidden');
+    }
+
+    // Function to handle autocomplete logic
+    function handleAutocomplete() {
+      const input = document.getElementById('search-input');
+      const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+      const value = input.value.trim().toLowerCase();
+
+      if (value.length < 1) { // Minimum characters to trigger autocomplete (adjust if needed)
+        suggestionsContainer.innerHTML = '';
+        suggestionsContainer.classList.add('hidden');
+        return;
+      }
+
+      const maxSuggestions = 10;
+      let suggestions = [];
+
+      // Filter Invoice Numbers
+      // Ensure invoiceNumberSuggestions is an array before using forEach
+      if (Array.isArray(invoiceNumberSuggestions)) {
+        invoiceNumberSuggestions.forEach(num => {
+          // Added check for num existence and ensure it's a string
+          if (num && typeof num === 'string' && num.toLowerCase().startsWith(value)) {
+            suggestions.push({ type: 'Invoice #', text: num });
           }
-        }
+        });
+      }
 
 
-        // --- Helper functions assumed to exist ---
-        // async function getValidTokens() { /* ... returns { access_token } or null ... */ }
-        // function toggleLoading(isLoading) { /* ... shows/hides loading indicator ... */ }
-        // function showMessage(message, type) { /* ... displays user messages ... */ }
-        // function showError(message) { /* ... displays error messages ... */ }
-        // function displayResults() { /* ... renders currentResults to the page ... */ }
-        // let currentResults = [];
-        // let currentPage = 1;
-        // Assume window.tenantId is available
-
-
-        function displaySearchResults(invoices, contacts) {
-          const resultsContainer = document.getElementById("search-results");
-          resultsContainer.innerHTML = "";
-
-          if ((!invoices || invoices.length === 0) && (!contacts || contacts.length === 0)) {
-            resultsContainer.innerHTML = "<p>No results found.</p>";
-            return;
+      // Filter References (Make sure referenceSuggestions is iterable, e.g., an Array or Set)
+      if (typeof referenceSuggestions[Symbol.iterator] === 'function') {
+        referenceSuggestions.forEach(ref => {
+          // Added check for ref existence and ensure it's a string
+          if (ref && typeof ref === 'string' && ref.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === ref)) {
+            suggestions.push({ type: 'Reference', text: ref });
           }
+        });
+      }
 
-          if (invoices && invoices.length > 0) {
-            const invoiceList = document.createElement("ul");
-            invoiceList.innerHTML = "<h3>Invoices</h3>";
-            invoices.forEach(invoice => {
-              const item = document.createElement("li");
-              item.textContent = `Invoice: ${invoice.InvoiceNumber} - ${invoice.Contact?.Name || 'Unknown Contact'} - ${invoice.Total}`;
-              invoiceList.appendChild(item);
-            });
-            resultsContainer.appendChild(invoiceList);
+
+      // Filter Contact Names (Make sure contactNameSuggestions is iterable)
+      if (typeof contactNameSuggestions[Symbol.iterator] === 'function') {
+        contactNameSuggestions.forEach(name => {
+          // Added check for name existence and ensure it's a string
+          if (name && typeof name === 'string' && name.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === name)) {
+            suggestions.push({ type: 'Customer', text: name });
           }
-
-          if (contacts && contacts.length > 0) {
-            const contactList = document.createElement("ul");
-            contactList.innerHTML = "<h3>Contacts</h3>";
-            contacts.forEach(contact => {
-              const item = document.createElement("li");
-              item.textContent = `Contact: ${contact.Name} - ${contact.EmailAddress || 'No Email'}`;
-              contactList.appendChild(item);
-            });
-            resultsContainer.appendChild(contactList);
-          }
-        }
-
-        function showError(message) {
-          const errorContainer = document.getElementById("error-message");
-          errorContainer.innerText = message;
-          errorContainer.style.display = "block";
-        }
+        });
+      }
 
 
+      // Limit total suggestions
+      suggestions = suggestions.slice(0, maxSuggestions);
 
-        // Get all recent invoices directly using Xero API
-        async function getAllInvoices() {
-          try {
-            // Get valid tokens
-            const tokens = await getValidTokens();
-            if (!tokens) {
-              throw new Error('No valid authentication tokens available');
-            }
+      // Display
+      suggestionsContainer.innerHTML = ''; // Clear previous
+      if (suggestions.length > 0) {
+        suggestions.forEach(suggestion => {
+          const div = document.createElement('div');
+          // Highlight matching part (optional but nice)
+          const matchIndex = suggestion.text.toLowerCase().indexOf(value);
+          const highlightedText = matchIndex === 0 // Only highlight if startsWith
+            ? `<strong>${suggestion.text.substring(0, value.length)}</strong>${suggestion.text.substring(value.length)}`
+            : suggestion.text; // Fallback if something weird happens
 
-            // Show loading state
-            toggleLoading(true);
+          div.innerHTML = `${highlightedText} <span style="color: #888; font-size: 0.8em; float: right;">(${suggestion.type})</span>`;
 
-            // Call the Xero API via our serverless function
-            const endpoint = 'invoices';
-            const params = {
-              order: 'Date DESC'
-            };
-
-            // Build URL with parameters
-            const url = new URL(`/api/xero-api/${endpoint}`, window.location.origin);
-            if (params.order) url.searchParams.append('order', params.order);
-
-            const response = await fetch(url.toString(), {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${tokens.access_token}`,
-                'Xero-Tenant-Id': window.tenantId
-              }
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.message || `Server returned ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('Xero API response for all invoices:', data);
-
-            // Process the response
-            if (data && data.Invoices && Array.isArray(data.Invoices)) {
-              console.log(`Found ${data.Invoices.length} invoices`);
-              currentResults = data.Invoices;
-              currentPage = 1;
-              displayResults();
-            } else {
-              // Show no results message
-              document.getElementById('results-section').classList.add('hidden');
-              showMessage('No invoices found. The organization may not have any invoices.', 'info');
-            }
-          } catch (error) {
-            console.error("Error getting invoices:", error);
-            showError('Error getting invoices: ' + (error.message || 'Unknown error'));
-          } finally {
-            toggleLoading(false);
-          }
-        }
-
-        // NEW CODE - Replace with this updated function
-        function displayResults() {
-          const resultsList = document.getElementById('results-list');
-
-          // Clear results only if it's the first page
-          if (currentPage === 1) {
-            resultsList.innerHTML = '';
-          }
-
-          const resultsSection = document.getElementById('results-section');
-          const resultsCount = document.getElementById('results-count');
-
-          if (!currentResults || currentResults.length === 0) {
-            resultsSection.classList.add('hidden');
-            showMessage('No invoices found matching your search criteria.', 'info');
-            return;
-          }
-
-          // Show results section
-          resultsSection.classList.remove('hidden');
-          resultsCount.textContent = `(${currentResults.length})`;
-
-          // If it's the first page, sort results
-          if (currentPage === 1) {
-            // This will sort and display
-            sortResults();
-          } else {
-            // Just display items for current page
-            displayResultItems();
-          }
-
-          // Hide "Load More" button - we'll use our prev/next pagination instead
-          document.getElementById('load-more-container').classList.add('hidden');
-        }
-
-        // Function to handle autocomplete logic
-        function handleAutocomplete() {
-          const input = document.getElementById('search-input');
-          const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-          const value = input.value.trim().toLowerCase();
-
-          if (value.length < 1) { // Minimum characters to trigger autocomplete (adjust if needed)
-            suggestionsContainer.innerHTML = '';
+          // --- MODIFICATION IS HERE ---
+          div.addEventListener('click', () => {
+            input.value = suggestion.text; // Set input value
+            suggestionsContainer.innerHTML = ''; // Clear suggestions
             suggestionsContainer.classList.add('hidden');
-            return;
-          }
-
-          const maxSuggestions = 10;
-          let suggestions = [];
-
-          // Filter Invoice Numbers
-          // Ensure invoiceNumberSuggestions is an array before using forEach
-          if (Array.isArray(invoiceNumberSuggestions)) {
-            invoiceNumberSuggestions.forEach(num => {
-              // Added check for num existence and ensure it's a string
-              if (num && typeof num === 'string' && num.toLowerCase().startsWith(value)) {
-                suggestions.push({ type: 'Invoice #', text: num });
-              }
-            });
-          }
-
-
-          // Filter References (Make sure referenceSuggestions is iterable, e.g., an Array or Set)
-          if (typeof referenceSuggestions[Symbol.iterator] === 'function') {
-            referenceSuggestions.forEach(ref => {
-              // Added check for ref existence and ensure it's a string
-              if (ref && typeof ref === 'string' && ref.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === ref)) {
-                suggestions.push({ type: 'Reference', text: ref });
-              }
-            });
-          }
-
-
-          // Filter Contact Names (Make sure contactNameSuggestions is iterable)
-          if (typeof contactNameSuggestions[Symbol.iterator] === 'function') {
-            contactNameSuggestions.forEach(name => {
-              // Added check for name existence and ensure it's a string
-              if (name && typeof name === 'string' && name.toLowerCase().startsWith(value) && suggestions.length < maxSuggestions && !suggestions.some(s => s.text === name)) {
-                suggestions.push({ type: 'Customer', text: name });
-              }
-            });
-          }
-
-
-          // Limit total suggestions
-          suggestions = suggestions.slice(0, maxSuggestions);
-
-          // Display
-          suggestionsContainer.innerHTML = ''; // Clear previous
-          if (suggestions.length > 0) {
-            suggestions.forEach(suggestion => {
-              const div = document.createElement('div');
-              // Highlight matching part (optional but nice)
-              const matchIndex = suggestion.text.toLowerCase().indexOf(value);
-              const highlightedText = matchIndex === 0 // Only highlight if startsWith
-                ? `<strong>${suggestion.text.substring(0, value.length)}</strong>${suggestion.text.substring(value.length)}`
-                : suggestion.text; // Fallback if something weird happens
-
-              div.innerHTML = `${highlightedText} <span style="color: #888; font-size: 0.8em; float: right;">(${suggestion.type})</span>`;
-
-              // --- MODIFICATION IS HERE ---
-              div.addEventListener('click', () => {
-                input.value = suggestion.text; // Set input value
-                suggestionsContainer.innerHTML = ''; // Clear suggestions
-                suggestionsContainer.classList.add('hidden');
-                searchInvoices(); // <<<--- ADDED THIS LINE TO TRIGGER SEARCH IMMEDIATELY
-              });
-              // --- END MODIFICATION ---
-
-              suggestionsContainer.appendChild(div);
-            });
-            suggestionsContainer.classList.remove('hidden'); // Show container
-          } else {
-            suggestionsContainer.classList.add('hidden'); // Hide if no matches
-          }
-        }
-
-        // Sort the current results
-        function sortResults() {
-          if (!currentResults || currentResults.length === 0) return;
-
-          const sortByValue = document.getElementById('sort-by').value;
-
-          // Split into field and direction
-          const [sortBy, sortOrder] = sortByValue.split('-');
-
-          console.log(`Sorting by ${sortBy} in ${sortOrder} order`);
-
-          currentResults.sort((a, b) => {
-            let valueA, valueB;
-
-            // Special handling for dates
-            if (sortBy === 'Date' || sortBy === 'DueDate') {
-              valueA = parseXeroDate(a[sortBy]);
-              valueB = parseXeroDate(b[sortBy]);
-
-              // Convert to timestamps for comparison
-              valueA = valueA ? valueA.getTime() : 0;
-              valueB = valueB ? valueB.getTime() : 0;
-            }
-            // Handle nested properties like Contact.Name
-            else if (sortBy.includes('.')) {
-              const parts = sortBy.split('.');
-              valueA = a;
-              valueB = b;
-
-              // Navigate through the object path
-              for (const part of parts) {
-                valueA = valueA && valueA[part];
-                valueB = valueB && valueB[part];
-              }
-            }
-            // Regular properties
-            else {
-              valueA = a[sortBy];
-              valueB = b[sortBy];
-            }
-
-            // Handle undefined values
-            if (valueA === undefined) return sortOrder === 'asc' ? -1 : 1;
-            if (valueB === undefined) return sortOrder === 'asc' ? 1 : -1;
-
-            // Handle different data types
-            if (typeof valueA === 'string' && typeof valueB === 'string') {
-              return sortOrder === 'asc'
-                ? valueA.localeCompare(valueB)
-                : valueB.localeCompare(valueA);
-            } else {
-              // Convert to number if possible for numerical comparison
-              const numA = parseFloat(valueA);
-              const numB = parseFloat(valueB);
-
-              if (!isNaN(numA) && !isNaN(numB)) {
-                return sortOrder === 'asc' ? numA - numB : numB - numA;
-              }
-
-              // Fallback comparison
-              return sortOrder === 'asc'
-                ? (valueA < valueB ? -1 : valueA > valueB ? 1 : 0)
-                : (valueB < valueA ? -1 : valueB > valueA ? 1 : 0);
-            }
+            searchInvoices(); // <<<--- ADDED THIS LINE TO TRIGGER SEARCH IMMEDIATELY
           });
+          // --- END MODIFICATION ---
 
+          suggestionsContainer.appendChild(div);
+        });
+        suggestionsContainer.classList.remove('hidden'); // Show container
+      } else {
+        suggestionsContainer.classList.add('hidden'); // Hide if no matches
+      }
+    }
 
-          // Clear and redisplay the results
-          const resultsList = document.getElementById('results-list');
-          resultsList.innerHTML = '';
+    // Sort the current results
+    function sortResults() {
+      if (!currentResults || currentResults.length === 0) return;
 
-          // Display results for current page
-          displayResultItems();
+      const sortByValue = document.getElementById('sort-by').value;
 
-          // Update pagination using our new system
-          updatePagination();
+      // Split into field and direction
+      const [sortBy, sortOrder] = sortByValue.split('-');
+
+      console.log(`Sorting by ${sortBy} in ${sortOrder} order`);
+
+      currentResults.sort((a, b) => {
+        let valueA, valueB;
+
+        // Special handling for dates
+        if (sortBy === 'Date' || sortBy === 'DueDate') {
+          valueA = parseXeroDate(a[sortBy]);
+          valueB = parseXeroDate(b[sortBy]);
+
+          // Convert to timestamps for comparison
+          valueA = valueA ? valueA.getTime() : 0;
+          valueB = valueB ? valueB.getTime() : 0;
+        }
+        // Handle nested properties like Contact.Name
+        else if (sortBy.includes('.')) {
+          const parts = sortBy.split('.');
+          valueA = a;
+          valueB = b;
+
+          // Navigate through the object path
+          for (const part of parts) {
+            valueA = valueA && valueA[part];
+            valueB = valueB && valueB[part];
+          }
+        }
+        // Regular properties
+        else {
+          valueA = a[sortBy];
+          valueB = b[sortBy];
         }
 
-        // Modify displayResultItems
-        async function displayResultItems() {
-          const resultsList = document.getElementById('results-list');
-          const jobStatusFilter = document.getElementById('job-status-filter').value; // Check if "All" is active
+        // Handle undefined values
+        if (valueA === undefined) return sortOrder === 'asc' ? -1 : 1;
+        if (valueB === undefined) return sortOrder === 'asc' ? 1 : -1;
 
-          // --- Check if more data needs to be fetched from API (ONLY for "All" filter) ---
-          const isAllFilterActive = !jobStatusFilter && !window.filteredResults; // Check if we're in the "All" state
-          const requiredIndex = (currentPage - 1) * resultsPerPage;
+        // Handle different data types
+        if (typeof valueA === 'string' && typeof valueB === 'string') {
+          return sortOrder === 'asc'
+            ? valueA.localeCompare(valueB)
+            : valueB.localeCompare(valueA);
+        } else {
+          // Convert to number if possible for numerical comparison
+          const numA = parseFloat(valueA);
+          const numB = parseFloat(valueB);
 
-          if (isAllFilterActive && requiredIndex >= currentResults.length && apiHasMorePages && !isLoadingMoreApiData) {
-            isLoadingMoreApiData = true; // Set loading flag
-            toggleLoading(true); // Show global loading indicator
-            showMessage("Loading more invoices from Xero...", "info");
-            console.log(`Need data beyond index ${currentResults.length}, fetching API page ${currentApiPage + 1}`);
-            try {
-              const nextPageData = await fetchInvoicePageApi(currentApiPage + 1, 100);
-              currentResults = [...currentResults, ...nextPageData.invoices]; // Append new results
-              updateAutocompleteSources(nextPageData.invoices); // Update suggestions with newly loaded page
-              currentApiPage++; // Increment API page tracker
-              apiHasMorePages = nextPageData.hasMore; // Update hasMore status
-              console.log(`Appended ${nextPageData.invoices.length}. Total loaded: ${currentResults.length}. API has more: ${apiHasMorePages}`);
-              // Update count display to reflect newly loaded items
-              document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`;
-
-            } catch (error) {
-              showError(`Failed to load more invoices: ${error.message}`);
-              // Decide how to proceed - maybe stop pagination?
-              apiHasMorePages = false; // Assume no more can be loaded on error
-            } finally {
-              isLoadingMoreApiData = false; // Reset loading flag
-              toggleLoading(false); // Hide global loading indicator
-              // Hide the temporary message after a short delay
-              setTimeout(() => {
-                const msgElement = document.getElementById('error-message');
-                if (msgElement.textContent.includes("Loading more invoices")) {
-                  msgElement.classList.add('hidden');
-                }
-              }, 1500);
-            }
-          }
-          // --- End API data fetching logic ---
-
-
-          // --- Continue with displaying items from currentResults ---
-          resultsList.innerHTML = ''; // Clear list before displaying current page
-
-          const loadingElement = document.createElement('div');
-          loadingElement.className = 'loading-indicator';
-          loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Rendering page...</p>';
-          resultsList.appendChild(loadingElement);
-
-
-          // Use currentResults as the source for "All" filter display
-          const resultsToDisplay = currentResults; // Use the potentially updated currentResults
-
-          // Update total count display (reflects loaded count for "All")
-          if (isAllFilterActive) {
-            document.getElementById('results-count').textContent = `(${resultsToDisplay.length}${apiHasMorePages ? '+ loaded' : ' total'})`;
-          } else {
-            // Should not happen if called correctly, displayFilteredResults handles other cases
-            console.warn("displayResultItems called unexpectedly when a filter might be active.");
-            document.getElementById('results-count').textContent = `(${resultsToDisplay.length})`;
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return sortOrder === 'asc' ? numA - numB : numB - numA;
           }
 
-
-          // Generate a cache key including the active tenant ID
-          // Cache key might need refinement if mixing API pagination and client pagination
-          // For simplicity here, let's cache based on the client page number of loaded data
-          const cacheKey = `${window.tenantId}_page_${currentPage}_all`; // Simple key for "All" state
-          console.log(`Checking cache for key: ${cacheKey}`);
-
-
-          // NOTE: Caching with dynamically loaded API pages gets complex.
-          // For now, let's *disable caching* when the "All" filter is active to ensure freshness,
-          // or implement a more sophisticated cache invalidation strategy.
-          // Disabling cache for "All" filter:
-          const useCache = !isAllFilterActive; // Only use cache if NOT in "All" state
-
-
-          if (useCache && cachedPages[cacheKey]) {
-            // ... (Keep existing cache logic here if needed for other scenarios, but it's likely displayFilteredResults covers those) ...
-            console.log('Using cached page (non-"All" scenario):', cacheKey);
-            resultsList.innerHTML = cachedPages[cacheKey];
-            // Re-attach listeners etc.
-            const items = resultsList.querySelectorAll('.result-item[data-id]');
-            items.forEach(item => {
-              const invoiceId = item.dataset.id;
-              if (invoiceId) {
-                item.removeEventListener('click', showInvoiceDetailById);
-                item.addEventListener('click', showInvoiceDetailById);
-              }
-            });
-
-            // Scroll/restore logic...
-            if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
-              setTimeout(() => window.scrollTo(0, window.lastScrollPosition), 50);
-              window.lastScrollPosition = 0;
-            } else {
-              document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
-            }
-            window.lastPageViewed = currentPage;
-            updatePagination(); // Update pagination based on cached view
-            return; // Exit
-          }
-
-          console.log('Generating page content (cache disabled or miss):', cacheKey);
-
-
-          // Calculate pagination for the *currently loaded* data in currentResults
-          const totalLoadedResults = resultsToDisplay.length;
-          const startIndex = (currentPage - 1) * resultsPerPage;
-          // Ensure startIndex is valid even if data just loaded
-          if (startIndex >= totalLoadedResults && totalLoadedResults > 0) {
-            console.warn(`startIndex ${startIndex} is out of bounds for loaded results ${totalLoadedResults}. Resetting to page 1.`);
-            currentPage = 1; // Reset to page 1 if out of bounds
-            // Re-call displayResultItems to render page 1 correctly? Or adjust startIndex?
-            // Safest might be to adjust startIndex for this render pass:
-            // startIndex = 0; // Display first page instead
-            // Better: Re-trigger display for page 1. Let's adjust start/end for now.
-            const adjustedStartIndex = Math.max(0, totalLoadedResults - resultsPerPage); // Show last available page
-            const adjustedEndIndex = totalLoadedResults;
-            currentPage = Math.floor(adjustedStartIndex / resultsPerPage) + 1; // Update current page number
-
-            console.log(`Adjusted display to page ${currentPage}, startIndex ${adjustedStartIndex}`);
-            const pageResults = resultsToDisplay.slice(adjustedStartIndex, adjustedEndIndex);
-            resultsList.innerHTML = ''; // Clear loading indicator
-
-
-            if (pageResults.length === 0 && totalLoadedResults === 0) {
-              resultsList.innerHTML = `<div class="message info">No invoices loaded yet.</div>`;
-              updatePagination();
-              return;
-            } else if (pageResults.length === 0) {
-              resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
-              updatePagination();
-              return;
-            }
-
-            // Render adjusted page results
-            const pageContent = document.createDocumentFragment();
-            pageResults.forEach(invoice => {
-              try {
-                const item = createInvoiceItem(invoice);
-                pageContent.appendChild(item);
-              } catch (error) { console.error("Error rendering invoice:", error, invoice); /* ... error item ... */ }
-            });
-            resultsList.appendChild(pageContent);
-
-            // Don't cache this adjusted view? Or cache with the adjusted page number?
-            // Let's avoid caching for now when adjustment happens.
-
-            if (!window.lastScrollPosition || currentPage !== window.lastPageViewed) {
-              document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
-            }
-            window.lastScrollPosition = 0;
-            updatePagination(); // Update pagination based on adjusted reality
-            return; // Exit after rendering adjusted page
-
-
-          } else {
-            // Normal path: startIndex is within bounds
-            const endIndex = Math.min(startIndex + resultsPerPage, totalLoadedResults);
-            const pageResults = resultsToDisplay.slice(startIndex, endIndex);
-            resultsList.innerHTML = ''; // Clear loading indicator
-
-            if (pageResults.length === 0 && totalLoadedResults === 0) {
-              resultsList.innerHTML = `<div class="message info">No invoices found.</div>`;
-              updatePagination();
-              return;
-            } else if (pageResults.length === 0) {
-              // This might happen if currentPage > actual pages available but apiHasMorePages was false
-              resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
-              updatePagination();
-              return;
-            }
-
-
-            // Create result items for the current page
-            const pageContent = document.createDocumentFragment();
-            pageResults.forEach(invoice => {
-              try {
-                const item = createInvoiceItem(invoice);
-                pageContent.appendChild(item);
-              } catch (error) { console.error("Error rendering invoice:", error, invoice); /* ... error item ... */ }
-            });
-            resultsList.appendChild(pageContent);
-
-
-            // Cache if enabled
-            if (useCache) {
-              cachedPages[cacheKey] = resultsList.innerHTML;
-              console.log('Page cached:', cacheKey);
-            }
-
-            // Scroll/restore logic...
-            if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
-              setTimeout(() => window.scrollTo(0, window.lastScrollPosition), 50);
-              window.lastScrollPosition = 0;
-            } else {
-              document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
-            }
-            window.lastPageViewed = currentPage;
-          }
-
-
-          // Update pagination controls AFTER rendering the page
-          updatePagination();
+          // Fallback comparison
+          return sortOrder === 'asc'
+            ? (valueA < valueB ? -1 : valueA > valueB ? 1 : 0)
+            : (valueB < valueA ? -1 : valueB > valueA ? 1 : 0);
         }
+      });
 
-        // Helper function to pass invoiceId to showInvoiceDetail
-        // Add this helper function alongside others
-        function showInvoiceDetailById(event) {
-          // Find the parent result-item element to get the data-id
-          let targetElement = event.target;
-          while (targetElement && !targetElement.classList.contains('result-item')) {
-            targetElement = targetElement.parentElement;
-          }
-          const invoiceId = targetElement ? targetElement.dataset.id : null;
+
+      // Clear and redisplay the results
+      const resultsList = document.getElementById('results-list');
+      resultsList.innerHTML = '';
+
+      // Display results for current page
+      displayResultItems();
+
+      // Update pagination using our new system
+      updatePagination();
+    }
+
+    // Modify displayResultItems
+    async function displayResultItems() {
+      const resultsList = document.getElementById('results-list');
+      const jobStatusFilter = document.getElementById('job-status-filter').value; // Check if "All" is active
+
+      // --- Check if more data needs to be fetched from API (ONLY for "All" filter) ---
+      const isAllFilterActive = !jobStatusFilter && !window.filteredResults; // Check if we're in the "All" state
+      const requiredIndex = (currentPage - 1) * resultsPerPage;
+
+      if (isAllFilterActive && requiredIndex >= currentResults.length && apiHasMorePages && !isLoadingMoreApiData) {
+        isLoadingMoreApiData = true; // Set loading flag
+        toggleLoading(true); // Show global loading indicator
+        showMessage("Loading more invoices from Xero...", "info");
+        console.log(`Need data beyond index ${currentResults.length}, fetching API page ${currentApiPage + 1}`);
+        try {
+          const nextPageData = await fetchInvoicePageApi(currentApiPage + 1, 100);
+          currentResults = [...currentResults, ...nextPageData.invoices]; // Append new results
+          updateAutocompleteSources(nextPageData.invoices); // Update suggestions with newly loaded page
+          currentApiPage++; // Increment API page tracker
+          apiHasMorePages = nextPageData.hasMore; // Update hasMore status
+          console.log(`Appended ${nextPageData.invoices.length}. Total loaded: ${currentResults.length}. API has more: ${apiHasMorePages}`);
+          // Update count display to reflect newly loaded items
+          document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`;
+
+        } catch (error) {
+          showError(`Failed to load more invoices: ${error.message}`);
+          // Decide how to proceed - maybe stop pagination?
+          apiHasMorePages = false; // Assume no more can be loaded on error
+        } finally {
+          isLoadingMoreApiData = false; // Reset loading flag
+          toggleLoading(false); // Hide global loading indicator
+          // Hide the temporary message after a short delay
+          setTimeout(() => {
+            const msgElement = document.getElementById('error-message');
+            if (msgElement.textContent.includes("Loading more invoices")) {
+              msgElement.classList.add('hidden');
+            }
+          }, 1500);
+        }
+      }
+      // --- End API data fetching logic ---
+
+
+      // --- Continue with displaying items from currentResults ---
+      resultsList.innerHTML = ''; // Clear list before displaying current page
+
+      const loadingElement = document.createElement('div');
+      loadingElement.className = 'loading-indicator';
+      loadingElement.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div><p>Rendering page...</p>';
+      resultsList.appendChild(loadingElement);
+
+
+      // Use currentResults as the source for "All" filter display
+      const resultsToDisplay = currentResults; // Use the potentially updated currentResults
+
+      // Update total count display (reflects loaded count for "All")
+      if (isAllFilterActive) {
+        document.getElementById('results-count').textContent = `(${resultsToDisplay.length}${apiHasMorePages ? '+ loaded' : ' total'})`;
+      } else {
+        // Should not happen if called correctly, displayFilteredResults handles other cases
+        console.warn("displayResultItems called unexpectedly when a filter might be active.");
+        document.getElementById('results-count').textContent = `(${resultsToDisplay.length})`;
+      }
+
+
+      // Generate a cache key including the active tenant ID
+      // Cache key might need refinement if mixing API pagination and client pagination
+      // For simplicity here, let's cache based on the client page number of loaded data
+      const cacheKey = `${window.tenantId}_page_${currentPage}_all`; // Simple key for "All" state
+      console.log(`Checking cache for key: ${cacheKey}`);
+
+
+      // NOTE: Caching with dynamically loaded API pages gets complex.
+      // For now, let's *disable caching* when the "All" filter is active to ensure freshness,
+      // or implement a more sophisticated cache invalidation strategy.
+      // Disabling cache for "All" filter:
+      const useCache = !isAllFilterActive; // Only use cache if NOT in "All" state
+
+
+      if (useCache && cachedPages[cacheKey]) {
+        // ... (Keep existing cache logic here if needed for other scenarios, but it's likely displayFilteredResults covers those) ...
+        console.log('Using cached page (non-"All" scenario):', cacheKey);
+        resultsList.innerHTML = cachedPages[cacheKey];
+        // Re-attach listeners etc.
+        const items = resultsList.querySelectorAll('.result-item[data-id]');
+        items.forEach(item => {
+          const invoiceId = item.dataset.id;
           if (invoiceId) {
-            showInvoiceDetail(invoiceId);
-          } else {
-            console.error("Could not find invoice ID for clicked item.");
+            item.removeEventListener('click', showInvoiceDetailById);
+            item.addEventListener('click', showInvoiceDetailById);
           }
+        });
+
+        // Scroll/restore logic...
+        if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
+          setTimeout(() => window.scrollTo(0, window.lastScrollPosition), 50);
+          window.lastScrollPosition = 0;
+        } else {
+          document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+        window.lastPageViewed = currentPage;
+        updatePagination(); // Update pagination based on cached view
+        return; // Exit
+      }
+
+      console.log('Generating page content (cache disabled or miss):', cacheKey);
+
+
+      // Calculate pagination for the *currently loaded* data in currentResults
+      const totalLoadedResults = resultsToDisplay.length;
+      const startIndex = (currentPage - 1) * resultsPerPage;
+      // Ensure startIndex is valid even if data just loaded
+      if (startIndex >= totalLoadedResults && totalLoadedResults > 0) {
+        console.warn(`startIndex ${startIndex} is out of bounds for loaded results ${totalLoadedResults}. Resetting to page 1.`);
+        currentPage = 1; // Reset to page 1 if out of bounds
+        // Re-call displayResultItems to render page 1 correctly? Or adjust startIndex?
+        // Safest might be to adjust startIndex for this render pass:
+        // startIndex = 0; // Display first page instead
+        // Better: Re-trigger display for page 1. Let's adjust start/end for now.
+        const adjustedStartIndex = Math.max(0, totalLoadedResults - resultsPerPage); // Show last available page
+        const adjustedEndIndex = totalLoadedResults;
+        currentPage = Math.floor(adjustedStartIndex / resultsPerPage) + 1; // Update current page number
+
+        console.log(`Adjusted display to page ${currentPage}, startIndex ${adjustedStartIndex}`);
+        const pageResults = resultsToDisplay.slice(adjustedStartIndex, adjustedEndIndex);
+        resultsList.innerHTML = ''; // Clear loading indicator
+
+
+        if (pageResults.length === 0 && totalLoadedResults === 0) {
+          resultsList.innerHTML = `<div class="message info">No invoices loaded yet.</div>`;
+          updatePagination();
+          return;
+        } else if (pageResults.length === 0) {
+          resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
+          updatePagination();
+          return;
+        }
+
+        // Render adjusted page results
+        const pageContent = document.createDocumentFragment();
+        pageResults.forEach(invoice => {
+          try {
+            const item = createInvoiceItem(invoice);
+            pageContent.appendChild(item);
+          } catch (error) { console.error("Error rendering invoice:", error, invoice); /* ... error item ... */ }
+        });
+        resultsList.appendChild(pageContent);
+
+        // Don't cache this adjusted view? Or cache with the adjusted page number?
+        // Let's avoid caching for now when adjustment happens.
+
+        if (!window.lastScrollPosition || currentPage !== window.lastPageViewed) {
+          document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+        window.lastScrollPosition = 0;
+        updatePagination(); // Update pagination based on adjusted reality
+        return; // Exit after rendering adjusted page
+
+
+      } else {
+        // Normal path: startIndex is within bounds
+        const endIndex = Math.min(startIndex + resultsPerPage, totalLoadedResults);
+        const pageResults = resultsToDisplay.slice(startIndex, endIndex);
+        resultsList.innerHTML = ''; // Clear loading indicator
+
+        if (pageResults.length === 0 && totalLoadedResults === 0) {
+          resultsList.innerHTML = `<div class="message info">No invoices found.</div>`;
+          updatePagination();
+          return;
+        } else if (pageResults.length === 0) {
+          // This might happen if currentPage > actual pages available but apiHasMorePages was false
+          resultsList.innerHTML = `<div class="message info">No invoices found on this page.</div>`;
+          updatePagination();
+          return;
         }
 
 
-        // Show invoice detail
-        async function showInvoiceDetail(invoiceId) {
+        // Create result items for the current page
+        const pageContent = document.createDocumentFragment();
+        pageResults.forEach(invoice => {
           try {
-            toggleLoading(true);
-
-            // Get valid tokens
-            const tokens = await getValidTokens();
-            if (!tokens) {
-              throw new Error('No valid authentication tokens available');
-            }
-
-            // Fetch the invoice details from Xero API - use absolute URL
-            const url = `${window.location.origin}/api/xero-api/invoices/${invoiceId}`;
-            const response = await fetch(url, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${tokens.access_token}`,
-                'Xero-Tenant-Id': window.tenantId
-              }
-            });
+            const item = createInvoiceItem(invoice);
+            pageContent.appendChild(item);
+          } catch (error) { console.error("Error rendering invoice:", error, invoice); /* ... error item ... */ }
+        });
+        resultsList.appendChild(pageContent);
 
 
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.message || `Server returned ${response.status}`);
-            }
+        // Cache if enabled
+        if (useCache) {
+          cachedPages[cacheKey] = resultsList.innerHTML;
+          console.log('Page cached:', cacheKey);
+        }
 
-            const data = await response.json();
-            console.log('Invoice detail:', data);
+        // Scroll/restore logic...
+        if (window.lastScrollPosition && currentPage === window.lastPageViewed) {
+          setTimeout(() => window.scrollTo(0, window.lastScrollPosition), 50);
+          window.lastScrollPosition = 0;
+        } else {
+          document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+        window.lastPageViewed = currentPage;
+      }
 
-            if (data && data.Invoices && data.Invoices.length > 0) {
-              const invoice = data.Invoices[0];
 
-              // Hide results section and show detail section
-              document.getElementById('results-section').classList.add('hidden');
-              const detailSection = document.getElementById('detail-section');
-              detailSection.classList.remove('hidden');
+      // Update pagination controls AFTER rendering the page
+      updatePagination();
+    }
 
-              const detailElement = document.getElementById('invoice-detail');
+    // Helper function to pass invoiceId to showInvoiceDetail
+    // Add this helper function alongside others
+    function showInvoiceDetailById(event) {
+      // Find the parent result-item element to get the data-id
+      let targetElement = event.target;
+      while (targetElement && !targetElement.classList.contains('result-item')) {
+        targetElement = targetElement.parentElement;
+      }
+      const invoiceId = targetElement ? targetElement.dataset.id : null;
+      if (invoiceId) {
+        showInvoiceDetail(invoiceId);
+      } else {
+        console.error("Could not find invoice ID for clicked item.");
+      }
+    }
 
-              // Format dates safely
-              const date = formatDate(invoice.Date);
-              const dueDate = formatDate(invoice.DueDate);
 
-              // Build line items HTML safely
-              const lineItemsHtml = (invoice.LineItems || []).map(item => `
+    // Show invoice detail
+    async function showInvoiceDetail(invoiceId) {
+      try {
+        toggleLoading(true);
+
+        // Get valid tokens
+        const tokens = await getValidTokens();
+        if (!tokens) {
+          throw new Error('No valid authentication tokens available');
+        }
+
+        // Fetch the invoice details from Xero API - use absolute URL
+        const url = `${window.location.origin}/api/xero-api/invoices/${invoiceId}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${tokens.access_token}`,
+            'Xero-Tenant-Id': window.tenantId
+          }
+        });
+
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Server returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Invoice detail:', data);
+
+        if (data && data.Invoices && data.Invoices.length > 0) {
+          const invoice = data.Invoices[0];
+
+          // Hide results section and show detail section
+          document.getElementById('results-section').classList.add('hidden');
+          const detailSection = document.getElementById('detail-section');
+          detailSection.classList.remove('hidden');
+
+          const detailElement = document.getElementById('invoice-detail');
+
+          // Format dates safely
+          const date = formatDate(invoice.Date);
+          const dueDate = formatDate(invoice.DueDate);
+
+          // Build line items HTML safely
+          const lineItemsHtml = (invoice.LineItems || []).map(item => `
         <tr>
           <td>${item.Description || 'N/A'}</td>
           <td>${item.Quantity || 0}</td>
@@ -3331,17 +3240,17 @@ document.getElementById('sort-by').addEventListener('change', () => {
         </tr>
       `).join('');
 
-              // --- START: Extract 6 Digits from INVOICE NUMBER for Lab Form Link ---
-              const invoiceNumberForLink = invoice.InvoiceNumber || '';
-              const extractedLabFormNumber = extractSixDigitInvoiceNumber(invoiceNumberForLink); // Use the helper
-              let labFormDropboxLink = '#'; // Default invalid link
-              if (extractedLabFormNumber) {
-                labFormDropboxLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${extractedLabFormNumber}.jpg?role=personal`;
-              }
-              // --- END: Extract 6 Digits ---
+          // --- START: Extract 6 Digits from INVOICE NUMBER for Lab Form Link ---
+          const invoiceNumberForLink = invoice.InvoiceNumber || '';
+          const extractedLabFormNumber = extractSixDigitInvoiceNumber(invoiceNumberForLink); // Use the helper
+          let labFormDropboxLink = '#'; // Default invalid link
+          if (extractedLabFormNumber) {
+            labFormDropboxLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${extractedLabFormNumber}.jpg?role=personal`;
+          }
+          // --- END: Extract 6 Digits ---
 
-              // Build the detail view HTML
-              detailElement.innerHTML = `
+          // Build the detail view HTML
+          detailElement.innerHTML = `
         <div class="invoice-header">
           <h2>Invoice #${invoice.InvoiceNumber || 'N/A'}</h2>
           <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
@@ -3381,7 +3290,7 @@ document.getElementById('sort-by').addEventListener('change', () => {
   <strong>Lab Form:</strong>
   <div style="margin-top: 0.2rem;">
     <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${(invoice.InvoiceNumber || '').replace('INV-', '') /* Keep prefix removal */
-                  }.jpg?role=personal"
+              }.jpg?role=personal"
        target="_blank"
        rel="noopener noreferrer"
        style="text-decoration: underline; color: var(--primary-color); font-size: 0.9rem;">
@@ -3426,193 +3335,193 @@ document.getElementById('sort-by').addEventListener('change', () => {
         </div>
       `; // End of innerHTML assignment
 
-            } else {
-              showError('Invoice not found');
-            }
-          } catch (error) {
-            console.error('Error getting invoice details:', error);
-            showError('Error loading invoice details. Please try again.');
-          } finally {
-            toggleLoading(false);
+        } else {
+          showError('Invoice not found');
+        }
+      } catch (error) {
+        console.error('Error getting invoice details:', error);
+        showError('Error loading invoice details. Please try again.');
+      } finally {
+        toggleLoading(false);
+      }
+    }
+
+    // Global variables
+    let currentResults = [];
+    let currentPage = 1;
+    let cachedPages = {};
+    const resultsPerPage = 20; // Keep this
+
+    // --- Autocomplete State ---
+    let invoiceNumberSuggestions = [];
+    let referenceSuggestions = new Set();
+    let contactNameSuggestions = new Set();
+    let autocompleteDebounceTimer;
+    const DEBOUNCE_DELAY = 300; // milliseconds
+    // --- End Autocomplete State ---
+
+    // --- NEW STATE VARIABLES ---
+    let currentApiPage = 1; // Track the last API page fetched for "All" filter
+    let apiHasMorePages = true; // Track if the API likely has more pages for "All"
+    let isLoadingMoreApiData = false; // Prevent multiple simultaneous API fetches
+    // --- END NEW STATE VARIABLES ---
+
+    // Helper function to parse Xero date format
+    function parseXeroDate(xeroDateString) {
+      if (!xeroDateString) return null;
+
+      // Check if it's in the Xero JSON format \/Date(timestamp)\/
+      const dateRegex = /\/Date\((\d+)(?:[-+]\d+)?\)\//;
+      const match = dateRegex.exec(xeroDateString);
+
+      if (match && match[1]) {
+        // Extract the timestamp and create a date
+        return new Date(parseInt(match[1], 10));
+      }
+
+      // If we have a DateString property available (ISO format)
+      if (typeof xeroDateString === 'string' && xeroDateString.includes('T')) {
+        return new Date(xeroDateString);
+      }
+
+      // Fallback - try direct parsing
+      const directDate = new Date(xeroDateString);
+      if (!isNaN(directDate.getTime())) {
+        return directDate;
+      }
+
+      return null;
+    }
+
+    // Debounce function
+    function debounce(func, delay) {
+      return function (...args) {
+        clearTimeout(autocompleteDebounceTimer);
+        autocompleteDebounceTimer = setTimeout(() => {
+          func.apply(this, args);
+        }, delay);
+      };
+    }
+
+    // Function to update suggestion sources from current data
+    function updateAutocompleteSources(invoices) {
+      if (!invoices || invoices.length === 0) return;
+
+      // Clear previous sources for this batch/filter
+      // Note: For the "All" filter with API pagination, decide if you want suggestions
+      // to *only* reflect loaded data or accumulate across loads. Accumulating is simpler here.
+      // If clearing per batch:
+      // invoiceNumberSuggestions = [];
+      // referenceSuggestions.clear();
+      // contactNameSuggestions.clear();
+
+      invoices.forEach(invoice => {
+        if (invoice.InvoiceNumber) {
+          // Invoice numbers are usually unique, array is fine
+          if (!invoiceNumberSuggestions.includes(invoice.InvoiceNumber)) {
+            invoiceNumberSuggestions.push(invoice.InvoiceNumber);
           }
         }
+        if (invoice.Reference) {
+          referenceSuggestions.add(invoice.Reference);
+        }
+        if (invoice.Contact?.Name) {
+          contactNameSuggestions.add(invoice.Contact.Name);
+        }
+      });
 
-        // Global variables
-        let currentResults = [];
-        let currentPage = 1;
-        let cachedPages = {};
-        const resultsPerPage = 20; // Keep this
+      // Optional: Sort suggestions for better display
+      invoiceNumberSuggestions.sort();
+      // Convert sets to arrays for easier filtering later if needed, or filter directly
+      // console.log('Autocomplete sources updated');
+    }
 
-        // --- Autocomplete State ---
-        let invoiceNumberSuggestions = [];
-        let referenceSuggestions = new Set();
-        let contactNameSuggestions = new Set();
-        let autocompleteDebounceTimer;
-        const DEBOUNCE_DELAY = 300; // milliseconds
-        // --- End Autocomplete State ---
+    // Format date safely for display
+    function formatDate(dateValue) {
+      if (!dateValue) return 'N/A';
 
-        // --- NEW STATE VARIABLES ---
-        let currentApiPage = 1; // Track the last API page fetched for "All" filter
-        let apiHasMorePages = true; // Track if the API likely has more pages for "All"
-        let isLoadingMoreApiData = false; // Prevent multiple simultaneous API fetches
-        // --- END NEW STATE VARIABLES ---
+      const date = parseXeroDate(dateValue);
+      if (!date || isNaN(date.getTime())) {
+        return 'N/A';
+      }
 
-        // Helper function to parse Xero date format
-        function parseXeroDate(xeroDateString) {
-          if (!xeroDateString) return null;
+      return date.toLocaleDateString();
+    }
 
-          // Check if it's in the Xero JSON format \/Date(timestamp)\/
-          const dateRegex = /\/Date\((\d+)(?:[-+]\d+)?\)\//;
-          const match = dateRegex.exec(xeroDateString);
+    // Initialize the application when the document is ready
+    document.addEventListener('DOMContentLoaded', initApp);
 
-          if (match && match[1]) {
-            // Extract the timestamp and create a date
-            return new Date(parseInt(match[1], 10));
-          }
+    // Calculate business days between two dates (excluding weekends)
+    function getBusinessDaysDifference(startDate, endDate) {
+      if (!startDate || !endDate) return null;
 
-          // If we have a DateString property available (ISO format)
-          if (typeof xeroDateString === 'string' && xeroDateString.includes('T')) {
-            return new Date(xeroDateString);
-          }
+      // Convert to date objects if they aren't already
+      const start = startDate instanceof Date ? startDate : new Date(startDate);
+      const end = endDate instanceof Date ? endDate : new Date(endDate);
 
-          // Fallback - try direct parsing
-          const directDate = new Date(xeroDateString);
-          if (!isNaN(directDate.getTime())) {
-            return directDate;
-          }
+      // Validate dates
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
 
-          return null;
+      // Calculate days, excluding weekends
+      let count = 0;
+      let current = new Date(start);
+
+      while (current <= end) {
+        // Skip weekends (0 = Sunday, 6 = Saturday)
+        const dayOfWeek = current.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          count++;
         }
 
-        // Debounce function
-        function debounce(func, delay) {
-          return function (...args) {
-            clearTimeout(autocompleteDebounceTimer);
-            autocompleteDebounceTimer = setTimeout(() => {
-              func.apply(this, args);
-            }, delay);
-          };
-        }
+        // Move to next day
+        current.setDate(current.getDate() + 1);
+      }
 
-        // Function to update suggestion sources from current data
-        function updateAutocompleteSources(invoices) {
-          if (!invoices || invoices.length === 0) return;
+      return count;
+    }
 
-          // Clear previous sources for this batch/filter
-          // Note: For the "All" filter with API pagination, decide if you want suggestions
-          // to *only* reflect loaded data or accumulate across loads. Accumulating is simpler here.
-          // If clearing per batch:
-          // invoiceNumberSuggestions = [];
-          // referenceSuggestions.clear();
-          // contactNameSuggestions.clear();
+    // Determine job status based on age (business days)
+    // Update the getJobStatus function to log details for debugging
+    function getJobStatus(invoice) {
+      // Skip paid invoices for job status categorization
+      if (invoice.Status === 'PAID') {
+        return null;
+      }
 
-          invoices.forEach(invoice => {
-            if (invoice.InvoiceNumber) {
-              // Invoice numbers are usually unique, array is fine
-              if (!invoiceNumberSuggestions.includes(invoice.InvoiceNumber)) {
-                invoiceNumberSuggestions.push(invoice.InvoiceNumber);
-              }
-            }
-            if (invoice.Reference) {
-              referenceSuggestions.add(invoice.Reference);
-            }
-            if (invoice.Contact?.Name) {
-              contactNameSuggestions.add(invoice.Contact.Name);
-            }
-          });
+      // Skip ACCPAY invoices
+      if (invoice.Type === 'ACCPAY') {
+        return null;
+      }
 
-          // Optional: Sort suggestions for better display
-          invoiceNumberSuggestions.sort();
-          // Convert sets to arrays for easier filtering later if needed, or filter directly
-          // console.log('Autocomplete sources updated');
-        }
+      // Use invoice date as start date
+      const startDate = parseXeroDate(invoice.Date);
+      if (!startDate) {
+        console.log("Invalid date for invoice:", invoice.InvoiceNumber);
+        return null;
+      }
 
-        // Format date safely for display
-        function formatDate(dateValue) {
-          if (!dateValue) return 'N/A';
+      // Use current date as end date
+      const endDate = new Date();
 
-          const date = parseXeroDate(dateValue);
-          if (!date || isNaN(date.getTime())) {
-            return 'N/A';
-          }
+      // Calculate business days difference
+      const businessDays = getBusinessDaysDifference(startDate, endDate);
+      if (businessDays === null) {
+        console.log("Couldn't calculate business days for invoice:", invoice.InvoiceNumber);
+        return null;
+      }
 
-          return date.toLocaleDateString();
-        }
+      // Log for debugging
+      console.log(`Invoice ${invoice.InvoiceNumber}: ${businessDays} business days`);
 
-        // Initialize the application when the document is ready
-        document.addEventListener('DOMContentLoaded', initApp);
-
-        // Calculate business days between two dates (excluding weekends)
-        function getBusinessDaysDifference(startDate, endDate) {
-          if (!startDate || !endDate) return null;
-
-          // Convert to date objects if they aren't already
-          const start = startDate instanceof Date ? startDate : new Date(startDate);
-          const end = endDate instanceof Date ? endDate : new Date(endDate);
-
-          // Validate dates
-          if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-
-          // Calculate days, excluding weekends
-          let count = 0;
-          let current = new Date(start);
-
-          while (current <= end) {
-            // Skip weekends (0 = Sunday, 6 = Saturday)
-            const dayOfWeek = current.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-              count++;
-            }
-
-            // Move to next day
-            current.setDate(current.getDate() + 1);
-          }
-
-          return count;
-        }
-
-        // Determine job status based on age (business days)
-        // Update the getJobStatus function to log details for debugging
-        function getJobStatus(invoice) {
-          // Skip paid invoices for job status categorization
-          if (invoice.Status === 'PAID') {
-            return null;
-          }
-
-          // Skip ACCPAY invoices
-          if (invoice.Type === 'ACCPAY') {
-            return null;
-          }
-
-          // Use invoice date as start date
-          const startDate = parseXeroDate(invoice.Date);
-          if (!startDate) {
-            console.log("Invalid date for invoice:", invoice.InvoiceNumber);
-            return null;
-          }
-
-          // Use current date as end date
-          const endDate = new Date();
-
-          // Calculate business days difference
-          const businessDays = getBusinessDaysDifference(startDate, endDate);
-          if (businessDays === null) {
-            console.log("Couldn't calculate business days for invoice:", invoice.InvoiceNumber);
-            return null;
-          }
-
-          // Log for debugging
-          console.log(`Invoice ${invoice.InvoiceNumber}: ${businessDays} business days`);
-
-          // Determine status based on business days
-          if (businessDays > 10) {
-            return 'overdue';
-          } else if (businessDays >= 7) {
-            return 'approaching';
-          } else {
-            return 'recent';
-          }
-        }
+      // Determine status based on business days
+      if (businessDays > 10) {
+        return 'overdue';
+      } else if (businessDays >= 7) {
+        return 'approaching';
+      } else {
+        return 'recent';
+      }
+    }
 
 
 
