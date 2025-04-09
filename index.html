@@ -2050,7 +2050,7 @@ async function fetchAllPages(baseUrl, accessToken) {
   return allResults;
 }
 
-// Modify updatePagination
+// Update pagination controls - Simplified Version
 function updatePagination() {
   const pagination = document.getElementById('pagination');
   pagination.innerHTML = ''; // Clear existing buttons
@@ -2058,99 +2058,85 @@ function updatePagination() {
   let resultsToUse;
   let totalResultsCount;
   let totalPages;
-  const isJobFilterActive = document.getElementById('job-status-filter').value;
+  const isJobFilterActive = !!document.getElementById('job-status-filter')?.value; // Use !! for boolean check, add optional chaining
   const isSpecificFilterActive = window.filteredResults !== null && window.filteredResults !== undefined;
 
+  let hasPreviousPage = currentPage > 1;
+  let hasNextPage = false;
+
+  // Determine if a next page exists based on filter type
   if (isJobFilterActive && isSpecificFilterActive) {
     // Using specific status filter results (Borderline/Deadline)
     resultsToUse = window.filteredResults;
     totalResultsCount = resultsToUse.length;
     totalPages = Math.ceil(totalResultsCount / resultsPerPage);
-    console.log(`Pagination: Using filteredResults. Total: ${totalResultsCount}, Pages: ${totalPages}`);
+    hasNextPage = currentPage < totalPages;
+    console.log(`Pagination (Simple): Filtered results. Current: ${currentPage}, Total Pages: ${totalPages}, HasNext: ${hasNextPage}`);
   } else {
     // Using "All" filter results (dynamically loaded)
     resultsToUse = currentResults;
     totalResultsCount = resultsToUse.length; // Count of currently *loaded* items
-
-    // Estimate total pages: If we know there are more pages from the API,
-    // calculate pages based on loaded data BUT ensure 'Next' can be shown.
-    // If apiHasMorePages is true, we know there's at least one more page than currently loaded data shows.
-     if (apiHasMorePages) {
-         // Calculate pages based on loaded data, but add 1 conceptually for 'Next' button logic
-         totalPages = Math.ceil(totalResultsCount / resultsPerPage) + 1; // Add 1 to ensure 'Next' can appear
-         console.log(`Pagination: Using currentResults (API has more). Loaded: ${totalResultsCount}, Estimated Pages: ${totalPages}`);
-     } else {
-          // API has no more pages, calculate exactly based on loaded data
-         totalPages = Math.ceil(totalResultsCount / resultsPerPage);
-          console.log(`Pagination: Using currentResults (API complete). Total: ${totalResultsCount}, Pages: ${totalPages}`);
-     }
-
+    // Check if there are more items loaded than currently displayed OR if the API flag indicates more pages exist
+    hasNextPage = (currentPage * resultsPerPage < totalResultsCount) || apiHasMorePages;
+    console.log(`Pagination (Simple): "All" results. Current: ${currentPage}, Loaded: ${totalResultsCount}, API Has More: ${apiHasMorePages}, HasNext: ${hasNextPage}`);
   }
 
-   // Handle case where totalPages might be 0
-   if (totalPages <= 1 && !(isJobFilterActive && isSpecificFilterActive) && !apiHasMorePages) {
-        console.log("Pagination: Not needed (<= 1 page and API complete or no filter results).");
-       return; // No pagination needed if only one page or less and no more API pages
-   }
-
-
-  // Create the pagination container styling (already exists)
-  pagination.style.display = 'flex';
-  pagination.style.justifyContent = 'center';
-  pagination.style.gap = '10px';
-  pagination.style.marginTop = '20px';
+  // Only add buttons if they are needed
+  let buttonsAdded = false;
 
   // --- Previous Button ---
-  const prevButton = document.createElement('button');
-  prevButton.textContent = 'Previous';
-  prevButton.className = 'btn secondary';
-  prevButton.disabled = currentPage === 1; // Disable on first page
-  prevButton.addEventListener('click', () => {
-    if (currentPage > 1) {
-      window.lastScrollPosition = window.scrollY; // Save scroll before navigating
-      currentPage--;
-      if (isJobFilterActive && isSpecificFilterActive) {
-        displayFilteredResults(); // Use filtered display function
-      } else {
-        displayResultItems(); // Use default display function for "All"
+  if (hasPreviousPage) {
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous Page'; // New text
+    prevButton.className = 'btn secondary';   // Keep class for styling
+    // prevButton.disabled = false; // Enabled by default
+    prevButton.addEventListener('click', () => {
+      // Double check condition inside listener for safety
+      if (currentPage > 1) {
+        window.lastScrollPosition = window.scrollY; // Save scroll before navigating
+        currentPage--;
+        if (isJobFilterActive && isSpecificFilterActive) {
+          displayFilteredResults(); // Use filtered display function
+        } else {
+          displayResultItems(); // Use default display function for "All"
+        }
       }
-      // Optional transition effect (can be added back if desired)
-    }
-  });
-  pagination.appendChild(prevButton);
-
+    });
+    pagination.appendChild(prevButton);
+    buttonsAdded = true;
+  }
 
   // --- Next Button ---
-   const nextButton = document.createElement('button');
-   nextButton.textContent = 'Next Page';
-   nextButton.className = 'btn primary';
+   if (hasNextPage) {
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next Page'; // New text
+    nextButton.className = 'btn primary'; // Keep class for styling
+    // nextButton.disabled = false; // Enabled by default
+    nextButton.addEventListener('click', () => {
+      // No need to re-check hasNextPage here, button wouldn't exist if false
+      window.lastScrollPosition = window.scrollY; // Save scroll
+      currentPage++;
+       if (isJobFilterActive && isSpecificFilterActive) {
+          displayFilteredResults();
+      } else {
+           // For "All", displayResultItems will handle fetching more API data if needed
+          displayResultItems();
+      }
+    });
+    pagination.appendChild(nextButton);
+    buttonsAdded = true;
+   }
 
-    // Determine if 'Next' should be enabled
-    let hasNextPage = false;
-    if (isJobFilterActive && isSpecificFilterActive) {
-        // For filtered results, enable if current page is less than total calculated pages
-        hasNextPage = currentPage < totalPages;
-    } else {
-        // For "All" results, enable if there are more items loaded than shown OR if API has more pages
-        hasNextPage = (currentPage * resultsPerPage < totalResultsCount) || apiHasMorePages;
-    }
-
-   nextButton.disabled = !hasNextPage; // Disable if there's no next page
-
-   nextButton.addEventListener('click', () => {
-      if (hasNextPage) { // Check again just in case state changed
-            window.lastScrollPosition = window.scrollY; // Save scroll
-            currentPage++;
-             if (isJobFilterActive && isSpecificFilterActive) {
-                displayFilteredResults();
-            } else {
-                 // For "All", displayResultItems will handle fetching more API data if needed
-                displayResultItems();
-            }
-             // Optional transition effect & scroll to top (already in display functions)
-       }
-   });
-   pagination.appendChild(nextButton);
+  // Ensure pagination container has correct styling and visibility
+  if (buttonsAdded) {
+      pagination.style.display = 'flex';
+      pagination.style.justifyContent = 'center';
+      pagination.style.gap = '10px'; // Adjust gap as needed
+      pagination.style.marginTop = '20px';
+  } else {
+      // Hide the container if no buttons are needed (e.g., only one page of results)
+      pagination.style.display = 'none';
+  }
 }
 
 function createInvoiceItem(invoice) {
