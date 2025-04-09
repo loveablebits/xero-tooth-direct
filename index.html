@@ -2580,40 +2580,37 @@ function setupEventListeners() {
  * If the search term is empty, it loads the initial "All Invoices" view.
  * Always filters for ACCREC and defaults to last 30 days when searching.
  */
+ /**
+ * Searches Xero for invoices based on search term.
+ * If the search term is empty, it loads the initial "All Invoices" view.
+ * Always filters for ACCREC and defaults to last 30 days when searching.
+ * Handles escaping quotes in the search term for the API query.
+ */
  async function searchInvoices() {
   try {
     // Safely get search term value
     const searchInput = document.getElementById('search-input');
     const searchTerm = searchInput ? searchInput.value.trim() : ''; // Ensure input exists
 
-    // --- NEW: Handle Empty Search Term ---
+    // --- Handle Empty Search Term (No changes needed here) ---
     if (!searchTerm) {
         console.log("Search triggered with empty input. Loading initial invoices...");
-
         // Reset the job status filter dropdown
         const jobStatusFilter = document.getElementById('job-status-filter');
-        if (jobStatusFilter) {
-            jobStatusFilter.value = '';
-        }
-
+        if (jobStatusFilter) jobStatusFilter.value = '';
         // Hide the inline clear button if it exists
         const clearSearchBtn = document.getElementById('clear-search-btn');
         if(clearSearchBtn) clearSearchBtn.classList.add('hidden');
-
         // Hide autocomplete suggestions
         const suggestionsContainer = document.getElementById('autocomplete-suggestions');
         if (suggestionsContainer) {
            suggestionsContainer.innerHTML = '';
            suggestionsContainer.classList.add('hidden');
         }
-
         // Call the function that loads the initial, unfiltered view
-        await loadInitialInvoices(); // Use await if loadInitialInvoices is async
-
-        // Optional: Give user feedback
+        await loadInitialInvoices();
         showMessage('Showing all recent invoices...', 'info');
-
-        return; // <<<--- IMPORTANT: Stop execution here, don't proceed to API search
+        return; // Stop execution here
     }
     // --- End Handle Empty Search Term ---
 
@@ -2628,7 +2625,7 @@ function setupEventListeners() {
     const url = new URL(`/api/xero-api/invoices`, window.location.origin);
     url.searchParams.set('order', 'Date DESC');
     url.searchParams.set('page', '1');
-    url.searchParams.set('pageSize', '50'); // Fetch a decent size for search results
+    url.searchParams.set('pageSize', '50');
 
     const headers = {
       'Authorization': `Bearer ${tokens.access_token}`,
@@ -2637,9 +2634,7 @@ function setupEventListeners() {
 
     // Build where conditions
     const whereConditions = [];
-
-    // Always filter for ACCREC only
-    whereConditions.push(`Type=="ACCREC"`);
+    whereConditions.push(`Type=="ACCREC"`); // Always filter for ACCREC
 
     // Default to last 30 days for all searches
     const thirtyDaysAgo = new Date();
@@ -2647,9 +2642,15 @@ function setupEventListeners() {
     const formattedDate = thirtyDaysAgo.toISOString().split('T')[0];
     whereConditions.push(`Date>=DateTime(${formattedDate.replace(/-/g, ',')})`);
 
-    // Add search term condition (already checked that searchTerm is not empty)
-    const safeSearchTerm = searchTerm.replace(/"/g, '\\"');
-    const lowerCaseSearchTerm = safeSearchTerm.toLowerCase();
+    // --- Prepare search term for API filter ---
+    // Escape backslashes first, then double quotes, then single quotes
+    const safeSearchTerm = searchTerm
+                            .replace(/\\/g, '\\\\') // Escape backslashes
+                            .replace(/"/g, '\\"')  // Escape double quotes
+                            .replace(/'/g, "''"); // Escape single quotes (OData/SQL style often uses '')
+    const lowerCaseSearchTerm = safeSearchTerm.toLowerCase(); // Apply ToLower AFTER escaping
+    // --- End Prepare search term ---
+
     whereConditions.push(`(
       (InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${lowerCaseSearchTerm}")) OR
       (Reference!=null AND Reference.ToLower().Contains("${lowerCaseSearchTerm}")) OR
@@ -2660,10 +2661,15 @@ function setupEventListeners() {
     const whereClause = whereConditions.join(' AND ');
     url.searchParams.append('where', whereClause);
 
+    // --- Add Logging ---
+    console.log("Constructed where clause:", whereClause);
+    // --- End Logging ---
+
     // Make the API call
     console.log("Making API request:", url.toString());
     const response = await fetch(url.toString(), { method: 'GET', headers });
 
+    // --- Process response (No changes needed below this point in the try block) ---
     if (!response.ok) {
       const errorText = await response.text();
       try {
@@ -2679,62 +2685,38 @@ function setupEventListeners() {
     const data = await response.json();
     console.log('Xero API response:', data);
 
-     // Process results
      if (data?.Invoices?.length) {
       console.log(`Found ${data.Invoices.length} invoices`);
       currentResults = data.Invoices;
       updateAutocompleteSources(currentResults);
       currentPage = 1;
-      window.filteredResults = null; // Reset any specific filter (like job status)
-
-      // Reset API pagination state for the new search results
-      currentApiPage = 1;
-      apiHasMorePages = data.Invoices.length === 50; // Assume more if full page returned
-
-      displayResults(); // displayResults will handle sorting and rendering the first page
-
-    } else {
-      // No results logic...
-      currentResults = []; // Clear previous results
       window.filteredResults = null;
-      document.getElementById('results-list').innerHTML = ''; // Clear display
+      currentApiPage = 1;
+      apiHasMorePages = data.Invoices.length === 50;
+      displayResults();
+    } else {
+      currentResults = [];
+      window.filteredResults = null;
+      document.getElementById('results-list').innerHTML = '';
       document.getElementById('results-count').textContent = '(0)';
-      document.getElementById('pagination').innerHTML = ''; // Clear pagination
-      document.getElementById('results-section').classList.remove('hidden'); // Show section to display message
+      document.getElementById('pagination').innerHTML = '';
+      document.getElementById('results-section').classList.remove('hidden');
       showMessage('No sales invoices found matching your search criteria.', 'info');
     }
   } catch (error) {
     // Keep the existing safe catch block here...
     console.error("Error searching invoices:", error);
-    // Ensure error.message is displayed, provide fallback
     showError(`Error searching sales invoices: ${error?.message || error || 'Unknown error'}`);
-
-    // Clear results display on error too - ADD NULL CHECKS
     currentResults = [];
     window.filteredResults = null;
-
     const resultsList = document.getElementById('results-list');
-    if (resultsList) {
-        resultsList.innerHTML = '';
-    }
-
+    if (resultsList) resultsList.innerHTML = '';
     const resultsCount = document.getElementById('results-count');
-    if (resultsCount) {
-        resultsCount.textContent = '(0)';
-    }
-
+    if (resultsCount) resultsCount.textContent = '(0)';
     const paginationEl = document.getElementById('pagination');
-    if (paginationEl) {
-        paginationEl.innerHTML = '';
-    }
-
+    if (paginationEl) paginationEl.innerHTML = '';
     const resultsSection = document.getElementById('results-section');
-    if (resultsSection) {
-         resultsSection.classList.remove('hidden');
-         if (resultsList) { // Check again
-            // Optional: resultsList.innerHTML = '<p>An error occurred while searching.</p>';
-         }
-    }
+    if (resultsSection) resultsSection.classList.remove('hidden');
   } finally {
     toggleLoading(false);
   }
