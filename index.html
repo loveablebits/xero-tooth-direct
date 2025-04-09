@@ -306,8 +306,17 @@
     }
 
     #back-btn {
-      margin-bottom: 1.5rem;
-    }
+  background-color: var(--primary-color); /* Use Xero blue */
+  color: white; /* Make text white for contrast */
+  border-color: var(--primary-color); /* Match border to background */
+  margin-bottom: 1.5rem; /* Keep the existing margin */
+}
+
+/* Optional: Add a hover effect consistent with primary buttons */
+#back-btn:hover {
+  background-color: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
 
 /* --- Invoice Detail View Enhancements --- */
 
