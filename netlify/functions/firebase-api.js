@@ -327,4 +327,4 @@ app.use((req, res) => {
 
 // Export the serverless handler
 // The { basePath: '' } is important here to make Express work with serverless properly
-exports.handler = serverless(app, { basePath: '/.netlify/functions/firebase-api' });
+exports.handler = serverless(app);
