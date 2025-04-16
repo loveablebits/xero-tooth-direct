@@ -1,3 +1,6 @@
+
+console.log('Notes and reminders module loading...');
+
 // Global variables for notes and reminders
 let currentNotes = [];
 let currentReminders = [];
@@ -602,16 +605,25 @@ function showError(containerId, message) {
   }, 5000);
 }
 
-// Show success message (using existing showMessage function if available)
+// Show success message without recursion
 function showMessage(message, type = 'success') {
-  // Check if there's already a showMessage function defined in the parent app
-  if (typeof window.showMessage === 'function') {
-    window.showMessage(message, type);
-    return;
-  }
+  // Don't try to call window.showMessage to avoid recursion
   
-  // Fallback to alert if no showMessage function exists
-  alert(message);
+  // Use our own implementation
+  const messageElement = document.getElementById('error-message');
+  if (messageElement) {
+    messageElement.textContent = message;
+    messageElement.className = `message ${type}`;
+    messageElement.classList.remove('hidden');
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      messageElement.classList.add('hidden');
+    }, 5000);
+  } else {
+    // Ultimate fallback to alert if element not found
+    console.log("Message:", message, "Type:", type);
+  }
 }
 
 // ------------------------
