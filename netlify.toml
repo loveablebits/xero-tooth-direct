@@ -40,6 +40,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/firebase-api/*"
+  to = "/.netlify/functions/firebase-api/:splat"
+  status = 200
+
+[[redirects]]
   from = "/api/make-webhook"
   to = "/.netlify/functions/make-webhook"
   status = 200

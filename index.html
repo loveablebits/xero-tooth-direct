@@ -983,6 +983,257 @@
     .hidden {
       display: none !important;
     }
+
+    /* Tab Navigation */
+.tabs-container {
+  margin-top: 2rem;
+}
+
+.tabs-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+}
+
+.tab-button {
+  padding: 0.75rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  color: var(--primary-color);
+}
+
+.tab-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Notes & Reminders Common Styles */
+.item-list {
+  margin-bottom: 2rem;
+}
+
+.item-card {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.item-date {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.item-actions {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.item-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 0.25rem;
+  font-size: 1rem;
+  transition: color 0.2s ease;
+}
+
+.item-action-btn:hover {
+  color: var(--primary-color);
+}
+
+.item-action-btn.delete:hover {
+  color: var(--error-color);
+}
+
+.item-content {
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.add-item-form {
+  background-color: #f9f9f9;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1.25rem;
+}
+
+.form-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.form-row {
+  margin-bottom: 1rem;
+}
+
+.form-row label {
+  display: block;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.form-row input[type="text"],
+.form-row textarea,
+.form-row select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.form-row textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.form-row input[type="date"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* Note-specific styles */
+.note-category {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 0.5rem;
+}
+
+.category-general {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.category-customer {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.category-lab {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.category-payment {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.category-important {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Reminder-specific styles */
+.reminder-status {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-pending {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.status-due-today {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-overdue {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-completed {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.reminder-card.completed {
+  opacity: 0.7;
+}
+
+.reminder-card.completed .item-content {
+  text-decoration: line-through;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.empty-state p {
+  margin-bottom: 1rem;
+}
+
+/* Loading state */
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.error-message {
+  background-color: rgba(208, 2, 27, 0.1);
+  border: 1px solid var(--error-color);
+  color: var(--error-color);
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
   </style>
 </head>
 
@@ -3290,51 +3541,51 @@ function setupEventListeners() {
 
 
     // Show invoice detail
-    async function showInvoiceDetail(invoiceId) {
-      try {
-        toggleLoading(true);
+    // Updated showInvoiceDetail function with tabs integration
+async function showInvoiceDetail(invoiceId) {
+  try {
+    toggleLoading(true);
 
-        // Get valid tokens
-        const tokens = await getValidTokens();
-        if (!tokens) {
-          throw new Error('No valid authentication tokens available');
-        }
+    // Get valid tokens
+    const tokens = await getValidTokens();
+    if (!tokens) {
+      throw new Error('No valid authentication tokens available');
+    }
 
-        // Fetch the invoice details from Xero API - use absolute URL
-        const url = `${window.location.origin}/api/xero-api/invoices/${invoiceId}`;
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${tokens.access_token}`,
-            'Xero-Tenant-Id': window.tenantId
-          }
-        });
+    // Fetch the invoice details from Xero API - use absolute URL
+    const url = `${window.location.origin}/api/xero-api/invoices/${invoiceId}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Xero-Tenant-Id': window.tenantId
+      }
+    });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server returned ${response.status}`);
+    }
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Server returned ${response.status}`);
-        }
+    const data = await response.json();
+    console.log('Invoice detail:', data);
 
-        const data = await response.json();
-        console.log('Invoice detail:', data);
+    if (data && data.Invoices && data.Invoices.length > 0) {
+      const invoice = data.Invoices[0];
 
-        if (data && data.Invoices && data.Invoices.length > 0) {
-          const invoice = data.Invoices[0];
+      // Hide results section and show detail section
+      document.getElementById('results-section').classList.add('hidden');
+      const detailSection = document.getElementById('detail-section');
+      detailSection.classList.remove('hidden');
 
-          // Hide results section and show detail section
-          document.getElementById('results-section').classList.add('hidden');
-          const detailSection = document.getElementById('detail-section');
-          detailSection.classList.remove('hidden');
+      const detailElement = document.getElementById('invoice-detail');
 
-          const detailElement = document.getElementById('invoice-detail');
+      // Format dates safely
+      const date = formatDate(invoice.Date);
+      const dueDate = formatDate(invoice.DueDate);
 
-          // Format dates safely
-          const date = formatDate(invoice.Date);
-          const dueDate = formatDate(invoice.DueDate);
-
-          // Build line items HTML safely
-          const lineItemsHtml = (invoice.LineItems || []).map(item => `
+      // Build line items HTML safely
+      const lineItemsHtml = (invoice.LineItems || []).map(item => `
         <tr>
           <td>${item.Description || 'N/A'}</td>
           <td>${item.Quantity || 0}</td>
@@ -3343,17 +3594,16 @@ function setupEventListeners() {
         </tr>
       `).join('');
 
-          // --- START: Extract 6 Digits from INVOICE NUMBER for Lab Form Link ---
-          const invoiceNumberForLink = invoice.InvoiceNumber || '';
-          const extractedLabFormNumber = extractSixDigitInvoiceNumber(invoiceNumberForLink); // Use the helper
-          let labFormDropboxLink = '#'; // Default invalid link
-          if (extractedLabFormNumber) {
-            labFormDropboxLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${extractedLabFormNumber}.jpg?role=personal`;
-          }
-          // --- END: Extract 6 Digits ---
+      // Extract 6 Digits from INVOICE NUMBER for Lab Form Link
+      const invoiceNumberForLink = invoice.InvoiceNumber || '';
+      const extractedLabFormNumber = extractSixDigitInvoiceNumber(invoiceNumberForLink);
+      let labFormDropboxLink = '#'; // Default invalid link
+      if (extractedLabFormNumber) {
+        labFormDropboxLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${extractedLabFormNumber}.jpg?role=personal`;
+      }
 
-          // Build the detail view HTML
-          detailElement.innerHTML = `
+      // Build the invoice details content
+      const invoiceDetailsHtml = `
         <div class="invoice-header">
           <h2>Invoice #${invoice.InvoiceNumber || 'N/A'}</h2>
           <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
@@ -3389,21 +3639,18 @@ function setupEventListeners() {
           </div>
 
           ${extractedLabFormNumber ? `
-<div>
-  <strong>Lab Form:</strong>
-  <div style="margin-top: 0.2rem;">
-    <a href="https://www.dropbox.com/preview/TTL%20Prescription%20copies/${(invoice.InvoiceNumber || '').replace('INV-', '') /* Keep prefix removal */
-              }.jpg?role=personal"
-       target="_blank"
-       rel="noopener noreferrer"
-       style="text-decoration: underline; color: var(--primary-color); font-size: 0.9rem;">
-      View lab form
-    </a>
-  </div>
-</div>
+          <div>
+            <strong>Lab Form:</strong>
+            <div style="margin-top: 0.2rem;">
+              <a href="${labFormDropboxLink}"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="text-decoration: underline; color: var(--primary-color); font-size: 0.9rem;">
+                View lab form
+              </a>
             </div>
+          </div>
           ` : ''}
-
         </div>
 
         <div class="invoice-items">
@@ -3436,18 +3683,136 @@ function setupEventListeners() {
             </tfoot>
           </table>
         </div>
-      `; // End of innerHTML assignment
+      `;
 
-        } else {
-          showError('Invoice not found');
-        }
-      } catch (error) {
-        console.error('Error getting invoice details:', error);
-        showError('Error loading invoice details. Please try again.');
-      } finally {
-        toggleLoading(false);
+      // Add the tabs container HTML
+      detailElement.innerHTML = `
+        <div class="tabs-container">
+          <div class="tabs-nav">
+            <button id="tab-invoice-details" class="tab-button active" data-tab="tab-content-invoice">Invoice Details</button>
+            <button id="tab-notes" class="tab-button" data-tab="tab-content-notes">Notes</button>
+            <button id="tab-reminders" class="tab-button" data-tab="tab-content-reminders">Reminders</button>
+            <button id="tab-tracking" class="tab-button" data-tab="tab-content-tracking">Tracking</button>
+          </div>
+          
+          <!-- Invoice Details Tab -->
+          <div id="tab-content-invoice" class="tab-content active">
+            ${invoiceDetailsHtml}
+          </div>
+          
+          <!-- Notes Tab -->
+          <div id="tab-content-notes" class="tab-content">
+            <div id="notes-list" class="item-list">
+              <!-- Notes will be dynamically inserted here -->
+              <div class="loading-indicator">
+                <div class="spinner"></div>
+                <p>Loading notes...</p>
+              </div>
+            </div>
+            
+            <div id="notes-form" class="add-item-form">
+              <h3 class="form-title">Add a New Note</h3>
+              <form id="add-note-form">
+                <div class="form-row">
+                  <label for="note-category">Category:</label>
+                  <select id="note-category" name="category">
+                    <option value="general">General</option>
+                    <option value="customer">Customer Request</option>
+                    <option value="lab">Lab Issue</option>
+                    <option value="payment">Payment</option>
+                    <option value="important">Important</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <label for="note-text">Note:</label>
+                  <textarea id="note-text" name="text" placeholder="Enter your note here..." required></textarea>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn primary">Add Note</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          
+          <!-- Reminders Tab -->
+          <div id="tab-content-reminders" class="tab-content">
+            <div id="reminders-list" class="item-list">
+              <!-- Reminders will be dynamically inserted here -->
+              <div class="loading-indicator">
+                <div class="spinner"></div>
+                <p>Loading reminders...</p>
+              </div>
+            </div>
+            
+            <div id="reminders-form" class="add-item-form">
+              <h3 class="form-title">Add a New Reminder</h3>
+              <form id="add-reminder-form">
+                <div class="form-row">
+                  <label for="reminder-text">What needs to be done?</label>
+                  <textarea id="reminder-text" name="text" placeholder="Enter reminder details..." required></textarea>
+                </div>
+                <div class="form-row">
+                  <label for="reminder-due-date">Due Date:</label>
+                  <input type="date" id="reminder-due-date" name="dueDate" required>
+                </div>
+                <div class="form-row">
+                  <label for="reminder-recurring">Recurring:</label>
+                  <select id="reminder-recurring" name="recurring">
+                    <option value="none">Not recurring</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn primary">Add Reminder</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          
+          <!-- Tracking Tab (placeholder for future implementation) -->
+          <div id="tab-content-tracking" class="tab-content">
+            <div class="empty-state">
+              <p>Tracking information will be available in a future update.</p>
+              <p>This tab will display package tracking data from TOLL Express.</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Initialize the tabbed interface
+      const tabButtons = detailElement.querySelectorAll('.tab-button');
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          // Remove active class from all buttons and contents
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          detailElement.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+          
+          // Add active class to current button and corresponding content
+          button.classList.add('active');
+          const tabId = button.getAttribute('data-tab');
+          document.getElementById(tabId).classList.add('active');
+        });
+      });
+
+      // Initialize notes and reminders
+      // This assumes the notesAndReminders object is available globally
+      if (window.notesAndReminders) {
+        window.notesAndReminders.init(invoice);
+      } else {
+        console.warn('Notes and reminders functionality not loaded');
       }
+
+    } else {
+      showError('Invoice not found');
     }
+  } catch (error) {
+    console.error('Error getting invoice details:', error);
+    showError('Error loading invoice details. Please try again.');
+  } finally {
+    toggleLoading(false);
+  }
+}
 
     // Global variables
     let currentResults = [];
@@ -3629,6 +3994,7 @@ function setupEventListeners() {
 
 
   </script>
+  <script src="/notes-reminders.js"></script>
 </body>
 
 </html>
