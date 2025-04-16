@@ -6,38 +6,69 @@ const serverless = require('serverless-http');
 
 // Initialize Express
 const app = express();
+const router = express.Router(); // <-- Create a router
 
-// Enable CORS
-app.use(cors());
-app.use(express.json());
+// Apply middleware to the main app instance
+app.use(cors()); // Enable CORS for all requests to the function
+app.use(express.json()); // Enable JSON body parsing
 
-// Add logging for debugging
+// Add logging middleware to see incoming requests on the main app
 app.use((req, res, next) => {
-  console.log('Firebase API request:', req.method, req.path);
+  console.log('Firebase API request Received:', req.method, req.path);
   next();
 });
 
 // Initialize Firebase admin (only once)
-let firebaseApp;
-if (!firebaseApp) {
-  console.log('Initializing Firebase admin with project ID:', process.env.FIREBASE_PROJECT_ID);
-  try {
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-      })
-    });
-    console.log('Firebase admin initialized successfully');
-  } catch (error) {
-    console.error('Error initializing Firebase admin:', error);
-    throw error;
-  }
+// --- Make sure your Netlify environment variables are set: ---
+// FIREBASE_PROJECT_ID
+// FIREBASE_CLIENT_EMAIL
+// FIREBASE_PRIVATE_KEY
+let firebaseAppInitialized = false;
+if (admin.apps.length === 0) { // Check if already initialized
+    console.log('Attempting to initialize Firebase admin...');
+    console.log('Using Project ID:', process.env.FIREBASE_PROJECT_ID ? 'Exists' : 'MISSING!');
+    console.log('Using Client Email:', process.env.FIREBASE_CLIENT_EMAIL ? 'Exists' : 'MISSING!');
+    console.log('Using Private Key:', process.env.FIREBASE_PRIVATE_KEY ? 'Exists' : 'MISSING!');
+
+    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+        console.error("FIREBASE ENVIRONMENT VARIABLES ARE MISSING!");
+        // Optionally throw an error or handle this case if needed,
+        // but logging is essential for debugging deployment.
+    } else {
+        try {
+            admin.initializeApp({
+                credential: admin.credential.cert({
+                    projectId: process.env.FIREBASE_PROJECT_ID,
+                    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                    // Replace escaped newlines in the private key from environment variable
+                    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+                })
+            });
+            firebaseAppInitialized = true;
+            console.log('Firebase admin initialized successfully.');
+        } catch (error) {
+            console.error('CRITICAL: Error initializing Firebase admin:', error);
+            // Depending on your needs, you might want to prevent the app from proceeding
+        }
+    }
+} else {
+    firebaseAppInitialized = true; // Already initialized
+    console.log('Firebase admin was already initialized.');
 }
 
-// Get database reference
-const db = admin.firestore();
+// Get database reference (only if initialized)
+const db = firebaseAppInitialized ? admin.firestore() : null;
+
+// Helper function to check DB connection and handle errors
+const ensureDb = (res) => {
+    if (!db) {
+        console.error("Firestore database reference is not available. Initialization likely failed.");
+        res.status(500).json({ error: 'Database connection failed. Check function logs.' });
+        return false;
+    }
+    return true;
+};
+
 
 // Helper to validate request data
 const validateRequest = (req, res, requiredFields) => {
@@ -50,17 +81,22 @@ const validateRequest = (req, res, requiredFields) => {
   return true;
 };
 
+// ====== DEFINE ROUTES ON THE **ROUTER** ======
+// (Paths here are relative to the '/api/firebase-api' prefix we'll add later)
+
 // ====== NOTES ENDPOINTS ======
 
 // Get all notes for an account
-app.get('/notes/:accountNumber', async (req, res) => {
+router.get('/notes/:accountNumber', async (req, res) => {
+  if (!ensureDb(res)) return; // Check DB connection
+
   try {
     const accountNumber = req.params.accountNumber;
     if (!accountNumber) {
       return res.status(400).json({ error: 'Account number is required' });
     }
 
-    console.log(`Getting notes for account: ${accountNumber}`);
+    console.log(`ROUTER: Getting notes for account: ${accountNumber}`);
     const snapshot = await db.collection('notes')
       .where('accountNumber', '==', accountNumber)
       .orderBy('createdAt', 'desc')
@@ -71,28 +107,28 @@ app.get('/notes/:accountNumber', async (req, res) => {
       notes.push({
         id: doc.id,
         ...doc.data(),
-        // Convert timestamps to ISO strings for JSON serialization
         createdAt: doc.data().createdAt?.toDate().toISOString() || null,
         updatedAt: doc.data().updatedAt?.toDate().toISOString() || null
       });
     });
 
-    console.log(`Found ${notes.length} notes for account ${accountNumber}`);
+    console.log(`ROUTER: Found ${notes.length} notes for account ${accountNumber}`);
     res.status(200).json({ notes });
   } catch (error) {
-    console.error('Error getting notes:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error getting notes:', error);
+    res.status(500).json({ error: 'Failed to get notes', details: error.message });
   }
 });
 
 // Add a new note
-app.post('/notes', async (req, res) => {
-  try {
-    if (!validateRequest(req, res, ['accountNumber', 'text'])) return;
+router.post('/notes', async (req, res) => {
+  if (!ensureDb(res)) return;
+  if (!validateRequest(req, res, ['accountNumber', 'text'])) return;
 
+  try {
     const { accountNumber, invoiceId, text, category } = req.body;
-    console.log(`Adding note for account: ${accountNumber}`);
-    
+    console.log(`ROUTER: Adding note for account: ${accountNumber}`);
+
     const noteData = {
       accountNumber,
       text,
@@ -100,26 +136,27 @@ app.post('/notes', async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // Add optional fields if they exist
     if (invoiceId) noteData.invoiceId = invoiceId;
     if (category) noteData.category = category;
 
     const docRef = await db.collection('notes').add(noteData);
-    console.log(`Note added with ID: ${docRef.id}`);
-    
-    res.status(201).json({ 
+    console.log(`ROUTER: Note added with ID: ${docRef.id}`);
+
+    res.status(201).json({
       id: docRef.id,
-      success: true, 
+      success: true,
       message: 'Note added successfully'
     });
   } catch (error) {
-    console.error('Error adding note:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error adding note:', error);
+    res.status(500).json({ error: 'Failed to add note', details: error.message });
   }
 });
 
 // Update a note
-app.put('/notes/:noteId', async (req, res) => {
+router.put('/notes/:noteId', async (req, res) => {
+  if (!ensureDb(res)) return;
+
   try {
     const noteId = req.params.noteId;
     if (!noteId) {
@@ -135,21 +172,23 @@ app.put('/notes/:noteId', async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    if (text) updateData.text = text;
-    if (category) updateData.category = category;
+    if (text !== undefined) updateData.text = text; // Allow empty string updates
+    if (category !== undefined) updateData.category = category; // Allow setting category
 
     await db.collection('notes').doc(noteId).update(updateData);
-    console.log(`Note ${noteId} updated successfully`);
-    
+    console.log(`ROUTER: Note ${noteId} updated successfully`);
+
     res.status(200).json({ success: true, message: 'Note updated successfully' });
   } catch (error) {
-    console.error('Error updating note:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error updating note:', error);
+    res.status(500).json({ error: 'Failed to update note', details: error.message });
   }
 });
 
 // Delete a note
-app.delete('/notes/:noteId', async (req, res) => {
+router.delete('/notes/:noteId', async (req, res) => {
+  if (!ensureDb(res)) return;
+
   try {
     const noteId = req.params.noteId;
     if (!noteId) {
@@ -157,26 +196,28 @@ app.delete('/notes/:noteId', async (req, res) => {
     }
 
     await db.collection('notes').doc(noteId).delete();
-    console.log(`Note ${noteId} deleted successfully`);
-    
+    console.log(`ROUTER: Note ${noteId} deleted successfully`);
+
     res.status(200).json({ success: true, message: 'Note deleted successfully' });
   } catch (error) {
-    console.error('Error deleting note:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error deleting note:', error);
+    res.status(500).json({ error: 'Failed to delete note', details: error.message });
   }
 });
 
 // ====== REMINDERS ENDPOINTS ======
 
 // Get all reminders for an account
-app.get('/reminders/:accountNumber', async (req, res) => {
+router.get('/reminders/:accountNumber', async (req, res) => {
+  if (!ensureDb(res)) return;
+
   try {
     const accountNumber = req.params.accountNumber;
     if (!accountNumber) {
       return res.status(400).json({ error: 'Account number is required' });
     }
 
-    console.log(`Getting reminders for account: ${accountNumber}`);
+    console.log(`ROUTER: Getting reminders for account: ${accountNumber}`);
     const snapshot = await db.collection('reminders')
       .where('accountNumber', '==', accountNumber)
       .orderBy('dueDate', 'asc')
@@ -187,36 +228,41 @@ app.get('/reminders/:accountNumber', async (req, res) => {
       reminders.push({
         id: doc.id,
         ...doc.data(),
-        // Convert timestamps to ISO strings for JSON serialization
         createdAt: doc.data().createdAt?.toDate().toISOString() || null,
-        dueDate: doc.data().dueDate?.toDate().toISOString() || null
+        dueDate: doc.data().dueDate?.toDate().toISOString() || null // Make sure dueDate is stored as Timestamp
       });
     });
 
-    console.log(`Found ${reminders.length} reminders for account ${accountNumber}`);
+    console.log(`ROUTER: Found ${reminders.length} reminders for account ${accountNumber}`);
     res.status(200).json({ reminders });
   } catch (error) {
-    console.error('Error getting reminders:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error getting reminders:', error);
+    res.status(500).json({ error: 'Failed to get reminders', details: error.message });
   }
 });
 
 // Add a new reminder
-app.post('/reminders', async (req, res) => {
-  try {
-    if (!validateRequest(req, res, ['accountNumber', 'text', 'dueDate'])) return;
+router.post('/reminders', async (req, res) => {
+  if (!ensureDb(res)) return;
+  if (!validateRequest(req, res, ['accountNumber', 'text', 'dueDate'])) return;
 
+  try {
     const { accountNumber, invoiceId, text, dueDate, recurring } = req.body;
-    console.log(`Adding reminder for account: ${accountNumber}`);
-    
-    // Parse dueDate string to Firestore timestamp
+    console.log(`ROUTER: Adding reminder for account: ${accountNumber}`);
+
     let dueDateTimestamp;
     try {
-      dueDateTimestamp = admin.firestore.Timestamp.fromDate(new Date(dueDate));
+      // Assuming dueDate is sent as an ISO string (e.g., "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss.sssZ")
+      const dateObj = new Date(dueDate);
+      if (isNaN(dateObj.getTime())) {
+        throw new Error('Invalid date value');
+      }
+      dueDateTimestamp = admin.firestore.Timestamp.fromDate(dateObj);
     } catch (e) {
-      return res.status(400).json({ error: 'Invalid due date format' });
+      console.error("Invalid due date format received:", dueDate, e);
+      return res.status(400).json({ error: 'Invalid due date format. Please use YYYY-MM-DD or a full ISO string.' });
     }
-    
+
     const reminderData = {
       accountNumber,
       text,
@@ -225,26 +271,28 @@ app.post('/reminders', async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // Add optional fields if they exist
     if (invoiceId) reminderData.invoiceId = invoiceId;
-    if (recurring) reminderData.recurring = recurring;
+    // Handle 'none' or empty string for recurring
+    if (recurring && recurring !== 'none') reminderData.recurring = recurring;
 
     const docRef = await db.collection('reminders').add(reminderData);
-    console.log(`Reminder added with ID: ${docRef.id}`);
-    
-    res.status(201).json({ 
+    console.log(`ROUTER: Reminder added with ID: ${docRef.id}`);
+
+    res.status(201).json({
       id: docRef.id,
-      success: true, 
+      success: true,
       message: 'Reminder added successfully'
     });
   } catch (error) {
-    console.error('Error adding reminder:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error adding reminder:', error);
+    res.status(500).json({ error: 'Failed to add reminder', details: error.message });
   }
 });
 
 // Update a reminder
-app.put('/reminders/:reminderId', async (req, res) => {
+router.put('/reminders/:reminderId', async (req, res) => {
+  if (!ensureDb(res)) return;
+
   try {
     const reminderId = req.params.reminderId;
     if (!reminderId) {
@@ -252,37 +300,50 @@ app.put('/reminders/:reminderId', async (req, res) => {
     }
 
     const { text, dueDate, completed, recurring } = req.body;
-    if (!text && dueDate === undefined && completed === undefined && !recurring) {
-      return res.status(400).json({ error: 'No fields to update' });
+    // Check if at least one field is provided for update
+    if (text === undefined && dueDate === undefined && completed === undefined && recurring === undefined) {
+      return res.status(400).json({ error: 'No fields provided to update' });
     }
 
     const updateData = {};
 
-    if (text) updateData.text = text;
-    
-    if (dueDate) {
+    if (text !== undefined) updateData.text = text;
+
+    if (dueDate !== undefined) {
       try {
-        updateData.dueDate = admin.firestore.Timestamp.fromDate(new Date(dueDate));
+        const dateObj = new Date(dueDate);
+        if (isNaN(dateObj.getTime())) {
+            throw new Error('Invalid date value');
+        }
+        updateData.dueDate = admin.firestore.Timestamp.fromDate(dateObj);
       } catch (e) {
-        return res.status(400).json({ error: 'Invalid due date format' });
+        console.error("Invalid due date format for update:", dueDate, e);
+        return res.status(400).json({ error: 'Invalid due date format for update. Please use YYYY-MM-DD or a full ISO string.' });
       }
     }
-    
-    if (completed !== undefined) updateData.completed = completed;
-    if (recurring) updateData.recurring = recurring;
+
+    if (completed !== undefined) updateData.completed = Boolean(completed); // Ensure boolean
+
+    // Handle recurring update, allow setting to null or empty string to remove it
+    if (recurring !== undefined) {
+        updateData.recurring = (recurring && recurring !== 'none') ? recurring : null;
+    }
+
 
     await db.collection('reminders').doc(reminderId).update(updateData);
-    console.log(`Reminder ${reminderId} updated successfully`);
-    
+    console.log(`ROUTER: Reminder ${reminderId} updated successfully`);
+
     res.status(200).json({ success: true, message: 'Reminder updated successfully' });
   } catch (error) {
-    console.error('Error updating reminder:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error updating reminder:', error);
+    res.status(500).json({ error: 'Failed to update reminder', details: error.message });
   }
 });
 
 // Mark a reminder as complete
-app.put('/reminders/:reminderId/complete', async (req, res) => {
+router.put('/reminders/:reminderId/complete', async (req, res) => {
+  if (!ensureDb(res)) return;
+
   try {
     const reminderId = req.params.reminderId;
     if (!reminderId) {
@@ -290,19 +351,23 @@ app.put('/reminders/:reminderId/complete', async (req, res) => {
     }
 
     await db.collection('reminders').doc(reminderId).update({
-      completed: true
+      completed: true,
+      // Optionally update an 'updatedAt' timestamp here too
+      // updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
-    console.log(`Reminder ${reminderId} marked as complete`);
-    
+    console.log(`ROUTER: Reminder ${reminderId} marked as complete`);
+
     res.status(200).json({ success: true, message: 'Reminder marked as complete' });
   } catch (error) {
-    console.error('Error completing reminder:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error completing reminder:', error);
+    res.status(500).json({ error: 'Failed to complete reminder', details: error.message });
   }
 });
 
 // Delete a reminder
-app.delete('/reminders/:reminderId', async (req, res) => {
+router.delete('/reminders/:reminderId', async (req, res) => {
+  if (!ensureDb(res)) return;
+
   try {
     const reminderId = req.params.reminderId;
     if (!reminderId) {
@@ -310,21 +375,26 @@ app.delete('/reminders/:reminderId', async (req, res) => {
     }
 
     await db.collection('reminders').doc(reminderId).delete();
-    console.log(`Reminder ${reminderId} deleted successfully`);
-    
+    console.log(`ROUTER: Reminder ${reminderId} deleted successfully`);
+
     res.status(200).json({ success: true, message: 'Reminder deleted successfully' });
   } catch (error) {
-    console.error('Error deleting reminder:', error);
-    res.status(500).json({ error: error.message });
+    console.error('ROUTER: Error deleting reminder:', error);
+    res.status(500).json({ error: 'Failed to delete reminder', details: error.message });
   }
 });
 
-// Handle 404 - not found
+
+// ====== MOUNT THE ROUTER ONTO THE MAIN APP WITH THE PREFIX ======
+// All requests starting with /api/firebase-api will be handled by the router
+app.use('/api/firebase-api', router); // <-- IMPORTANT: Mount router here
+
+
+// Handle 404 - Routes not matched on the main app (including those not starting with /api/firebase-api)
 app.use((req, res) => {
-  console.log('Route not found:', req.method, req.path);
-  res.status(404).json({ error: 'Not found' });
+  console.log('APP 404: Route not found:', req.method, req.path);
+  res.status(404).json({ error: 'Endpoint not found.' });
 });
 
-// Export the serverless handler
-// The { basePath: '' } is important here to make Express work with serverless properly
+// Export the serverless handler for the main app instance
 exports.handler = serverless(app);
