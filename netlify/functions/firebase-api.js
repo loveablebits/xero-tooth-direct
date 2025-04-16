@@ -181,3 +181,150 @@ app.get('/reminders/:accountNumber', async (req, res) => {
       .where('accountNumber', '==', accountNumber)
       .orderBy('dueDate', 'asc')
       .get();
+
+    const reminders = [];
+    snapshot.forEach(doc => {
+      reminders.push({
+        id: doc.id,
+        ...doc.data(),
+        // Convert timestamps to ISO strings for JSON serialization
+        createdAt: doc.data().createdAt?.toDate().toISOString() || null,
+        dueDate: doc.data().dueDate?.toDate().toISOString() || null
+      });
+    });
+
+    console.log(`Found ${reminders.length} reminders for account ${accountNumber}`);
+    res.status(200).json({ reminders });
+  } catch (error) {
+    console.error('Error getting reminders:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add a new reminder
+app.post('/reminders', async (req, res) => {
+  try {
+    if (!validateRequest(req, res, ['accountNumber', 'text', 'dueDate'])) return;
+
+    const { accountNumber, invoiceId, text, dueDate, recurring } = req.body;
+    console.log(`Adding reminder for account: ${accountNumber}`);
+    
+    // Parse dueDate string to Firestore timestamp
+    let dueDateTimestamp;
+    try {
+      dueDateTimestamp = admin.firestore.Timestamp.fromDate(new Date(dueDate));
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid due date format' });
+    }
+    
+    const reminderData = {
+      accountNumber,
+      text,
+      dueDate: dueDateTimestamp,
+      completed: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    // Add optional fields if they exist
+    if (invoiceId) reminderData.invoiceId = invoiceId;
+    if (recurring) reminderData.recurring = recurring;
+
+    const docRef = await db.collection('reminders').add(reminderData);
+    console.log(`Reminder added with ID: ${docRef.id}`);
+    
+    res.status(201).json({ 
+      id: docRef.id,
+      success: true, 
+      message: 'Reminder added successfully'
+    });
+  } catch (error) {
+    console.error('Error adding reminder:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update a reminder
+app.put('/reminders/:reminderId', async (req, res) => {
+  try {
+    const reminderId = req.params.reminderId;
+    if (!reminderId) {
+      return res.status(400).json({ error: 'Reminder ID is required' });
+    }
+
+    const { text, dueDate, completed, recurring } = req.body;
+    if (!text && dueDate === undefined && completed === undefined && !recurring) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    const updateData = {};
+
+    if (text) updateData.text = text;
+    
+    if (dueDate) {
+      try {
+        updateData.dueDate = admin.firestore.Timestamp.fromDate(new Date(dueDate));
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid due date format' });
+      }
+    }
+    
+    if (completed !== undefined) updateData.completed = completed;
+    if (recurring) updateData.recurring = recurring;
+
+    await db.collection('reminders').doc(reminderId).update(updateData);
+    console.log(`Reminder ${reminderId} updated successfully`);
+    
+    res.status(200).json({ success: true, message: 'Reminder updated successfully' });
+  } catch (error) {
+    console.error('Error updating reminder:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark a reminder as complete
+app.put('/reminders/:reminderId/complete', async (req, res) => {
+  try {
+    const reminderId = req.params.reminderId;
+    if (!reminderId) {
+      return res.status(400).json({ error: 'Reminder ID is required' });
+    }
+
+    await db.collection('reminders').doc(reminderId).update({
+      completed: true
+    });
+    console.log(`Reminder ${reminderId} marked as complete`);
+    
+    res.status(200).json({ success: true, message: 'Reminder marked as complete' });
+  } catch (error) {
+    console.error('Error completing reminder:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a reminder
+app.delete('/reminders/:reminderId', async (req, res) => {
+  try {
+    const reminderId = req.params.reminderId;
+    if (!reminderId) {
+      return res.status(400).json({ error: 'Reminder ID is required' });
+    }
+
+    await db.collection('reminders').doc(reminderId).delete();
+    console.log(`Reminder ${reminderId} deleted successfully`);
+    
+    res.status(200).json({ success: true, message: 'Reminder deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting reminder:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Handle 404 - not found
+app.use((req, res) => {
+  console.log('Route not found:', req.method, req.path);
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Export the serverless handler
+// The { basePath: '' } is important here to make Express work with serverless properly
+exports.handler = serverless(app, { basePath: '' });
