@@ -11,16 +11,29 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Add logging for debugging
+app.use((req, res, next) => {
+  console.log('Firebase API request:', req.method, req.path);
+  next();
+});
+
 // Initialize Firebase admin (only once)
 let firebaseApp;
 if (!firebaseApp) {
-  firebaseApp = admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    })
-  });
+  console.log('Initializing Firebase admin with project ID:', process.env.FIREBASE_PROJECT_ID);
+  try {
+    firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+      })
+    });
+    console.log('Firebase admin initialized successfully');
+  } catch (error) {
+    console.error('Error initializing Firebase admin:', error);
+    throw error;
+  }
 }
 
 // Get database reference
@@ -47,6 +60,7 @@ app.get('/notes/:accountNumber', async (req, res) => {
       return res.status(400).json({ error: 'Account number is required' });
     }
 
+    console.log(`Getting notes for account: ${accountNumber}`);
     const snapshot = await db.collection('notes')
       .where('accountNumber', '==', accountNumber)
       .orderBy('createdAt', 'desc')
@@ -63,6 +77,7 @@ app.get('/notes/:accountNumber', async (req, res) => {
       });
     });
 
+    console.log(`Found ${notes.length} notes for account ${accountNumber}`);
     res.status(200).json({ notes });
   } catch (error) {
     console.error('Error getting notes:', error);
@@ -76,6 +91,7 @@ app.post('/notes', async (req, res) => {
     if (!validateRequest(req, res, ['accountNumber', 'text'])) return;
 
     const { accountNumber, invoiceId, text, category } = req.body;
+    console.log(`Adding note for account: ${accountNumber}`);
     
     const noteData = {
       accountNumber,
@@ -89,6 +105,7 @@ app.post('/notes', async (req, res) => {
     if (category) noteData.category = category;
 
     const docRef = await db.collection('notes').add(noteData);
+    console.log(`Note added with ID: ${docRef.id}`);
     
     res.status(201).json({ 
       id: docRef.id,
@@ -122,6 +139,7 @@ app.put('/notes/:noteId', async (req, res) => {
     if (category) updateData.category = category;
 
     await db.collection('notes').doc(noteId).update(updateData);
+    console.log(`Note ${noteId} updated successfully`);
     
     res.status(200).json({ success: true, message: 'Note updated successfully' });
   } catch (error) {
@@ -139,6 +157,7 @@ app.delete('/notes/:noteId', async (req, res) => {
     }
 
     await db.collection('notes').doc(noteId).delete();
+    console.log(`Note ${noteId} deleted successfully`);
     
     res.status(200).json({ success: true, message: 'Note deleted successfully' });
   } catch (error) {
@@ -157,146 +176,8 @@ app.get('/reminders/:accountNumber', async (req, res) => {
       return res.status(400).json({ error: 'Account number is required' });
     }
 
+    console.log(`Getting reminders for account: ${accountNumber}`);
     const snapshot = await db.collection('reminders')
       .where('accountNumber', '==', accountNumber)
       .orderBy('dueDate', 'asc')
       .get();
-
-    const reminders = [];
-    snapshot.forEach(doc => {
-      reminders.push({
-        id: doc.id,
-        ...doc.data(),
-        // Convert timestamps to ISO strings for JSON serialization
-        createdAt: doc.data().createdAt?.toDate().toISOString() || null,
-        dueDate: doc.data().dueDate?.toDate().toISOString() || null
-      });
-    });
-
-    res.status(200).json({ reminders });
-  } catch (error) {
-    console.error('Error getting reminders:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Add a new reminder
-app.post('/reminders', async (req, res) => {
-  try {
-    if (!validateRequest(req, res, ['accountNumber', 'text', 'dueDate'])) return;
-
-    const { accountNumber, invoiceId, text, dueDate, recurring } = req.body;
-    
-    // Parse dueDate string to Firestore timestamp
-    let dueDateTimestamp;
-    try {
-      dueDateTimestamp = admin.firestore.Timestamp.fromDate(new Date(dueDate));
-    } catch (e) {
-      return res.status(400).json({ error: 'Invalid due date format' });
-    }
-    
-    const reminderData = {
-      accountNumber,
-      text,
-      dueDate: dueDateTimestamp,
-      completed: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    // Add optional fields if they exist
-    if (invoiceId) reminderData.invoiceId = invoiceId;
-    if (recurring) reminderData.recurring = recurring;
-
-    const docRef = await db.collection('reminders').add(reminderData);
-    
-    res.status(201).json({ 
-      id: docRef.id,
-      success: true, 
-      message: 'Reminder added successfully'
-    });
-  } catch (error) {
-    console.error('Error adding reminder:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update a reminder
-app.put('/reminders/:reminderId', async (req, res) => {
-  try {
-    const reminderId = req.params.reminderId;
-    if (!reminderId) {
-      return res.status(400).json({ error: 'Reminder ID is required' });
-    }
-
-    const { text, dueDate, completed, recurring } = req.body;
-    if (!text && dueDate === undefined && completed === undefined && !recurring) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-
-    const updateData = {};
-
-    if (text) updateData.text = text;
-    
-    if (dueDate) {
-      try {
-        updateData.dueDate = admin.firestore.Timestamp.fromDate(new Date(dueDate));
-      } catch (e) {
-        return res.status(400).json({ error: 'Invalid due date format' });
-      }
-    }
-    
-    if (completed !== undefined) updateData.completed = completed;
-    if (recurring) updateData.recurring = recurring;
-
-    await db.collection('reminders').doc(reminderId).update(updateData);
-    
-    res.status(200).json({ success: true, message: 'Reminder updated successfully' });
-  } catch (error) {
-    console.error('Error updating reminder:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Mark a reminder as complete
-app.put('/reminders/:reminderId/complete', async (req, res) => {
-  try {
-    const reminderId = req.params.reminderId;
-    if (!reminderId) {
-      return res.status(400).json({ error: 'Reminder ID is required' });
-    }
-
-    await db.collection('reminders').doc(reminderId).update({
-      completed: true
-    });
-    
-    res.status(200).json({ success: true, message: 'Reminder marked as complete' });
-  } catch (error) {
-    console.error('Error completing reminder:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete a reminder
-app.delete('/reminders/:reminderId', async (req, res) => {
-  try {
-    const reminderId = req.params.reminderId;
-    if (!reminderId) {
-      return res.status(400).json({ error: 'Reminder ID is required' });
-    }
-
-    await db.collection('reminders').doc(reminderId).delete();
-    
-    res.status(200).json({ success: true, message: 'Reminder deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting reminder:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Handle 404 - not found
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-// Export the serverless handler
-exports.handler = serverless(app);
