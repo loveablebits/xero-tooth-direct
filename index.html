@@ -2167,10 +2167,13 @@ function setupEventListeners() {
 
       console.log(`Fetched initial ${currentResults.length} invoices. API has more: ${apiHasMorePages}`);
 
-      // --- NEW: Fetch Firebase statuses ---
+      // --- NEW: Fetch Firebase statuses (using InvoiceID) ---
       if (currentResults.length > 0) {
-          const accountNumbers = [...new Set(currentResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
-          window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
+          // *** CORRECTED: Extract InvoiceIDs ***
+          const invoiceIds = [...new Set(currentResults.map(inv => inv.InvoiceID).filter(Boolean))];
+          window.currentFirebaseStatusMap = await fetchFirebaseStatuses(invoiceIds);
+          // *** ADD THE CONSOLE LOG HERE ***
+          console.log("Firebase Status Map after initial load:", window.currentFirebaseStatusMap); 
       } else {
           window.currentFirebaseStatusMap = {}; // Reset if no results
       }
@@ -2508,15 +2511,17 @@ function setupEventListeners() {
 
           updateAutocompleteSources(window.filteredResults); // Populate suggestions from filtered list
 
-  // --- NEW: Fetch Firebase statuses (using InvoiceID) ---
-  if (window.filteredResults.length > 0) {
-      // *** CHANGED: Extract InvoiceIDs ***
-      const invoiceIds = [...new Set(window.filteredResults.map(inv => inv.InvoiceID).filter(Boolean))];
-      window.currentFirebaseStatusMap = await fetchFirebaseStatuses(invoiceIds);
-  } else {
-      window.currentFirebaseStatusMap = {}; // Reset if no results (shouldn't happen here, but safe)
-  }
-  // --- END NEW ---
+      // --- NEW: Fetch Firebase statuses (using InvoiceID) ---
+      if (window.filteredResults.length > 0) {
+          // *** CORRECTED: Extract InvoiceIDs ***
+          const invoiceIds = [...new Set(window.filteredResults.map(inv => inv.InvoiceID).filter(Boolean))];
+          window.currentFirebaseStatusMap = await fetchFirebaseStatuses(invoiceIds);
+           // *** ADD THE CONSOLE LOG HERE ***
+          console.log("Firebase Status Map after loadByStatus:", window.currentFirebaseStatusMap);
+      } else {
+          window.currentFirebaseStatusMap = {}; // Reset if no results (shouldn't happen here, but safe)
+      }
+      // --- END NEW ---
 
           if (window.filteredResults.length > 0) {
             document.getElementById('results-section').classList.remove('hidden');
@@ -2841,25 +2846,33 @@ function setupEventListeners() {
         });
       }
 
-// --- NEW: Add Firebase Status Icons (using InvoiceID) ---
-// *** CHANGED: Get InvoiceID instead of AccountNumber ***
-const invoiceId = invoice.InvoiceID;
-const iconContainer = item.querySelector('.invoice-status-icons');
+    // --- NEW: Add Firebase Status Icons (using InvoiceID) ---
+    const invoiceId = invoice.InvoiceID; // Use the InvoiceID
+    const iconContainer = item.querySelector('.invoice-status-icons'); // Find the placeholder
 
-// *** CHANGED: Check based on invoiceId ***
-if (invoiceId && iconContainer && window.currentFirebaseStatusMap && window.currentFirebaseStatusMap[invoiceId]) {
-    // *** CHANGED: Look up status using invoiceId ***
-    const status = window.currentFirebaseStatusMap[invoiceId];
-    let iconsHTML = '';
-    if (status.hasNote) {
-        iconsHTML += '<span title="Has Notes">📝</span>';
-    }
-    if (status.hasReminder) {
-        iconsHTML += '<span title="Has Reminders" style="margin-left: 3px;">⏰</span>';
-    }
-    iconContainer.innerHTML = iconsHTML;
-}
-// --- END NEW ---
+    // Check if we have the InvoiceID, the placeholder, the status map, AND an entry for this specific InvoiceID in the map
+    if (invoiceId && iconContainer && window.currentFirebaseStatusMap && window.currentFirebaseStatusMap[invoiceId]) {
+        
+        // Get the status object {hasNote: boolean, hasReminder: boolean} from the map using the InvoiceID
+        const status = window.currentFirebaseStatusMap[invoiceId]; 
+        
+        let iconsHTML = ''; // Start with empty icons
+        
+        // If the status object says it has a note, add the note icon
+        if (status.hasNote) {
+            iconsHTML += '<span title="Has Notes">📝</span>';
+        }
+        // If the status object says it has a reminder, add the reminder icon
+        if (status.hasReminder) {
+            iconsHTML += '<span title="Has Reminders" style="margin-left: 3px;">⏰</span>';
+        }
+        
+        // Put the generated icons (or empty string if none) into the placeholder span
+        iconContainer.innerHTML = iconsHTML;
+    } 
+    // If any condition in the 'if' above fails (no InvoiceID, no placeholder, no status map, or no entry for this InvoiceID), 
+    // this block is skipped and the iconContainer remains empty.
+    // --- END NEW ---
 
       return item;
     }
@@ -3040,14 +3053,17 @@ if (invoiceId && iconContainer && window.currentFirebaseStatusMap && window.curr
   window.filteredResults = null; // Clear specific filter state, as this is now main search result
   window.currentFirebaseStatusMap = {}; // Reset status map on no search results
 
-  // --- NEW: Fetch Firebase statuses ---
-  if (currentResults.length > 0) {
-      const accountNumbers = [...new Set(currentResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
-      window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
-  } else {
-      window.currentFirebaseStatusMap = {}; // Reset if no results
-  }
-  // --- END NEW ---
+      // --- NEW: Fetch Firebase statuses (using InvoiceID) ---
+      if (currentResults.length > 0) {
+           // *** CORRECTED: Extract InvoiceIDs ***
+          const invoiceIds = [...new Set(currentResults.map(inv => inv.InvoiceID).filter(Boolean))];
+          window.currentFirebaseStatusMap = await fetchFirebaseStatuses(invoiceIds);
+          // *** ADD THE CONSOLE LOG HERE ***
+          console.log("Firebase Status Map after search:", window.currentFirebaseStatusMap); 
+      } else {
+          window.currentFirebaseStatusMap = {}; // Reset if no results
+      }
+      // --- END NEW ---
 
   // Reset API pagination state for the new search results
   currentApiPage = 1;
