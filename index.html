@@ -2162,24 +2162,32 @@ function setupEventListeners() {
 
         if (initialData && initialData.invoices.length > 0) {
           currentResults = initialData.invoices; // Store the first batch
-          updateAutocompleteSources(currentResults); // Populate suggestions
-          apiHasMorePages = initialData.hasMore; // Update based on API response
+      updateAutocompleteSources(currentResults); // Populate suggestions
+      apiHasMorePages = initialData.hasMore; // Update based on API response
 
-          console.log(`Fetched initial ${currentResults.length} invoices. API has more: ${apiHasMorePages}`);
+      console.log(`Fetched initial ${currentResults.length} invoices. API has more: ${apiHasMorePages}`);
 
-          // Display results section and count
-          document.getElementById('results-section').classList.remove('hidden');
-          document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`; // Indicate loaded count initially
+      // --- NEW: Fetch Firebase statuses ---
+      if (currentResults.length > 0) {
+          const accountNumbers = [...new Set(currentResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
+          window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
+      } else {
+          window.currentFirebaseStatusMap = {}; // Reset if no results
+      }
+      // --- END NEW ---
 
-          // Show message about initial load (optional)
-          const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
-          const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
-          showMessage(`Loaded initial ${currentResults.length} recent invoices (${overdue} deadline, ${approaching} borderline). More may load as you paginate.`, 'info');
+      // Display results section and count
+      document.getElementById('results-section').classList.remove('hidden');
+      document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`; // Indicate loaded count initially
+
+      // Show message about initial load (optional)
+      const overdue = currentResults.filter(invoice => getJobStatus(invoice) === 'overdue').length;
+      const approaching = currentResults.filter(invoice => getJobStatus(invoice) === 'approaching').length;
+      showMessage(`Loaded initial ${currentResults.length} recent invoices (${overdue} deadline, ${approaching} borderline). More may load as you paginate.`, 'info');
 
 
-          // Sort and display the first client-side page (of 20)
-          sortResults(); // sortResults calls displayResultItems which handles pagination
-
+      // Sort and display the first client-side page (of 20)
+      sortResults(); // sortResults calls displayResultItems which handles pagination
         } else {
           console.log("No initial invoices returned from API.");
           document.getElementById('results-section').classList.add('hidden'); // Hide results if none found
@@ -2194,6 +2202,53 @@ function setupEventListeners() {
         toggleLoading(false); // Hide loading indicator
       }
     }
+
+    /**
+ * Fetches note/reminder existence status from the backend for given account numbers.
+ * @param {string[]} accountNumbers - An array of unique Xero Account Numbers.
+ * @returns {Promise<object>} A promise that resolves to the status map object
+ *                            (e.g., {"ACC123": {hasNote: true, hasReminder: false}, ...})
+ *                            or an empty object on error.
+ */
+async function fetchFirebaseStatuses(accountNumbers) {
+    // If no account numbers provided, return an empty map immediately
+    if (!accountNumbers || accountNumbers.length === 0) {
+        console.log("fetchFirebaseStatuses: No account numbers provided.");
+        return {};
+    }
+
+    console.log(`fetchFirebaseStatuses: Checking status for ${accountNumbers.length} account numbers.`);
+
+    try {
+        const response = await fetch('/api/firebase-api/batch-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // Add Authorization header if your backend requires it
+                // 'Authorization': `Bearer ${your_auth_token_if_needed}`
+            },
+            body: JSON.stringify({ accountNumbers: accountNumbers })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`fetchFirebaseStatuses: API error ${response.status}`, errorText);
+            // Don't throw, just return empty map so UI doesn't break
+            // Optionally show a non-blocking warning to the user
+            // showMessage("Could not load note/reminder indicators.", "warning");
+            return {};
+        }
+
+        const statusMap = await response.json();
+        console.log("fetchFirebaseStatuses: Received status map:", statusMap);
+        return statusMap || {}; // Return the map or an empty object if null/undefined
+
+    } catch (error) {
+        console.error("fetchFirebaseStatuses: Failed to fetch statuses.", error);
+        // Return empty map on network error etc.
+        return {};
+    }
+}
 
     // NEW Helper Function to fetch a single page from Xero API
     async function fetchInvoicePageApi(page, pageSize) {
@@ -2442,11 +2497,20 @@ function setupEventListeners() {
 
           console.log(`Filtered down to ${accuratelyFilteredInvoices.length} actual '${statusName}' invoices.`);
 
+          // --- START REPLACEMENT from Step 3c ---
           // Store the *complete* filtered list
           window.filteredResults = accuratelyFilteredInvoices;
 
           updateAutocompleteSources(window.filteredResults); // Populate suggestions from filtered list
 
+          // --- NEW: Fetch Firebase statuses ---
+          if (window.filteredResults.length > 0) {
+              const accountNumbers = [...new Set(window.filteredResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
+              window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
+          } else {
+              window.currentFirebaseStatusMap = {}; // Reset if no results (shouldn't happen here, but safe)
+          }
+          // --- END NEW ---
 
           if (window.filteredResults.length > 0) {
             document.getElementById('results-section').classList.remove('hidden');
@@ -2458,15 +2522,18 @@ function setupEventListeners() {
           } else {
             // No invoices matched the business day criteria after fetching
             window.filteredResults = []; // Ensure it's an empty array
+            window.currentFirebaseStatusMap = {}; // Reset status map here too
             document.getElementById('results-section').classList.remove('hidden'); // Show section to display message
             document.getElementById('results-list').innerHTML = `<div class="message info">No ${statusName} invoices found matching the criteria.</div>`;
             document.getElementById('results-count').textContent = '(0)';
             document.getElementById('pagination').innerHTML = ''; // Clear pagination
           }
+           // --- END REPLACEMENT from Step 3c ---
 
         } else {
           // fetchAllPages returned nothing within the calendar date range
           window.filteredResults = [];
+          window.currentFirebaseStatusMap = {}; // Reset status map // --- ADDED from Step 3c ---
           document.getElementById('results-section').classList.add('hidden');
           showMessage(`No invoices found within the last ${daysToLookBackCalendar} days to check for ${statusName} status.`, 'info');
           document.getElementById('results-count').textContent = '(0)';
@@ -2706,7 +2773,8 @@ function setupEventListeners() {
       // --- Construct Inner HTML ---
       item.innerHTML = `
     <div class="result-header">
-      <div class="invoice-number">Invoice #${invoice.InvoiceNumber || 'N/A'}</div>
+      {/* --- MODIFIED LINE: Added span for icons --- */}
+      <div class="invoice-number">Invoice #${invoice.InvoiceNumber || 'N/A'} <span class="invoice-status-icons" style="margin-left: 5px; font-size: 0.8em;"></span></div>
       <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'Unknown'}</div>
     </div>
     <div class="result-details">
@@ -2766,6 +2834,23 @@ function setupEventListeners() {
           event.stopPropagation();
         });
       }
+
+      // --- NEW: Add Firebase Status Icons --- // --- ADDED from Step 4 ---
+      const accountNum = invoice.Contact?.AccountNumber;
+      const iconContainer = item.querySelector('.invoice-status-icons');
+
+      if (accountNum && iconContainer && window.currentFirebaseStatusMap && window.currentFirebaseStatusMap[accountNum]) {
+          const status = window.currentFirebaseStatusMap[accountNum];
+          let iconsHTML = '';
+          if (status.hasNote) {
+              iconsHTML += '<span title="Has Notes">📝</span>';
+          }
+          if (status.hasReminder) {
+              iconsHTML += '<span title="Has Reminders" style="margin-left: 3px;">⏰</span>';
+          }
+          iconContainer.innerHTML = iconsHTML;
+      }
+      // --- END NEW --- // --- ADDED from Step 4 ---
 
       return item;
     }
@@ -2940,19 +3025,26 @@ function setupEventListeners() {
      // Process final results
      if (finalResults.length > 0) {
       console.log(`Displaying ${finalResults.length} final invoices.`);
-      currentResults = finalResults; // Use the final (potentially filtered) results
-      updateAutocompleteSources(currentResults); // Update autocomplete based on displayed results
-      currentPage = 1; // Reset to page 1 for new results display
-      window.filteredResults = null; // Clear specific filter state, as this is now main search result
+  currentResults = finalResults; // Use the final (potentially filtered) results
+  updateAutocompleteSources(currentResults); // Update autocomplete based on displayed results
+  currentPage = 1; // Reset to page 1 for new results display
+  window.filteredResults = null; // Clear specific filter state, as this is now main search result
+  window.currentFirebaseStatusMap = {}; // Reset status map on no search results
 
-      // Reset API pagination state for the new search results
-      // Note: This assumes search always fetches *all* matches up to API limit.
-      // If API used paging during search, this needs adjustment.
-      currentApiPage = 1;
-      apiHasMorePages = fetchedInvoices.length === 50; // Base 'hasMore' on original fetch size
+  // --- NEW: Fetch Firebase statuses ---
+  if (currentResults.length > 0) {
+      const accountNumbers = [...new Set(currentResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
+      window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
+  } else {
+      window.currentFirebaseStatusMap = {}; // Reset if no results
+  }
+  // --- END NEW ---
 
-      displayResults(); // displayResults will handle sorting and rendering the first page
+  // Reset API pagination state for the new search results
+  currentApiPage = 1;
+  apiHasMorePages = fetchedInvoices.length === 50; // Base 'hasMore' on original fetch size
 
+  displayResults(); // displayResults will handle sorting and rendering the first page
     } else {
       // No results logic (either fetch returned none, or client-side filter removed all)
       console.log("No invoices found after applying search term and status filter.");
@@ -3335,6 +3427,21 @@ function setupEventListeners() {
           currentApiPage++; // Increment API page tracker
           apiHasMorePages = nextPageData.hasMore; // Update hasMore status
           console.log(`Appended ${nextPageData.invoices.length}. Total loaded: ${currentResults.length}. API has more: ${apiHasMorePages}`);
+          
+                // --- NEW: Fetch statuses for the newly loaded page and merge ---
+      if (nextPageData.invoices.length > 0) {
+          const newAccountNumbers = [...new Set(nextPageData.invoices.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
+          // Fetch statuses only for the new accounts we haven't checked yet
+          const accountsToCheck = newAccountNumbers.filter(accNum => !window.currentFirebaseStatusMap[accNum]);
+          if (accountsToCheck.length > 0) {
+               const newStatuses = await fetchFirebaseStatuses(accountsToCheck);
+               // Merge the new statuses into the main map
+               window.currentFirebaseStatusMap = { ...window.currentFirebaseStatusMap, ...newStatuses };
+               console.log(`Merged statuses for ${Object.keys(newStatuses).length} new accounts.`);
+          }
+      }
+      // --- END NEW ---
+          
           // Update count display to reflect newly loaded items
           document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`;
 
@@ -3819,6 +3926,9 @@ async function showInvoiceDetail(invoiceId) {
     let currentPage = 1;
     let cachedPages = {};
     const resultsPerPage = 20; // Keep this
+
+
+    let window.currentFirebaseStatusMap = {}; // To store note/reminder status
 
     // --- Autocomplete State ---
     let invoiceNumberSuggestions = [];

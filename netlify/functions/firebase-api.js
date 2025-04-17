@@ -205,6 +205,70 @@ router.delete('/notes/:noteId', async (req, res) => {
   }
 });
 
+// ====== BATCH STATUS ENDPOINT ======
+
+router.post('/batch-status', async (req, res) => {
+  if (!ensureDb(res)) return; // Check DB connection
+
+  try {
+      const { accountNumbers } = req.body;
+
+      // Validate input: Ensure accountNumbers is an array and not empty
+      if (!Array.isArray(accountNumbers) || accountNumbers.length === 0) {
+          return res.status(400).json({ error: 'Missing or invalid accountNumbers array in request body.' });
+      }
+      if (accountNumbers.length > 30) {
+           // Firestore 'in' query limit is 30 as of latest checks (previously 10)
+           // Return an error if the array is too large to prevent query failures
+           console.warn(`ROUTER: /batch-status received ${accountNumbers.length} account numbers, exceeding limit of 30.`);
+           return res.status(400).json({ error: 'Too many account numbers provided. Maximum is 30 per request.' });
+      }
+
+
+      console.log(`ROUTER: /batch-status checking ${accountNumbers.length} accounts.`);
+
+      // --- Firestore Queries (run concurrently) ---
+      // Query 1: Check for notes existence
+      const notesQuery = db.collection('notes')
+          .where('accountNumber', 'in', accountNumbers)
+          .select('accountNumber') // Only fetch the account number field
+          .get();
+
+      // Query 2: Check for reminders existence (consider only non-completed?)
+      const remindersQuery = db.collection('reminders')
+          .where('accountNumber', 'in', accountNumbers)
+          // Optional: Add .where('completed', '==', false) if you only want icons for active reminders
+          .select('accountNumber') // Only fetch the account number field
+          .get();
+
+      // Wait for both queries to complete
+      const [notesSnapshot, remindersSnapshot] = await Promise.all([notesQuery, remindersQuery]);
+
+      // --- Process Results ---
+      const existingNoteAccounts = new Set();
+      notesSnapshot.forEach(doc => existingNoteAccounts.add(doc.data().accountNumber));
+
+      const existingReminderAccounts = new Set();
+      remindersSnapshot.forEach(doc => existingReminderAccounts.add(doc.data().accountNumber));
+
+      // Build the status map
+      const statusMap = {};
+      accountNumbers.forEach(accNum => {
+          statusMap[accNum] = {
+              hasNote: existingNoteAccounts.has(accNum),
+              hasReminder: existingReminderAccounts.has(accNum)
+          };
+      });
+
+      console.log(`ROUTER: /batch-status returning status map for ${Object.keys(statusMap).length} accounts.`);
+      res.status(200).json(statusMap);
+
+  } catch (error) {
+      console.error('ROUTER: /batch-status error:', error);
+      res.status(500).json({ error: 'Failed to get batch status', details: error.message });
+  }
+});
+
 // ====== REMINDERS ENDPOINTS ======
 
 // Get all reminders for an account
