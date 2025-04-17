@@ -2220,47 +2220,66 @@ function setupEventListeners() {
  *                            or an empty object on error.
  */
 /**
- * Fetches note/reminder existence status from the backend for given invoice IDs.
+ /**
+ * Fetches note/reminder existence status from the backend for given invoice IDs,
+ * handling potential Firestore query limits by chunking requests.
  * @param {string[]} invoiceIds - An array of unique Xero Invoice IDs.
- * @returns {Promise<object>} A promise that resolves to the status map object
- *                            (e.g., {"INV_GUID_1": {hasNote: true, hasReminder: false}, ...})
+ * @returns {Promise<object>} A promise that resolves to the combined status map object
  *                            or an empty object on error.
  */
- async function fetchFirebaseStatuses(invoiceIds) {
-    // If no invoice IDs provided, return an empty map immediately
+async function fetchFirebaseStatuses(invoiceIds) {
     if (!invoiceIds || invoiceIds.length === 0) {
         console.log("fetchFirebaseStatuses: No invoice IDs provided.");
         return {};
     }
 
-    // *** CHANGED: Log invoice IDs now ***
-    console.log(`fetchFirebaseStatuses: Checking status for ${invoiceIds.length} invoice IDs.`);
+    const CHUNK_SIZE = 30; // Firestore 'in' query limit
+    const idChunks = chunkArray(invoiceIds, CHUNK_SIZE);
+    let combinedStatusMap = {};
 
+    console.log(`fetchFirebaseStatuses: Checking status for ${invoiceIds.length} invoice IDs in ${idChunks.length} chunks.`);
+
+    // Helper function to fetch a single chunk
+    const fetchChunk = async (chunk) => {
+        console.log(`fetchFirebaseStatuses: Fetching chunk with ${chunk.length} IDs.`);
+        try {
+            const response = await fetch('/api/firebase-api/batch-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceIds: chunk }) // Send only the chunk
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                // Log chunk-specific error but don't stop other chunks
+                console.error(`fetchFirebaseStatuses: API error ${response.status} for chunk`, errorText, chunk); 
+                return {}; // Return empty for this chunk on error
+            }
+            const statusMapChunk = await response.json();
+            return statusMapChunk || {};
+        } catch (error) {
+             // Log chunk-specific error but don't stop other chunks
+            console.error("fetchFirebaseStatuses: Network error fetching chunk.", error, chunk);
+            return {}; // Return empty for this chunk on error
+        }
+    };
+
+    // Use Promise.all to fetch all chunks concurrently
     try {
-        const response = await fetch('/api/firebase-api/batch-status', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // Add Authorization header if your backend requires it
-                // 'Authorization': `Bearer ${your_auth_token_if_needed}`
-            },
-            // *** CHANGED: Send invoiceIds in the body ***
-            body: JSON.stringify({ invoiceIds: invoiceIds })
+        const chunkResults = await Promise.all(idChunks.map(chunk => fetchChunk(chunk)));
+        
+        // Combine the results from all chunks
+        chunkResults.forEach(chunkMap => {
+            combinedStatusMap = { ...combinedStatusMap, ...chunkMap };
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`fetchFirebaseStatuses: API error ${response.status}`, errorText);
-            return {}; // Return empty map on error
-        }
-
-        const statusMap = await response.json();
-        console.log("fetchFirebaseStatuses: Received status map:", statusMap);
-        return statusMap || {}; // Return the map or an empty object if null/undefined
+        console.log("fetchFirebaseStatuses: Received and combined status map:", combinedStatusMap);
+        return combinedStatusMap;
 
     } catch (error) {
-        console.error("fetchFirebaseStatuses: Failed to fetch statuses.", error);
-        return {}; // Return empty map on network error etc.
+        // This catch is unlikely to be hit if fetchChunk handles its errors, but good practice
+        console.error("fetchFirebaseStatuses: Error processing chunks with Promise.all.", error);
+        return {}; // Return empty map overall on major error
     }
 }
 
@@ -4045,6 +4064,20 @@ async function showInvoiceDetail(invoiceId) {
       // Convert sets to arrays for easier filtering later if needed, or filter directly
       // console.log('Autocomplete sources updated');
     }
+
+    /**
+ * Splits an array into chunks of a specified size.
+ * @param {Array} array The array to split.
+ * @param {number} chunkSize The desired size of each chunk.
+ * @returns {Array<Array>} An array of arrays (chunks).
+ */
+function chunkArray(array, chunkSize) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
 
     // Format date safely for display
     function formatDate(dateValue) {
