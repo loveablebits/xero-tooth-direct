@@ -205,62 +205,72 @@ router.delete('/notes/:noteId', async (req, res) => {
   }
 });
 
-// ====== BATCH STATUS ENDPOINT ======
+// ====== BATCH STATUS ENDPOINT (Using InvoiceID) ======
 
 router.post('/batch-status', async (req, res) => {
   if (!ensureDb(res)) return; // Check DB connection
 
   try {
-      const { accountNumbers } = req.body;
+      // *** CHANGED: Expecting invoiceIds now ***
+      const { invoiceIds } = req.body;
 
-      // Validate input: Ensure accountNumbers is an array and not empty
-      if (!Array.isArray(accountNumbers) || accountNumbers.length === 0) {
-          return res.status(400).json({ error: 'Missing or invalid accountNumbers array in request body.' });
+      // Validate input: Ensure invoiceIds is an array and not empty
+      if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+          return res.status(400).json({ error: 'Missing or invalid invoiceIds array in request body.' });
       }
-      if (accountNumbers.length > 30) {
-           // Firestore 'in' query limit is 30 as of latest checks (previously 10)
-           // Return an error if the array is too large to prevent query failures
-           console.warn(`ROUTER: /batch-status received ${accountNumbers.length} account numbers, exceeding limit of 30.`);
-           return res.status(400).json({ error: 'Too many account numbers provided. Maximum is 30 per request.' });
+      // Firestore 'in' query limit is 30 - keep this check
+      if (invoiceIds.length > 30) {
+           console.warn(`ROUTER: /batch-status received ${invoiceIds.length} invoice IDs, exceeding limit of 30.`);
+           return res.status(400).json({ error: 'Too many invoice IDs provided. Maximum is 30 per request.' });
       }
 
-
-      console.log(`ROUTER: /batch-status checking ${accountNumbers.length} accounts.`);
+      console.log(`ROUTER: /batch-status checking ${invoiceIds.length} invoice IDs.`);
 
       // --- Firestore Queries (run concurrently) ---
-      // Query 1: Check for notes existence
+      // Query 1: Check for notes existence using invoiceId
       const notesQuery = db.collection('notes')
-          .where('accountNumber', 'in', accountNumbers)
-          .select('accountNumber') // Only fetch the account number field
+          // *** CHANGED: Query by invoiceId ***
+          .where('invoiceId', 'in', invoiceIds)
+          .select('invoiceId') // Only fetch the invoiceId field
           .get();
 
-      // Query 2: Check for reminders existence (consider only non-completed?)
+      // Query 2: Check for reminders existence using invoiceId
       const remindersQuery = db.collection('reminders')
-          .where('accountNumber', 'in', accountNumbers)
+          // *** CHANGED: Query by invoiceId ***
+          .where('invoiceId', 'in', invoiceIds)
           // Optional: Add .where('completed', '==', false) if you only want icons for active reminders
-          .select('accountNumber') // Only fetch the account number field
+          .select('invoiceId') // Only fetch the invoiceId field
           .get();
 
       // Wait for both queries to complete
       const [notesSnapshot, remindersSnapshot] = await Promise.all([notesQuery, remindersQuery]);
 
       // --- Process Results ---
-      const existingNoteAccounts = new Set();
-      notesSnapshot.forEach(doc => existingNoteAccounts.add(doc.data().accountNumber));
+      const existingNoteInvoiceIds = new Set();
+      notesSnapshot.forEach(doc => {
+          if (doc.data().invoiceId) { // Ensure invoiceId exists on the doc
+              existingNoteInvoiceIds.add(doc.data().invoiceId);
+          }
+      });
 
-      const existingReminderAccounts = new Set();
-      remindersSnapshot.forEach(doc => existingReminderAccounts.add(doc.data().accountNumber));
+      const existingReminderInvoiceIds = new Set();
+      remindersSnapshot.forEach(doc => {
+           if (doc.data().invoiceId) { // Ensure invoiceId exists on the doc
+              existingReminderInvoiceIds.add(doc.data().invoiceId);
+           }
+      });
 
-      // Build the status map
+      // Build the status map keyed by InvoiceID
       const statusMap = {};
-      accountNumbers.forEach(accNum => {
-          statusMap[accNum] = {
-              hasNote: existingNoteAccounts.has(accNum),
-              hasReminder: existingReminderAccounts.has(accNum)
+      invoiceIds.forEach(invId => {
+          statusMap[invId] = {
+              // *** CHANGED: Check using the sets based on invoiceId ***
+              hasNote: existingNoteInvoiceIds.has(invId),
+              hasReminder: existingReminderInvoiceIds.has(invId)
           };
       });
 
-      console.log(`ROUTER: /batch-status returning status map for ${Object.keys(statusMap).length} accounts.`);
+      console.log(`ROUTER: /batch-status returning status map for ${Object.keys(statusMap).length} invoice IDs.`);
       res.status(200).json(statusMap);
 
   } catch (error) {

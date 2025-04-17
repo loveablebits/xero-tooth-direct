@@ -2210,14 +2210,22 @@ function setupEventListeners() {
  *                            (e.g., {"ACC123": {hasNote: true, hasReminder: false}, ...})
  *                            or an empty object on error.
  */
-async function fetchFirebaseStatuses(accountNumbers) {
-    // If no account numbers provided, return an empty map immediately
-    if (!accountNumbers || accountNumbers.length === 0) {
-        console.log("fetchFirebaseStatuses: No account numbers provided.");
+/**
+ * Fetches note/reminder existence status from the backend for given invoice IDs.
+ * @param {string[]} invoiceIds - An array of unique Xero Invoice IDs.
+ * @returns {Promise<object>} A promise that resolves to the status map object
+ *                            (e.g., {"INV_GUID_1": {hasNote: true, hasReminder: false}, ...})
+ *                            or an empty object on error.
+ */
+ async function fetchFirebaseStatuses(invoiceIds) {
+    // If no invoice IDs provided, return an empty map immediately
+    if (!invoiceIds || invoiceIds.length === 0) {
+        console.log("fetchFirebaseStatuses: No invoice IDs provided.");
         return {};
     }
 
-    console.log(`fetchFirebaseStatuses: Checking status for ${accountNumbers.length} account numbers.`);
+    // *** CHANGED: Log invoice IDs now ***
+    console.log(`fetchFirebaseStatuses: Checking status for ${invoiceIds.length} invoice IDs.`);
 
     try {
         const response = await fetch('/api/firebase-api/batch-status', {
@@ -2227,16 +2235,14 @@ async function fetchFirebaseStatuses(accountNumbers) {
                 // Add Authorization header if your backend requires it
                 // 'Authorization': `Bearer ${your_auth_token_if_needed}`
             },
-            body: JSON.stringify({ accountNumbers: accountNumbers })
+            // *** CHANGED: Send invoiceIds in the body ***
+            body: JSON.stringify({ invoiceIds: invoiceIds })
         });
 
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`fetchFirebaseStatuses: API error ${response.status}`, errorText);
-            // Don't throw, just return empty map so UI doesn't break
-            // Optionally show a non-blocking warning to the user
-            // showMessage("Could not load note/reminder indicators.", "warning");
-            return {};
+            return {}; // Return empty map on error
         }
 
         const statusMap = await response.json();
@@ -2245,8 +2251,7 @@ async function fetchFirebaseStatuses(accountNumbers) {
 
     } catch (error) {
         console.error("fetchFirebaseStatuses: Failed to fetch statuses.", error);
-        // Return empty map on network error etc.
-        return {};
+        return {}; // Return empty map on network error etc.
     }
 }
 
@@ -2503,14 +2508,15 @@ async function fetchFirebaseStatuses(accountNumbers) {
 
           updateAutocompleteSources(window.filteredResults); // Populate suggestions from filtered list
 
-          // --- NEW: Fetch Firebase statuses ---
-          if (window.filteredResults.length > 0) {
-              const accountNumbers = [...new Set(window.filteredResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
-              window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
-          } else {
-              window.currentFirebaseStatusMap = {}; // Reset if no results (shouldn't happen here, but safe)
-          }
-          // --- END NEW ---
+  // --- NEW: Fetch Firebase statuses (using InvoiceID) ---
+  if (window.filteredResults.length > 0) {
+      // *** CHANGED: Extract InvoiceIDs ***
+      const invoiceIds = [...new Set(window.filteredResults.map(inv => inv.InvoiceID).filter(Boolean))];
+      window.currentFirebaseStatusMap = await fetchFirebaseStatuses(invoiceIds);
+  } else {
+      window.currentFirebaseStatusMap = {}; // Reset if no results (shouldn't happen here, but safe)
+  }
+  // --- END NEW ---
 
           if (window.filteredResults.length > 0) {
             document.getElementById('results-section').classList.remove('hidden');
@@ -2835,22 +2841,25 @@ async function fetchFirebaseStatuses(accountNumbers) {
         });
       }
 
-      // --- NEW: Add Firebase Status Icons --- // --- ADDED from Step 4 ---
-      const accountNum = invoice.Contact?.AccountNumber;
-      const iconContainer = item.querySelector('.invoice-status-icons');
+// --- NEW: Add Firebase Status Icons (using InvoiceID) ---
+// *** CHANGED: Get InvoiceID instead of AccountNumber ***
+const invoiceId = invoice.InvoiceID;
+const iconContainer = item.querySelector('.invoice-status-icons');
 
-      if (accountNum && iconContainer && window.currentFirebaseStatusMap && window.currentFirebaseStatusMap[accountNum]) {
-          const status = window.currentFirebaseStatusMap[accountNum];
-          let iconsHTML = '';
-          if (status.hasNote) {
-              iconsHTML += '<span title="Has Notes">📝</span>';
-          }
-          if (status.hasReminder) {
-              iconsHTML += '<span title="Has Reminders" style="margin-left: 3px;">⏰</span>';
-          }
-          iconContainer.innerHTML = iconsHTML;
-      }
-      // --- END NEW --- // --- ADDED from Step 4 ---
+// *** CHANGED: Check based on invoiceId ***
+if (invoiceId && iconContainer && window.currentFirebaseStatusMap && window.currentFirebaseStatusMap[invoiceId]) {
+    // *** CHANGED: Look up status using invoiceId ***
+    const status = window.currentFirebaseStatusMap[invoiceId];
+    let iconsHTML = '';
+    if (status.hasNote) {
+        iconsHTML += '<span title="Has Notes">📝</span>';
+    }
+    if (status.hasReminder) {
+        iconsHTML += '<span title="Has Reminders" style="margin-left: 3px;">⏰</span>';
+    }
+    iconContainer.innerHTML = iconsHTML;
+}
+// --- END NEW ---
 
       return item;
     }
@@ -3428,19 +3437,20 @@ async function fetchFirebaseStatuses(accountNumbers) {
           apiHasMorePages = nextPageData.hasMore; // Update hasMore status
           console.log(`Appended ${nextPageData.invoices.length}. Total loaded: ${currentResults.length}. API has more: ${apiHasMorePages}`);
           
-                // --- NEW: Fetch statuses for the newly loaded page and merge ---
-      if (nextPageData.invoices.length > 0) {
-          const newAccountNumbers = [...new Set(nextPageData.invoices.map(inv => inv.Contact?.AccountNumber).filter(Boolean))];
-          // Fetch statuses only for the new accounts we haven't checked yet
-          const accountsToCheck = newAccountNumbers.filter(accNum => !window.currentFirebaseStatusMap[accNum]);
-          if (accountsToCheck.length > 0) {
-               const newStatuses = await fetchFirebaseStatuses(accountsToCheck);
-               // Merge the new statuses into the main map
-               window.currentFirebaseStatusMap = { ...window.currentFirebaseStatusMap, ...newStatuses };
-               console.log(`Merged statuses for ${Object.keys(newStatuses).length} new accounts.`);
-          }
+  // --- NEW: Fetch statuses for the newly loaded page (using InvoiceID) and merge ---
+  if (nextPageData.invoices.length > 0) {
+      // *** CHANGED: Extract InvoiceIDs ***
+      const newInvoiceIds = [...new Set(nextPageData.invoices.map(inv => inv.InvoiceID).filter(Boolean))];
+      // Fetch statuses only for the new IDs we haven't checked yet
+      const idsToCheck = newInvoiceIds.filter(invId => !window.currentFirebaseStatusMap[invId]);
+      if (idsToCheck.length > 0) {
+           const newStatuses = await fetchFirebaseStatuses(idsToCheck);
+           // Merge the new statuses into the main map
+           window.currentFirebaseStatusMap = { ...window.currentFirebaseStatusMap, ...newStatuses };
+           console.log(`Merged statuses for ${Object.keys(newStatuses).length} new invoice IDs.`);
       }
-      // --- END NEW ---
+  }
+  // --- END NEW ---
           
           // Update count display to reflect newly loaded items
           document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`;
