@@ -721,13 +721,23 @@ function showMessage(message, type = 'success') { // type can be 'success', 'err
 }
 
 function escapeHtml(unsafe) {
-    if (!unsafe) return '';
-    return unsafe
-         .replace(/&/g, "&")
-         .replace(/</g, "<")
-         .replace(/>/g, ">")
-         .replace(/"/g, """)
-         .replace(/'/g, "'");
+  // Check if input is actually a string, handle null/undefined
+  if (typeof unsafe !== 'string') {
+     if (unsafe === null || unsafe === undefined) return '';
+     try {
+          unsafe = String(unsafe); // Attempt to convert to string
+     } catch (e) {
+         console.error("Could not convert value to string for HTML escaping:", unsafe);
+         return ''; // Return empty string if conversion fails
+     }
+  }
+  // Perform the replacements using correct HTML entities
+  return unsafe
+       .replace(/&/g, "&")
+       .replace(/</g, "<")
+       .replace(/>/g, ">")
+       .replace(/"/g, """) // <-- Corrected: Use " entity
+       .replace(/'/g, "'"); // <-- Use ' entity
 }
 
 function getTomorrowDateString() {
