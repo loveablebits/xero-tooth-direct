@@ -2736,6 +2736,7 @@ async function fetchFirebaseStatuses(accountNumbers) {
     }
 
     function createInvoiceItem(invoice) {
+      console.log("Data for summary item:", invoice.InvoiceNumber, invoice);
       const item = document.createElement('div');
       item.className = 'result-item';
 
