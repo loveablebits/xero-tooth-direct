@@ -2169,13 +2169,19 @@ function setupEventListeners() {
 
       // --- NEW: Fetch Firebase statuses (using InvoiceID) ---
       if (currentResults.length > 0) {
-          // *** CORRECTED: Extract InvoiceIDs ***
           const invoiceIds = [...new Set(currentResults.map(inv => inv.InvoiceID).filter(Boolean))];
+          
+          // --- ADD Log BEFORE await ---
+          console.log(">>> STEP 1: About to call fetchFirebaseStatuses with:", invoiceIds); 
+          
           window.currentFirebaseStatusMap = await fetchFirebaseStatuses(invoiceIds);
-          // *** ADD THE CONSOLE LOG HERE ***
-          console.log("Firebase Status Map after initial load:", window.currentFirebaseStatusMap); 
+          
+          // --- ADD Log AFTER await ---
+          console.log(">>> STEP 2: fetchFirebaseStatuses call completed. Status Map:", window.currentFirebaseStatusMap); 
+
       } else {
           window.currentFirebaseStatusMap = {}; // Reset if no results
+          console.log(">>> SKIPPED fetchFirebaseStatuses: No currentResults."); // Log if skipped
       }
       // --- END NEW ---
 
