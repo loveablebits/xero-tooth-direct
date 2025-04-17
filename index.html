@@ -3993,8 +3993,29 @@ async function showInvoiceDetail(invoiceId) {
 
 
 
+    <!-- Load the module file FIRST and defer execution -->
+  <script src="/notes-reminders.js" defer></script>
+
+  <!-- Load your main inline application logic AFTER the module -->
+  <script defer> // Add defer here too for consistency, though inline is different
+    // Initialize the application
+    function initApp() {
+      // ... ALL THE CODE INSIDE YOUR INLINE SCRIPT ...
+      // (No changes needed inside this block itself)
+    }
+    // ... rest of your main app code ...
+
+    // IMPORTANT: Because we are using defer, the DOM is guaranteed to be ready
+    // when this script executes. We can potentially call initApp directly
+    // OR keep the DOMContentLoaded listener as a safeguard. Let's keep it for now.
+    document.addEventListener('DOMContentLoaded', initApp);
+
+    // If DOMContentLoaded doesn't work reliably with defer in all browsers,
+    // you might just call initApp() directly here IF this script is the *last*
+    // deferred script on the page.
+    // initApp(); // Alternative if DOMContentLoaded causes issues with defer
+
   </script>
-  <script src="/notes-reminders.js"></script>
 </body>
 
 </html>
