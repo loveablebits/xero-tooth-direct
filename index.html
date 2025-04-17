@@ -248,13 +248,26 @@
       margin-bottom: 0.5rem;
     }
 
-    .invoice-number {
+    .invoice-number { /* Target specifically for icons */
       font-size: 1.125rem;
       font-weight: 600;
       color: var(--secondary-color);
+      display: flex; /* Use flex to align text and icons */
+      align-items: center; /* Vertically align */
     }
 
-    .invoice-status {
+    .invoice-status-icons { /* Container for icons */
+       margin-left: 10px; /* Space between invoice number and icons */
+       display: inline-flex; /* Keep icons inline */
+       gap: 5px; /* Space between icons if both appear */
+       font-size: 0.9em; /* Adjust icon size slightly */
+    }
+
+    .status-icon { /* Common styling for icons */
+        cursor: default; /* Indicate they aren't clickable */
+    }
+
+    .invoice-status { /* The text status badge */
       display: inline-block;
       padding: 0.25rem 0.5rem;
       border-radius: 12px;
@@ -263,977 +276,148 @@
       text-transform: uppercase;
     }
 
-    .status-draft {
-      background-color: #f3f4f6;
-      color: #6b7280;
-    }
+    .status-draft { background-color: #f3f4f6; color: #6b7280; }
+    .status-submitted { background-color: #fef3c7; color: #d97706; }
+    .status-authorised { background-color: #dbeafe; color: #2563eb; }
+    .status-paid { background-color: #d1fae5; color: #059669; }
 
-    .status-submitted {
-      background-color: #fef3c7;
-      color: #d97706;
-    }
-
-    .status-authorised {
-      background-color: #dbeafe;
-      color: #2563eb;
-    }
-
-    .status-paid {
-      background-color: #d1fae5;
-      color: #059669;
-    }
-
-    .result-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 0.5rem;
-      font-size: 0.875rem;
-    }
-
-    .result-details div {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .result-details span:first-child {
-      color: #6b7280;
-      font-size: 0.75rem;
-    }
+    .result-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.875rem; }
+    .result-details div { display: flex; flex-direction: column; }
+    .result-details span:first-child { color: #6b7280; font-size: 0.75rem; }
 
     /* Invoice Detail Section */
-    #detail-section {
-      background-color: var(--card-background);
-      border-radius: 8px;
-      padding: 1.5rem;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
+    #detail-section { background-color: var(--card-background); border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); }
+    #back-btn { background-color: var(--primary-color); color: white; border-color: var(--primary-color); margin-bottom: 1.5rem; }
+    #back-btn:hover { background-color: var(--primary-dark); border-color: var(--primary-dark); }
+    .invoice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+    .invoice-header h2 { font-size: 1.5rem; color: var(--secondary-color); }
+    .invoice-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5rem; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); }
+    .invoice-meta-group h3 { margin-bottom: 0.8rem; color: var(--secondary-color); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .invoice-meta-group div { line-height: 1.5; margin-bottom: 0.4rem; font-size: 0.9rem; }
+    .invoice-meta-group strong { color: #555; min-width: 85px; display: inline-block; margin-right: 0.5rem; font-weight: 500; }
+    .invoice-meta-group .address-block { margin-top: 0.2rem; }
+    .invoice-meta-group .address-block span { display: block; margin-left: 90px; margin-top: -1.6em; line-height: 1.4; }
+    .invoice-meta-group .address-block span:first-child { margin-top: -1.6em; }
+    .invoice-meta-group .address-block span+span { margin-top: 0; }
+    .invoice-meta-group strong+br { display: none; }
+    .invoice-items { display: block; width: 100%; box-sizing: border-box; margin-top: 2rem; }
+    .invoice-items>h3 { font-size: 1.25rem; color: var(--secondary-color); margin-bottom: 1.5rem; }
+    .invoice-items table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; table-layout: fixed; }
+    .invoice-items th { text-align: left; padding: 0.75rem; background-color: rgba(0, 0, 0, 0.02); font-weight: 600; color: var(--secondary-color); border-bottom: 1px solid var(--border-color); }
+    .invoice-items td { padding: 0.75rem; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
+    .invoice-items .text-right { text-align: right; }
+    .invoice-items tfoot td { font-weight: 600; }
+    .invoice-items .total-row { font-size: 1rem; background-color: rgba(0, 0, 0, 0.02); }
+    @media (max-width: 768px) { .invoice-meta { grid-template-columns: 1fr; gap: 1.8rem; } .invoice-meta-group .address-block span { margin-left: 0; margin-top: 0.2rem; } .invoice-meta-group .address-block span:first-child { margin-top: 0.2rem; } .invoice-items { overflow-x: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch; } .invoice-items table { min-width: 600px; width: 100%; } }
 
-    #back-btn {
-      background-color: var(--primary-color);
-      /* Use Xero blue */
-      color: white;
-      /* Make text white for contrast */
-      border-color: var(--primary-color);
-      /* Match border to background */
-      margin-bottom: 1.5rem;
-      /* Keep the existing margin */
-    }
-
-    /* Optional: Add a hover effect consistent with primary buttons */
-    #back-btn:hover {
-      background-color: var(--primary-dark);
-      border-color: var(--primary-dark);
-    }
-
-    /* --- Invoice Detail View Enhancements --- */
-
-    #detail-section {
-      /* Optional: Increase padding slightly if needed */
-      /* padding: 2rem; */
-    }
-
-    /* --- Styling for Invoice Header (Invoice # / Status) --- */
-    .invoice-header {
-      display: flex;
-      /* Keep flex layout */
-      justify-content: space-between;
-      /* Keep space between */
-      align-items: center;
-      /* Vertically align status badge better with title */
-      margin-bottom: 2rem;
-      /* Increased space below header */
-      flex-wrap: wrap;
-      /* Allow wrapping if needed on very small screens */
-      gap: 1rem;
-      /* Add gap if header wraps */
-    }
-
-    .invoice-header h2 {
-      font-size: 1.5rem;
-      color: var(--secondary-color);
-      /* No changes needed here unless desired */
-    }
-
-    /* --- Styling for Metadata Section (Details / Customer) --- */
-    .invoice-meta {
-      display: grid;
-      /* Use explicit grid */
-      grid-template-columns: repeat(2, 1fr);
-      /* Default to 2 equal columns */
-      gap: 2.5rem;
-      /* Increased gap between Details and Customer columns */
-      margin-bottom: 2rem;
-      /* Increased space below meta info block */
-      padding-bottom: 1.5rem;
-      /* Add padding below meta */
-      border-bottom: 1px solid var(--border-color);
-      /* Separator line before line items */
-    }
-
-    .invoice-meta-group h3 {
-      margin-bottom: 0.8rem;
-      /* Slightly more space below heading */
-      color: var(--secondary-color);
-      /* Make heading darker */
-      font-size: 0.9rem;
-      /* Slightly smaller heading */
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-      /* Keep original weight */
-    }
-
-    .invoice-meta-group div {
-      line-height: 1.5;
-      /* Adjust line height for readability */
-      margin-bottom: 0.4rem;
-      /* Consistent space between meta lines */
-      font-size: 0.9rem;
-      /* Match font size */
-    }
-
-    /* Style the labels (strong tags) within the meta groups */
-    .invoice-meta-group strong {
-      color: #555;
-      /* Make labels slightly less prominent than values */
-      min-width: 85px;
-      /* Ensure labels align somewhat */
-      display: inline-block;
-      /* Needed for min-width */
-      margin-right: 0.5rem;
-      /* Space between label and value */
-      font-weight: 500;
-      /* Less heavy font weight */
-    }
-
-    /* Target the address block specifically for better formatting */
-    .invoice-meta-group .address-block {
-      margin-top: 0.2rem;
-      /* Add a little space above the address */
-    }
-
-    .invoice-meta-group .address-block span {
-      display: block;
-      /* Make each address line a block */
-      margin-left: 90px;
-      /* Indent address lines (adjust value as needed based on label width) */
-      margin-top: -1.6em;
-      /* Pull first address line up closer to "Address:" label */
-      line-height: 1.4;
-      /* Tighter line height for address */
-    }
-
-    /* Adjust margin-top only for the first span inside address-block */
-    .invoice-meta-group .address-block span:first-child {
-      margin-top: -1.6em;
-    }
-
-    /* Reset margin-top for subsequent spans */
-    .invoice-meta-group .address-block span+span {
-      margin-top: 0;
-    }
-
-    /* Hide the initial <br> after the Address label if it exists */
-    .invoice-meta-group strong+br {
-      display: none;
-    }
-
-    /* --- Styling for Line Items Section --- */
-    .invoice-items {
-      /* Explicitly ensure it's a block taking full width */
-      display: block;
-      /* Override any potential flex/grid context from parent */
-      width: 100%;
-      /* Ensure the container tries to fill available width */
-      box-sizing: border-box;
-      /* Consistent width calculation */
-      margin-top: 2rem;
-      /* Space above the heading */
-      /* Overflow for scrolling is handled in the media query */
-    }
-
-    /* Keep H3 styling as is */
-    .invoice-items>h3 {
-      font-size: 1.25rem;
-      color: var(--secondary-color);
-      margin-bottom: 1.5rem;
-    }
-
-    /* Base style for the line items table (applies to all widths) */
-    .invoice-items table {
-      width: 100%;
-      /* Table fills the .invoice-items container */
-      border-collapse: collapse;
-      margin-bottom: 2rem;
-      table-layout: fixed;
-      /* ADDED THIS LINE - Uses fixed layout algorithm */
-    }
-
-    /* Keep th, td, tfoot, .text-right, .total-row styles as they are */
-    .invoice-items th {
-      text-align: left;
-      padding: 0.75rem;
-      background-color: rgba(0, 0, 0, 0.02);
-      font-weight: 600;
-      color: var(--secondary-color);
-      border-bottom: 1px solid var(--border-color);
-      /* Optional: If using table-layout: fixed, you might want explicit widths */
-      /* E.g., &:nth-child(1) { width: 40%; } ... etc. */
-    }
-
-    .invoice-items td {
-      padding: 0.75rem;
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.875rem;
-      /* Optional with table-layout: fixed - handle overflow if content is too long */
-      /* overflow: hidden; */
-      /* text-overflow: ellipsis; */
-      /* white-space: nowrap; */
-    }
-
-    .invoice-items .text-right {
-      text-align: right;
-    }
-
-    .invoice-items tfoot td {
-      font-weight: 600;
-    }
-
-    .invoice-items .total-row {
-      font-size: 1rem;
-      background-color: rgba(0, 0, 0, 0.02);
-    }
-
-    /* --- End Invoice Detail View Layout Styles --- */
-
-
-    /* --- Responsive adjustments for metadata and table --- */
-    /* (Ensure this @media block exists or integrate these rules into your existing one) */
-    @media (max-width: 768px) {
-
-      /* Stack meta section */
-      .invoice-meta {
-        grid-template-columns: 1fr;
-        gap: 1.8rem;
-      }
-
-      /* Reset address indentation on mobile */
-      .invoice-meta-group .address-block span {
-        margin-left: 0;
-        margin-top: 0.2rem;
-      }
-
-      .invoice-meta-group .address-block span:first-child {
-        margin-top: 0.2rem;
-      }
-
-      /* Add horizontal scrolling ONLY to the container on mobile */
-      .invoice-items {
-        overflow-x: auto;
-        padding-bottom: 10px;
-        -webkit-overflow-scrolling: touch;
-        /* display/width are inherited from base styles */
-      }
-
-      /* Force table minimum width ONLY on mobile to trigger scrolling */
-      /* Note: table-layout: fixed might make min-width less critical, but keep for safety */
-      .invoice-items table {
-        min-width: 600px;
-        /* width: 100% is inherited */
-        /* table-layout: fixed is inherited */
-      }
-    }
-
-    /* --- End Responsive Adjustments --- */
-
-    #pagination {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-
-    #pagination button {
-      padding: 0.625rem 1.25rem;
-      border: 1px solid var(--border-color);
-      background-color: white;
-      cursor: pointer;
-      border-radius: 4px;
-      font-size: 0.875rem;
-      min-width: 120px;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    }
-
-    #pagination button:hover {
-      border-color: var(--primary-color);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    #pagination button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    #pagination button:first-child {
-      border-color: var(--border-color);
-    }
-
-    #pagination button:last-child {
-      background-color: var(--primary-color);
-      color: white;
-      border-color: var(--primary-color);
-    }
-
-    #pagination button:last-child:hover {
-      background-color: var(--primary-dark);
-    }
+    /* Pagination */
+    #pagination { display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem; }
+    #pagination button { padding: 0.625rem 1.25rem; border: 1px solid var(--border-color); background-color: white; cursor: pointer; border-radius: 4px; font-size: 0.875rem; min-width: 120px; font-weight: 500; transition: all 0.2s ease; }
+    #pagination button:hover { border-color: var(--primary-color); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); }
+    #pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #pagination button:first-child { border-color: var(--border-color); } /* Note: This styles the first button (might be 'First' or 'Previous') */
+    #pagination button:last-child { background-color: var(--primary-color); color: white; border-color: var(--primary-color); } /* Styles the last button (might be 'Next' or 'Previous') */
+    #pagination button:last-child:hover { background-color: var(--primary-dark); }
 
     /* Loading spinner */
-    #loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid rgba(19, 181, 234, 0.2);
-      border-radius: 50%;
-      border-top-color: var(--primary-color);
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 1rem;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* Utility classes */
-    .hidden {
-      display: none !important;
-    }
-
-    /* Responsive styles */
-    @media (max-width: 768px) {
-      header .container {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-      }
-
-      .search-container {
-        flex-direction: column;
-      }
-
-      .results-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .sorting {
-        width: 100%;
-      }
-
-      .sorting select {
-        flex: 1;
-      }
-
-      .invoice-meta {
-        grid-template-columns: 1fr;
-      }
-
-      .invoice-items {
-        overflow-x: auto;
-      }
-    }
-
-    /* Tenant selection dropdown */
-    .tenant-select {
-      margin-left: 10px;
-      padding: 3px 6px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-      background-color: rgba(255, 255, 255, 0.1);
-      color: white;
-      font-size: 0.85rem;
-    }
-
-    .tenant-select:focus {
-      outline: none;
-      border-color: var(--primary-color);
-    }
-
-    #user-section {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    #user-info {
-      display: flex;
-      flex-direction: column;
-      min-width: 200px;
-      margin-right: 15px;
-    }
-
-    /* Job status indicators */
-    .job-age {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      margin-top: 0.5rem;
-    }
-
-    .job-recent {
-      background-color: #e6f7ff;
-      color: #0070d1;
-    }
-
-    .job-approaching {
-      background-color: #fff7e6;
-      color: #d46b08;
-    }
-
-    .job-overdue {
-      background-color: #fff1f0;
-      color: #cf1322;
-      font-weight: bold;
-    }
-
-    /* Highlight overdue items */
-    .result-item.overdue {
-      border-left: 3px solid #cf1322;
-    }
-
-    .result-item.approaching {
-      border-left: 3px solid #d46b08;
-    }
-
-    /* Add this CSS inside your <style> tag */
-    #results-section {
-      transition: opacity 0.3s ease;
-    }
-
-    #results-list {
-      transition: opacity 0.2s ease;
-    }
-
-    .loading-indicator {
-      display: flex;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    /* --- Invoice Detail View Enhancements --- */
-
-    #detail-section {
-      /* Optional: Increase padding slightly if needed */
-      /* padding: 2rem; */
-    }
-
-    .invoice-header {
-      margin-bottom: 2rem;
-      /* Increase space below header */
-      align-items: center;
-      /* Vertically align status badge better with title */
-      flex-wrap: wrap;
-      /* Allow wrapping if needed on very small screens */
-      gap: 1rem;
-      /* Add gap if header wraps */
-    }
-
-    .invoice-meta {
-      display: grid;
-      /* Use explicit grid */
-      grid-template-columns: repeat(2, 1fr);
-      /* Default to 2 equal columns */
-      gap: 2.5rem;
-      /* Increase gap between Details and Customer columns */
-      margin-bottom: 2rem;
-      /* Increase space below meta info block */
-      padding-bottom: 1.5rem;
-      /* Add padding below meta */
-      border-bottom: 1px solid var(--border-color);
-      /* Separator line before line items */
-    }
-
-    .invoice-meta-group h3 {
-      margin-bottom: 0.8rem;
-      /* Slightly more space below heading */
-      color: var(--secondary-color);
-      /* Make heading darker */
-      font-size: 0.9rem;
-      /* Slightly smaller heading */
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .invoice-meta-group div {
-      line-height: 1.5;
-      /* Adjust line height for readability */
-      margin-bottom: 0.4rem;
-      /* Consistent space between meta lines */
-      font-size: 0.9rem;
-      /* Match font size */
-    }
-
-    /* Style the labels within the meta groups */
-    .invoice-meta-group strong {
-      color: #555;
-      /* Make labels slightly less prominent than values */
-      min-width: 85px;
-      /* Ensure labels align somewhat */
-      display: inline-block;
-      /* Needed for min-width */
-      margin-right: 0.5rem;
-      /* Space between label and value */
-      font-weight: 500;
-      /* Less heavy font weight */
-    }
-
-    /* Target the address block specifically for better formatting */
-    .invoice-meta-group .address-block {
-      margin-top: 0.2rem;
-      /* Add a little space above the address */
-    }
-
-    .invoice-meta-group .address-block span {
-      display: block;
-      /* Make each address line a block */
-      margin-left: 90px;
-      /* Indent address lines (adjust value as needed based on label width) */
-      margin-top: -1.6em;
-      /* Pull first address line up closer to "Address:" label */
-      line-height: 1.4;
-      /* Tighter line height for address */
-    }
-
-    /* Adjust margin-top only for the first span inside address-block */
-    .invoice-meta-group .address-block span:first-child {
-      margin-top: -1.6em;
-    }
-
-    /* Reset margin-top for subsequent spans */
-    .invoice-meta-group .address-block span+span {
-      margin-top: 0;
-    }
-
-    /* Hide the initial <br> after the Address label if it exists */
-    .invoice-meta-group strong+br {
-      display: none;
-    }
-
-
-    .invoice-items {
-      /* This section contains the table */
-      margin-top: 2rem;
-      /* Ensure space above line items */
-    }
-
-    .invoice-items>h3 {
-      /* Target only the H3 directly inside .invoice-items */
-      font-size: 1.25rem;
-      color: var(--secondary-color);
-      margin-bottom: 1.5rem;
-      /* More space below "Line Items" heading */
-    }
-
-    /* Responsive adjustments for metadata layout */
-    @media (max-width: 768px) {
-      .invoice-meta {
-        grid-template-columns: 1fr;
-        /* Stack to 1 column */
-        gap: 1.8rem;
-        /* Adjust gap for stacked layout */
-      }
-
-      /* Remove address indentation on mobile for simpler layout */
-      .invoice-meta-group .address-block span {
-        margin-left: 0;
-        margin-top: 0.2rem;
-        /* Reset margin-top */
-      }
-
-      .invoice-meta-group .address-block span:first-child {
-        margin-top: 0.2rem;
-        /* Ensure first line also has normal spacing */
-      }
-    }
-
-    /* Ensure table scrolling is applied robustly */
-    @media (max-width: 768px) {
-      .invoice-items {
-        overflow-x: auto;
-        /* Essential for preventing table breaking layout */
-        padding-bottom: 10px;
-        /* Add some padding so scrollbar isn't tight against table */
-        -webkit-overflow-scrolling: touch;
-        /* Smoother scrolling on iOS */
-      }
-
-      .invoice-items table {
-        min-width: 600px;
-        /* Force table to a min-width to necessitate scrolling */
-        width: 100%;
-        /* Prevent table from shrinking below min-width */
-      }
-    }
-
-    /* --- End Invoice Detail View Enhancements --- */
-
-    /* --- Autocomplete Styles --- */
-    .search-container {
-      position: relative;
-      /* Needed for absolute positioning of suggestions */
-    }
-
-    .autocomplete-items {
-      position: absolute;
-      border: 1px solid var(--border-color);
-      border-top: none;
-      background-color: var(--card-background);
-      z-index: 99;
-      /* Position it below the input */
-      top: 100%;
-      /* Start right below the container */
-      left: 0;
-      right: 0;
-      max-height: 250px;
-      /* Limit height and add scroll */
-      overflow-y: auto;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      border-bottom-left-radius: 4px;
-      border-bottom-right-radius: 4px;
-    }
-
-    .autocomplete-items div {
-      padding: 0.75rem;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.9rem;
-    }
-
-    .autocomplete-items div:last-child {
-      border-bottom: none;
-      /* Remove border from last item */
-    }
-
-    .autocomplete-items div:hover {
-      background-color: #e9e9e9;
-    }
-
-    /* Style for highlighting the matching part (optional) */
-    .autocomplete-items div strong {
-      font-weight: 600;
-      color: var(--primary-dark);
-    }
-
-    /* --- End Autocomplete Styles --- */
-
-
-    /* --- Styles for Input Wrapper and Clear Button --- */
-    .input-wrapper {
-      position: relative;
-      flex: 1;
-      /* Ensure it takes up space */
-    }
-
-    #search-input {
-      padding-right: 35px;
-      /* Make space for the 'X' - Adjust if needed */
-      width: 100%;
-      /* Ensure input fills the wrapper */
-      /* Inherit other input styles like border, padding-left, etc. */
-    }
-
-    .clear-search-icon {
-      position: absolute;
-      right: 12px;
-      /* Adjust horizontal position */
-      top: 50%;
-      transform: translateY(-50%);
-      cursor: pointer;
-      font-size: 1.4rem;
-      /* Adjust size */
-      line-height: 1;
-      /* Prevent extra vertical space */
-      color: #999;
-      /* Adjust color */
-      z-index: 2;
-      /* Ensure it's above the input background */
-    }
-
-    .clear-search-icon:hover {
-      color: #333;
-      /* Darken on hover */
-    }
-
-    /* --- End Input Wrapper Styles --- */
-
-    /* Ensure the hidden utility class works if not already defined robustly */
-    /* You might already have this, double-check */
-    .hidden {
-      display: none !important;
-    }
-
-    /* Tab Navigation */
-    .tabs-container {
-      margin-top: 2rem;
-    }
-
-    .tabs-nav {
-      display: flex;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 1.5rem;
-    }
-
-    .tab-button {
-      padding: 0.75rem 1.25rem;
-      background: none;
-      border: none;
-      border-bottom: 3px solid transparent;
-      font-size: 1rem;
-      font-weight: 500;
-      color: #555;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .tab-button:hover {
-      color: var(--primary-color);
-    }
-
-    .tab-button.active {
-      color: var(--primary-color);
-      border-bottom-color: var(--primary-color);
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    /* Notes & Reminders Common Styles */
-    .item-list {
-      margin-bottom: 2rem;
-    }
-
-    .item-card {
-      background-color: white;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      position: relative;
-    }
-
-    .item-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 0.5rem;
-    }
-
-    .item-date {
-      font-size: 0.75rem;
-      color: #666;
-    }
-
-    .item-actions {
-      position: absolute;
-      top: 0.75rem;
-      right: 0.75rem;
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .item-action-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: #888;
-      padding: 0.25rem;
-      font-size: 1rem;
-      transition: color 0.2s ease;
-    }
-
-    .item-action-btn:hover {
-      color: var(--primary-color);
-    }
-
-    .item-action-btn.delete:hover {
-      color: var(--error-color);
-    }
-
-    .item-content {
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .add-item-form {
-      background-color: #f9f9f9;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 1.25rem;
-    }
-
-    .form-title {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-    }
-
-    .form-row {
-      margin-bottom: 1rem;
-    }
-
-    .form-row label {
-      display: block;
-      font-size: 0.875rem;
-      margin-bottom: 0.25rem;
-      font-weight: 500;
-    }
-
-    .form-row input[type="text"],
-    .form-row textarea,
-    .form-row select {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      font-size: 0.95rem;
-    }
-
-    .form-row textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-
-    .form-row input[type="date"] {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      font-size: 0.95rem;
-    }
-
-    .form-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.75rem;
-    }
-
-    /* Note-specific styles */
-    .note-category {
-      display: inline-block;
-      padding: 0.2rem 0.5rem;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      margin-right: 0.5rem;
-    }
-
-    .category-general {
-      background-color: #e5e7eb;
-      color: #374151;
-    }
-
-    .category-customer {
-      background-color: #dbeafe;
-      color: #1e40af;
-    }
-
-    .category-lab {
-      background-color: #fef3c7;
-      color: #92400e;
-    }
-
-    .category-payment {
-      background-color: #d1fae5;
-      color: #065f46;
-    }
-
-    .category-important {
-      background-color: #fee2e2;
-      color: #991b1b;
-    }
-
-    /* Reminder-specific styles */
-    .reminder-status {
-      display: inline-block;
-      padding: 0.2rem 0.5rem;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .status-pending {
-      background-color: #e5e7eb;
-      color: #374151;
-    }
-
-    .status-due-today {
-      background-color: #fef3c7;
-      color: #92400e;
-    }
-
-    .status-overdue {
-      background-color: #fee2e2;
-      color: #991b1b;
-    }
-
-    .status-completed {
-      background-color: #d1fae5;
-      color: #065f46;
-    }
-
-    .reminder-card.completed {
-      opacity: 0.7;
-    }
-
-    .reminder-card.completed .item-content {
-      text-decoration: line-through;
-    }
+    #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+    .spinner { width: 40px; height: 40px; border: 4px solid rgba(19, 181, 234, 0.2); border-radius: 50%; border-top-color: var(--primary-color); animation: spin 0.8s linear infinite; margin-bottom: 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Utility */
+    .hidden { display: none !important; }
+
+    /* Responsive */
+    @media (max-width: 768px) { header .container { flex-direction: column; text-align: center; gap: 1rem; } .search-container { flex-direction: column; } .results-header { flex-direction: column; align-items: flex-start; } .sorting { width: 100%; } .sorting select { flex: 1; } }
+
+    /* Tenant selection */
+    .tenant-select { margin-left: 10px; padding: 3px 6px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background-color: rgba(255, 255, 255, 0.1); color: white; font-size: 0.85rem; }
+    .tenant-select:focus { outline: none; border-color: var(--primary-color); }
+    #user-section { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+    #user-info { display: flex; flex-direction: column; min-width: 200px; margin-right: 15px; }
+
+    /* Job status */
+    .job-age { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-top: 0.5rem; }
+    .job-recent { background-color: #e6f7ff; color: #0070d1; }
+    .job-approaching { background-color: #fff7e6; color: #d46b08; }
+    .job-overdue { background-color: #fff1f0; color: #cf1322; font-weight: bold; }
+    .result-item.overdue { border-left: 3px solid #cf1322; }
+    .result-item.approaching { border-left: 3px solid #d46b08; }
+
+    /* Transitions */
+    #results-section { transition: opacity 0.3s ease; }
+    #results-list { transition: opacity 0.2s ease; }
+    .loading-indicator { display: flex; justify-content: center; padding: 20px; }
+
+    /* Autocomplete */
+    .search-container { position: relative; }
+    .autocomplete-items { position: absolute; border: 1px solid var(--border-color); border-top: none; background-color: var(--card-background); z-index: 99; top: 100%; left: 0; right: 0; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+    .autocomplete-items div { padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+    .autocomplete-items div:last-child { border-bottom: none; }
+    .autocomplete-items div:hover { background-color: #e9e9e9; }
+    .autocomplete-items div strong { font-weight: 600; color: var(--primary-dark); }
+
+    /* Input Clear Button */
+    .input-wrapper { position: relative; flex: 1; }
+    #search-input { padding-right: 35px; width: 100%; }
+    .clear-search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 1.4rem; line-height: 1; color: #999; z-index: 2; }
+    .clear-search-icon:hover { color: #333; }
+
+    /* Tabs */
+    .tabs-container { margin-top: 2rem; }
+    .tabs-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; }
+    .tab-button { padding: 0.75rem 1.25rem; background: none; border: none; border-bottom: 3px solid transparent; font-size: 1rem; font-weight: 500; color: #555; cursor: pointer; transition: all 0.2s ease; }
+    .tab-button:hover { color: var(--primary-color); }
+    .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Notes & Reminders Common */
+    .item-list { margin-bottom: 2rem; }
+    .item-card { background-color: white; border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; position: relative; }
+    .item-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+    .item-date { font-size: 0.75rem; color: #666; }
+    .item-actions { position: absolute; top: 0.75rem; right: 0.75rem; display: flex; gap: 0.5rem; }
+    .item-action-btn { background: none; border: none; cursor: pointer; color: #888; padding: 0.25rem; font-size: 1rem; transition: color 0.2s ease; }
+    .item-action-btn:hover { color: var(--primary-color); }
+    .item-action-btn.delete:hover { color: var(--error-color); }
+    .item-content { line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .add-item-form { background-color: #f9f9f9; border: 1px solid var(--border-color); border-radius: 6px; padding: 1.25rem; }
+    .form-title { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .form-row { margin-bottom: 1rem; }
+    .form-row label { display: block; font-size: 0.875rem; margin-bottom: 0.25rem; font-weight: 500; }
+    .form-row input[type="text"], .form-row textarea, .form-row select, .form-row input[type="date"] { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95rem; }
+    .form-row textarea { min-height: 100px; resize: vertical; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
+
+    /* Note categories */
+    .note-category { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-right: 0.5rem; }
+    .category-general { background-color: #e5e7eb; color: #374151; }
+    .category-customer { background-color: #dbeafe; color: #1e40af; }
+    .category-lab { background-color: #fef3c7; color: #92400e; }
+    .category-payment { background-color: #d1fae5; color: #065f46; }
+    .category-important { background-color: #fee2e2; color: #991b1b; }
+
+    /* Reminder statuses */
+    .reminder-status { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+    .status-pending { background-color: #e5e7eb; color: #374151; }
+    .status-due-today { background-color: #fef3c7; color: #92400e; }
+    .status-overdue { background-color: #fee2e2; color: #991b1b; }
+    .status-completed { background-color: #d1fae5; color: #065f46; }
+    .reminder-card.completed { opacity: 0.7; }
+    .reminder-card.completed .item-content { text-decoration: line-through; }
 
     /* Empty state */
-    .empty-state {
-      text-align: center;
-      padding: 2rem;
-      color: #666;
-    }
+    .empty-state { text-align: center; padding: 2rem; color: #666; }
+    .empty-state p { margin-bottom: 1rem; }
 
-    .empty-state p {
-      margin-bottom: 1rem;
-    }
+    /* Dictation Button */
+    .textarea-container { position: relative; display: flex; align-items: flex-start; }
+    .textarea-container textarea { flex-grow: 1; }
+    .dictation-button { margin-left: 5px; padding: 5px; cursor: pointer; background: #eee; border: 1px solid #ccc; border-radius: 4px; font-size: 1.2em; line-height: 1; }
+    .dictation-button.listening { background-color: #ffcccc; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-    /* Loading state */
-    .loading-indicator {
-      display: flex;
-      justify-content: center;
-      padding: 2rem;
-    }
-
-    .error-message {
-      background-color: rgba(208, 2, 27, 0.1);
-      border: 1px solid var(--error-color);
-      color: var(--error-color);
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-    }
   </style>
 </head>
 
@@ -1248,7 +432,6 @@
             <!-- Options will be added via JavaScript -->
           </select>
         </div>
-        <!-- Reset Connection button removed -->
         <button id="login-btn" class="btn primary">Connect to Xero</button>
         <button id="logout-btn" class="btn secondary hidden">Log out</button>
       </div>
@@ -1256,29 +439,19 @@
   </header>
 
   <main class="container">
-    <!-- Authentication message -->
     <div id="auth-message" class="message info">
       <p>Please connect to Xero to access your invoices.</p>
     </div>
-
-    <!-- Search Section -->
     <section id="search-section" class="hidden">
       <h2>Search Invoices</h2>
       <div class="search-container">
-        <!-- New wrapper for input and clear button -->
         <div class="input-wrapper">
-          <input type="text" id="search-input" placeholder="Search by invoice number, reference, or customer name..."
-            autocomplete="off"> <!-- Comment moved AFTER the tag -->
-          <!-- Good practice for custom controls -->
-          <span id="clear-search-btn" class="clear-search-icon hidden">
-            × <!-- This is the 'X' symbol -->
-          </span>
+          <input type="text" id="search-input" placeholder="Search by invoice number, reference, or customer name..." autocomplete="off">
+          <span id="clear-search-btn" class="clear-search-icon hidden">×</span>
         </div>
         <div id="autocomplete-suggestions" class="autocomplete-items hidden"></div>
         <button id="search-btn" class="btn primary">Search</button>
-        <!-- Show All button removed -->
       </div>
-
       <div class="filters">
         <div class="filter-group">
           <label for="job-status-filter">Job Status:</label>
@@ -1288,17 +461,12 @@
             <option value="overdue">Deadline (10+ days)</option>
           </select>
         </div>
-        <!-- Date pickers removed -->
       </div>
     </section>
-
-    <!-- Loading Indicator -->
     <div id="loading" class="hidden">
       <div class="spinner"></div>
       <p>Loading invoices...</p>
     </div>
-
-    <!-- Results Section -->
     <section id="results-section" class="hidden">
       <div class="results-header">
         <h2>Search Results <span id="results-count">(0)</span></h2>
@@ -1311,21 +479,18 @@
           </select>
         </div>
       </div>
-
       <div id="results-list"></div>
-
-      <!-- NEW CODE - Replace with this section -->
       <div id="pagination" style="display: flex; justify-content: center; margin-top: 1.5rem;"></div>
     </section>
-
-    <!-- Invoice Detail View -->
     <section id="detail-section" class="hidden">
       <button id="back-btn" class="btn secondary">← Back to Results</button>
-      <div id="invoice-detail"></div>
+      <div id="invoice-detail">
+          <!-- Invoice details including tabs will be rendered here by JS -->
+      </div>
     </section>
-
-    <!-- Error Message -->
     <div id="error-message" class="message error hidden"></div>
+    <!-- Global message area for success/info messages -->
+    <div id="global-message-area" class="message-area hidden"></div>
   </main>
 
   <footer>
@@ -1343,314 +508,577 @@
     // START OF YOUR MAIN APPLICATION JAVASCRIPT CODE
     // ================================================
 
-    // Global variables (some might be better scoped inside initApp or other functions if not truly global)
+    // --- Global Scope Variables ---
     let currentResults = [];
     let currentPage = 1;
     let cachedPages = {};
-    const resultsPerPage = 20; // Keep this
+    const resultsPerPage = 20;
     let autocompleteDebounceTimer;
-    const DEBOUNCE_DELAY = 300; // milliseconds
+    const DEBOUNCE_DELAY = 300;
     let currentApiPage = 1;
     let apiHasMorePages = true;
     let isLoadingMoreApiData = false;
-    // Autocomplete sources - initialize here or inside initApp
     let invoiceNumberSuggestions = [];
     let referenceSuggestions = new Set();
     let contactNameSuggestions = new Set();
+    // Use window scope for variables shared across potential future modules or debug
+    window.tenantId = null;
+    window.tenantName = null;
+    window.xeroTenants = null;
+    window.xeroTokens = null;
+    window.filteredResults = null;
+    window.lastPageViewed = 1;
+    window.lastScrollPosition = 0;
+    window.currentFirebaseStatusMap = {}; // Global map for icon statuses
 
 
-    // Initialize the application
+    // --- Core Application Initialization ---
     function initApp() {
-      console.log("Initializing app...");
-      // Reset state variables that should be cleared on full re-init
-      cachedPages = {};
-      window.lastPageViewed = 1;
-      window.lastScrollPosition = 0;
-      currentResults = [];
-      window.filteredResults = null;
-      currentPage = 1;
-      window.tenantId = null;
-      window.tenantName = null;
-      window.xeroTenants = null;
-      currentApiPage = 1;
-      apiHasMorePages = true;
-      isLoadingMoreApiData = false;
-      // Clear autocomplete sources on init
-      invoiceNumberSuggestions = [];
-      referenceSuggestions = new Set();
-      contactNameSuggestions = new Set();
+        console.log("Initializing app...");
+        cachedPages = {};
+        window.lastPageViewed = 1;
+        window.lastScrollPosition = 0;
+        currentResults = [];
+        window.filteredResults = null;
+        currentPage = 1;
+        window.tenantId = null;
+        window.tenantName = null;
+        window.xeroTenants = null;
+        window.xeroTokens = null; // Make sure tokens are cleared too
+        currentApiPage = 1;
+        apiHasMorePages = true;
+        isLoadingMoreApiData = false;
+        invoiceNumberSuggestions = [];
+        referenceSuggestions = new Set();
+        contactNameSuggestions = new Set();
+        window.currentFirebaseStatusMap = {}; // Clear status map
 
-      checkAuthResult(); // Process URL params first
-      checkAuthStatus(); // Check localStorage, setup UI/tenant dropdown
-      setupEventListeners(); // Setup listeners AFTER UI state is known
+        checkAuthResult();
+        checkAuthStatus();
+        setupEventListeners();
 
-      // Initial load trigger moved inside checkAuthStatus/checkAuthResult if successful
-      if (localStorage.getItem('xero_authenticated') === 'true' && window.tenantId) {
-        console.log(`initApp: Auth confirmed. Triggering initial invoice load for tenant: ${window.tenantName} (${window.tenantId})`);
-        const jobStatusFilter = document.getElementById('job-status-filter');
-        const searchInput = document.getElementById('search-input');
-        if (jobStatusFilter) jobStatusFilter.value = '';
-        if (searchInput) searchInput.value = '';
-        loadInitialInvoices(); // Load data for the active tenant
-      } else {
-        console.log("initApp: Skipping initial invoice load: Not authenticated or no tenant ID determined.");
-        updateUI(false); // Ensure logged-out UI
-        const authMessage = document.getElementById('auth-message');
-        if (authMessage) authMessage.classList.remove('hidden');
-      }
+        if (localStorage.getItem('xero_authenticated') === 'true' && window.tenantId) {
+            console.log(`initApp: Auth confirmed. Triggering initial invoice load.`);
+            const jobStatusFilter = document.getElementById('job-status-filter');
+            const searchInput = document.getElementById('search-input');
+            if (jobStatusFilter) jobStatusFilter.value = '';
+            if (searchInput) searchInput.value = '';
+            loadInitialInvoices();
+        } else {
+            console.log("initApp: Skipping initial load (not auth/no tenant).");
+            updateUI(false);
+            const authMessage = document.getElementById('auth-message');
+            if (authMessage) authMessage.classList.remove('hidden');
+        }
     }
 
+    // --- Authentication and Tenant Handling ---
     function checkAuthResult() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const authStatus = urlParams.get('auth');
-      const errorMessage = urlParams.get('message');
-      const tenantNameParam = urlParams.get('tenantName');
-      const tenantIdParam = urlParams.get('tenantId');
-      const multipleOrgs = urlParams.get('multipleOrgs') === 'true';
-      const tenantsParam = urlParams.get('tenants');
-      const tokensParam = urlParams.get('tokens');
+        const urlParams = new URLSearchParams(window.location.search);
+        const authStatus = urlParams.get('auth');
+        if (!authStatus) return; // Only process if auth params exist
 
-      if (!authStatus) return; // Exit if no auth status in URL
+        console.log("Processing auth result from URL...");
+        const errorMessage = urlParams.get('message');
+        const tenantNameParam = urlParams.get('tenantName');
+        const tenantIdParam = urlParams.get('tenantId');
+        const multipleOrgs = urlParams.get('multipleOrgs') === 'true';
+        const tenantsParam = urlParams.get('tenants');
+        const tokensParam = urlParams.get('tokens');
 
-      console.log("Processing auth result from URL...");
+        // Clear URL params now that we've read them
+        window.history.replaceState({}, document.title, window.location.pathname);
 
-      if (authStatus === 'success') {
-        console.log("Authentication successful via URL");
-        localStorage.setItem('xero_authenticated', 'true');
-        let determinedTenantId = tenantIdParam;
-        let determinedTenantName = tenantNameParam;
-        let tenantsList = [];
+        if (authStatus === 'success') {
+            localStorage.setItem('xero_authenticated', 'true');
+            let determinedTenantId = tenantIdParam;
+            let determinedTenantName = tenantNameParam;
+            let tenantsList = [];
 
-        if (tenantsParam) {
-          try {
-            tenantsList = JSON.parse(decodeURIComponent(tenantsParam));
-            localStorage.setItem('xero_tenants', JSON.stringify(tenantsList));
-            window.xeroTenants = tenantsList;
-            if (tenantsList.length > 0 && !determinedTenantId) {
-              determinedTenantId = tenantsList[0].tenantId;
-              determinedTenantName = tenantsList[0].tenantName;
-            }
-          } catch (error) { console.error('Error parsing tenants data:', error); if (determinedTenantId) { tenantsList = [{ tenantId: determinedTenantId, tenantName: determinedTenantName || 'Unknown' }]; window.xeroTenants = tenantsList; localStorage.setItem('xero_tenants', JSON.stringify(tenantsList)); } }
-        } else if (determinedTenantId) {
-          tenantsList = [{ tenantId: determinedTenantId, tenantName: determinedTenantName || 'Unknown' }];
-          window.xeroTenants = tenantsList;
-          localStorage.setItem('xero_tenants', JSON.stringify(tenantsList));
-        } else { console.error("Auth success but no tenant info!"); showError("Connected, but couldn't identify organization."); clearCookies(); updateUI(false); return; }
+            if (tenantsParam) {
+                try { tenantsList = JSON.parse(decodeURIComponent(tenantsParam)); localStorage.setItem('xero_tenants', JSON.stringify(tenantsList)); window.xeroTenants = tenantsList; if (tenantsList.length > 0 && !determinedTenantId) { determinedTenantId = tenantsList[0].tenantId; determinedTenantName = tenantsList[0].tenantName; } }
+                catch (error) { console.error('Error parsing tenants data:', error); if (determinedTenantId) { tenantsList = [{ tenantId: determinedTenantId, tenantName: determinedTenantName || 'Unknown' }]; window.xeroTenants = tenantsList; localStorage.setItem('xero_tenants', JSON.stringify(tenantsList)); } }
+            } else if (determinedTenantId) { tenantsList = [{ tenantId: determinedTenantId, tenantName: determinedTenantName || 'Unknown' }]; window.xeroTenants = tenantsList; localStorage.setItem('xero_tenants', JSON.stringify(tenantsList)); }
+            else { console.error("Auth success but no tenant info!"); showError("Connected, but couldn't identify organization."); clearAuthData(); updateUI(false); return; }
 
-        if (determinedTenantId) {
-          localStorage.setItem('xero_tenant_id', determinedTenantId);
-          localStorage.setItem('xero_tenant_name', determinedTenantName || 'Unknown Organization');
-          window.tenantId = determinedTenantId; window.tenantName = determinedTenantName || 'Unknown Organization';
-          console.log(`Initial active tenant set from URL: ${window.tenantName} (${window.tenantId})`);
-        } else { console.error("Failed to determine active tenant ID."); showError("Failed to set active organization."); clearCookies(); updateUI(false); return; }
+            if (determinedTenantId) { localStorage.setItem('xero_tenant_id', determinedTenantId); localStorage.setItem('xero_tenant_name', determinedTenantName || 'Unknown Org'); window.tenantId = determinedTenantId; window.tenantName = determinedTenantName || 'Unknown Org'; }
+            else { console.error("Failed to determine active tenant ID."); showError("Failed to set active organization."); clearAuthData(); updateUI(false); return; }
 
-        if (tokensParam) {
-          try {
-            const tokens = JSON.parse(decodeURIComponent(tokensParam));
-            localStorage.setItem('xero_tokens', JSON.stringify(tokens));
-            window.xeroTokens = tokens;
-          } catch (error) { console.error('Error parsing tokens data:', error); showError("Connected, but failed to store tokens."); }
-        } else { console.error("Auth success but no tokens!"); showError("Authentication succeeded but token data missing."); clearCookies(); updateUI(false); return; }
+            if (tokensParam) {
+                try { const tokens = JSON.parse(decodeURIComponent(tokensParam)); localStorage.setItem('xero_tokens', JSON.stringify(tokens)); window.xeroTokens = tokens; }
+                catch (error) { console.error('Error parsing tokens data:', error); showError("Connected, but failed to store tokens."); }
+            } else { console.error("Auth success but no tokens!"); showError("Authentication succeeded but token data missing."); clearAuthData(); updateUI(false); return; }
 
-        showSuccess(`Successfully connected to Xero${window.tenantName ? `: ${window.tenantName}` : ''}`);
-        updateUI(true); // Update UI first
-        if (window.xeroTenants && window.xeroTenants.length > 0) {
-          displayTenantDropdown(window.xeroTenants); // Then display dropdown
+            showSuccess(`Connected to Xero: ${window.tenantName || ''}`);
+            updateUI(true);
+            if (window.xeroTenants && window.xeroTenants.length > 0) displayTenantDropdown(window.xeroTenants);
+            if (multipleOrgs || (tenantsList && tenantsList.length > 1)) showMessage("Multiple Xero orgs available. Use dropdown.", "info");
+            // Let initApp trigger initial load after this state is set
+            // loadInitialInvoices(); // Remove initial load call from here
+
+        } else if (authStatus === 'error' && errorMessage) {
+            console.error("Auth error from URL:", errorMessage);
+            showError(`Xero connection failed: ${decodeURIComponent(errorMessage)}`);
+            clearAuthData(); updateUI(false);
         }
-        if (multipleOrgs || (tenantsList && tenantsList.length > 1)) {
-          showMessage("Multiple Xero organizations available. Use dropdown to switch.", "info");
-        }
-        // Initial load handled by initApp after this runs
-
-      } else if (authStatus === 'error' && errorMessage) {
-        console.error("Authentication error from URL:", errorMessage);
-        showError(`Xero connection failed: ${decodeURIComponent(errorMessage)}`);
-        clearCookies(); updateUI(false);
-      }
-
-      // Clean up URL
-      const currentPath = window.location.pathname;
-      window.history.replaceState({}, document.title, currentPath);
     }
 
     function checkAuthStatus() {
-      console.log("Checking stored authentication status...");
-      const isAuthenticated = localStorage.getItem('xero_authenticated') === 'true';
-      console.log("Is authenticated (localStorage):", isAuthenticated);
+        console.log("Checking stored auth status...");
+        const isAuthenticated = localStorage.getItem('xero_authenticated') === 'true';
+        if (isAuthenticated) {
+            const tenantId = localStorage.getItem('xero_tenant_id');
+            const tenantName = localStorage.getItem('xero_tenant_name');
+            const storedTenants = localStorage.getItem('xero_tenants');
+            const storedTokens = localStorage.getItem('xero_tokens');
 
-      if (isAuthenticated) {
-        const tenantId = localStorage.getItem('xero_tenant_id');
-        const tenantName = localStorage.getItem('xero_tenant_name');
-        const storedTenants = localStorage.getItem('xero_tenants');
-        const storedTokens = localStorage.getItem('xero_tokens'); // Load tokens too
+            if (tenantId && storedTokens) {
+                window.tenantId = tenantId;
+                window.tenantName = tenantName || 'Your Xero Organization';
+                try { window.xeroTokens = JSON.parse(storedTokens); } catch(e) { console.error("Stored tokens invalid", e); clearAuthData(); updateUI(false); return; }
 
-        if (tenantId && storedTokens) { // Require tenant AND tokens
-          window.tenantId = tenantId;
-          window.tenantName = tenantName || 'Your Xero Organization';
-          try { window.xeroTokens = JSON.parse(storedTokens); } catch (e) { console.error("Error parsing stored tokens", e); showError("Stored authentication invalid. Reconnect."); clearCookies(); updateUI(false); return; }
+                if (storedTenants) {
+                    try { window.xeroTenants = JSON.parse(storedTenants); if (!window.xeroTenants.find(t => t.tenantId === window.tenantId) && window.xeroTenants.length > 0) { console.warn("Stored tenant invalid, defaulting."); window.tenantId = window.xeroTenants[0].tenantId; window.tenantName = window.xeroTenants[0].tenantName; localStorage.setItem('xero_tenant_id', window.tenantId); localStorage.setItem('xero_tenant_name', window.tenantName); } }
+                    catch (e) { console.error("Stored tenants invalid", e); window.xeroTenants = [{ tenantId: window.tenantId, tenantName: window.tenantName }]; }
+                } else { window.xeroTenants = [{ tenantId: window.tenantId, tenantName: window.tenantName }]; localStorage.setItem('xero_tenants', JSON.stringify(window.xeroTenants)); }
 
-          if (storedTenants) {
-            try { window.xeroTenants = JSON.parse(storedTenants); if (!window.xeroTenants.find(t => t.tenantId === window.tenantId) && window.xeroTenants.length > 0) { console.warn("Stored tenant invalid, defaulting."); window.tenantId = window.xeroTenants[0].tenantId; window.tenantName = window.xeroTenants[0].tenantName; localStorage.setItem('xero_tenant_id', window.tenantId); localStorage.setItem('xero_tenant_name', window.tenantName); } }
-            catch (e) { console.error("Error parsing stored tenants", e); window.xeroTenants = [{ tenantId: window.tenantId, tenantName: window.tenantName }]; }
-          } else { window.xeroTenants = [{ tenantId: window.tenantId, tenantName: window.tenantName }]; localStorage.setItem('xero_tenants', JSON.stringify(window.xeroTenants)); }
-
-          console.log(`Using stored session for tenant: ${window.tenantName} (${window.tenantId})`);
-          updateUI(true); // Update UI first
-          displayTenantDropdown(window.xeroTenants || []); // Then display dropdown
-          // Initial load handled by initApp after this
-        } else {
-          console.warn("Stored session incomplete (missing tenantId or tokens). Clearing.");
-          clearCookies(); updateUI(false);
-        }
-      } else {
-        console.log("User is not authenticated (no stored session).");
-        updateUI(false);
-      }
+                console.log(`Using stored session for tenant: ${window.tenantName} (${window.tenantId})`);
+                updateUI(true);
+                displayTenantDropdown(window.xeroTenants || []);
+            } else { console.warn("Stored session incomplete. Clearing."); clearAuthData(); updateUI(false); }
+        } else { console.log("Not authenticated (no stored session)."); updateUI(false); }
     }
 
     function displayTenantDropdown(tenants) {
-      const dropdown = document.getElementById('tenant-dropdown');
-      const selectorDiv = document.getElementById('tenant-selector');
-      if (!dropdown || !selectorDiv) return; // Exit if elements not found
+        const dropdown = document.getElementById('tenant-dropdown');
+        const selectorDiv = document.getElementById('tenant-selector');
+        if (!dropdown || !selectorDiv) { console.error("Tenant dropdown elements not found"); return; }
 
-      console.log('Updating tenant dropdown with:', tenants);
-      dropdown.innerHTML = ''; // Clear existing
-
-      if (tenants && tenants.length > 0) {
-        tenants.forEach(tenant => {
-          const option = document.createElement('option');
-          option.value = tenant.tenantId;
-          option.textContent = tenant.tenantName || 'Unnamed Organization';
-          dropdown.appendChild(option);
-        });
-
-        // Set selected value based on current window.tenantId
-        if (window.tenantId && tenants.some(t => t.tenantId === window.tenantId)) {
-          dropdown.value = window.tenantId;
-        } else if (tenants.length > 0) {
-          // Default to first if current is invalid or not set
-          dropdown.value = tenants[0].tenantId;
-          // Update window vars and localStorage if we had to default
-          if (window.tenantId !== tenants[0].tenantId) {
-            console.log("Defaulting active tenant in dropdown to first available.");
-            window.tenantId = tenants[0].tenantId;
-            window.tenantName = tenants[0].tenantName;
-            localStorage.setItem('xero_tenant_id', window.tenantId);
-            localStorage.setItem('xero_tenant_name', window.tenantName);
-          }
-        }
-
-        // Show selector and attach listener if not already attached
-        selectorDiv.classList.remove('hidden');
-        if (!dropdown.dataset.listenerAttached) {
-          dropdown.addEventListener('change', handleTenantChange);
-          dropdown.dataset.listenerAttached = 'true';
-          console.log('Tenant dropdown listener attached.');
-        }
-      } else {
-        // Hide if no tenants
-        selectorDiv.classList.add('hidden');
-        console.log('Hiding tenant dropdown - no tenants.');
-      }
+        dropdown.innerHTML = '';
+        if (tenants && tenants.length > 0) {
+            tenants.forEach(tenant => { const opt = document.createElement('option'); opt.value = tenant.tenantId; opt.textContent = tenant.tenantName || 'Unnamed'; dropdown.appendChild(opt); });
+            if (window.tenantId && tenants.some(t => t.tenantId === window.tenantId)) { dropdown.value = window.tenantId; }
+            else if (tenants.length > 0) { dropdown.value = tenants[0].tenantId; if (window.tenantId !== tenants[0].tenantId) { window.tenantId = tenants[0].tenantId; window.tenantName = tenants[0].tenantName; localStorage.setItem('xero_tenant_id', window.tenantId); localStorage.setItem('xero_tenant_name', window.tenantName); } }
+            selectorDiv.classList.remove('hidden');
+            if (!dropdown.dataset.listenerAttached) { dropdown.addEventListener('change', handleTenantChange); dropdown.dataset.listenerAttached = 'true'; }
+        } else { selectorDiv.classList.add('hidden'); }
     }
 
     function handleTenantChange() {
-      const dropdown = document.getElementById('tenant-dropdown');
-      window.tenantId = dropdown.value;
-      window.tenantName = dropdown.options[dropdown.selectedIndex]?.textContent || 'Unknown'; // Safer access
-      console.log(`Switched to organization: ${window.tenantName} (${window.tenantId})`);
-      localStorage.setItem('xero_tenant_id', window.tenantId);
-      localStorage.setItem('xero_tenant_name', window.tenantName);
-
-      // Reset state and UI for new tenant
-      currentResults = []; currentPage = 1; cachedPages = {}; window.filteredResults = null;
-      currentApiPage = 1; apiHasMorePages = true; isLoadingMoreApiData = false;
-      const resultsList = document.getElementById('results-list');
-      const resultsCount = document.getElementById('results-count');
-      const pagination = document.getElementById('pagination');
-      if (resultsList) resultsList.innerHTML = '';
-      if (resultsCount) resultsCount.textContent = '(0)';
-      if (pagination) pagination.innerHTML = '';
-      const jobStatusFilter = document.getElementById('job-status-filter');
-      const searchInput = document.getElementById('search-input');
-      if (jobStatusFilter) jobStatusFilter.value = '';
-      if (searchInput) searchInput.value = '';
-
-      toggleLoading(true); // Show loading
-      loadInitialInvoices(); // Load data for new tenant
-      showMessage(`Switched to ${window.tenantName}. Loading invoices...`, 'info');
+        const dropdown = document.getElementById('tenant-dropdown');
+        window.tenantId = dropdown.value;
+        window.tenantName = dropdown.options[dropdown.selectedIndex]?.textContent || 'Unknown';
+        console.log(`Switched tenant to: ${window.tenantName} (${window.tenantId})`);
+        localStorage.setItem('xero_tenant_id', window.tenantId);
+        localStorage.setItem('xero_tenant_name', window.tenantName);
+        // Reset state for new tenant
+        currentResults = []; currentPage = 1; cachedPages = {}; window.filteredResults = null;
+        currentApiPage = 1; apiHasMorePages = true; isLoadingMoreApiData = false;
+        const rl = document.getElementById('results-list'); const rc = document.getElementById('results-count'); const pg = document.getElementById('pagination');
+        if(rl) rl.innerHTML = ''; if(rc) rc.textContent = '(0)'; if(pg) pg.innerHTML = '';
+        const jsf = document.getElementById('job-status-filter'); const si = document.getElementById('search-input');
+        if(jsf) jsf.value = ''; if(si) si.value = '';
+        toggleLoading(true);
+        loadInitialInvoices();
+        showMessage(`Switched to ${window.tenantName}. Loading...`, 'info');
     }
 
-    function setupEventListeners() {
-      console.log("Setting up event listeners...");
-      document.getElementById('login-btn')?.addEventListener('click', () => { window.location.href = '/.netlify/functions/xero-auth'; });
-      document.getElementById('logout-btn')?.addEventListener('click', () => { clearCookies(); window.location.reload(); });
-      document.getElementById('search-btn')?.addEventListener('click', searchInvoices);
-
-      const searchInput = document.getElementById('search-input');
-      if (searchInput) {
-        searchInput.addEventListener('keypress', event => { if (event.key === 'Enter') searchInvoices(); });
-        const debouncedAutocomplete = debounce(handleAutocomplete, DEBOUNCE_DELAY);
-        searchInput.addEventListener('input', debouncedAutocomplete);
-        searchInput.addEventListener('blur', () => { setTimeout(() => { const ac = document.getElementById('autocomplete-suggestions'); if (ac && !ac.matches(':hover')) { ac.innerHTML = ''; ac.classList.add('hidden'); } }, 150); });
-        searchInput.addEventListener('focus', () => { if (searchInput.value.trim().length > 0) handleAutocomplete(); });
-      }
-
-      const jobStatusFilter = document.getElementById('job-status-filter');
-      if (jobStatusFilter) { jobStatusFilter.addEventListener('change', async function () { /* ... async logic from previous version ... */ const selectedStatus = this.value; const term = document.getElementById('search-input')?.value.trim() || ''; console.log(`Filter change: ${selectedStatus}, Term: ${term}`); toggleLoading(true); try { if (!selectedStatus) { window.filteredResults = null; currentApiPage = 1; apiHasMorePages = true; isLoadingMoreApiData = false; cachedPages = {}; currentResults = []; await loadInitialInvoices(); } else if (term) { await searchInvoices(); } else { await loadInvoicesByStatus(selectedStatus); } } catch (e) { console.error("Filter error:", e); showError("Error loading."); } finally { toggleLoading(false); } }); }
-
-      const sortBySelect = document.getElementById('sort-by');
-      if (sortBySelect) { sortBySelect.addEventListener('change', () => { console.log('Sort changed'); if (window.filteredResults !== null && Array.isArray(window.filteredResults)) { sortSpecificResults(window.filteredResults); displayFilteredResults(); } else { sortResults(); } }); }
-
-      const backBtn = document.getElementById('back-btn');
-      if (backBtn) { backBtn.addEventListener('click', () => { document.getElementById('detail-section')?.classList.add('hidden'); document.getElementById('results-section')?.classList.remove('hidden'); document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
-
-      const searchInputForClear = document.getElementById('search-input');
-      const clearSearchBtn = document.getElementById('clear-search-btn');
-      if (searchInputForClear && clearSearchBtn) {
-        searchInputForClear.addEventListener('input', () => { clearSearchBtn.classList.toggle('hidden', searchInputForClear.value.length === 0); if (searchInputForClear.value.length === 0) { const ac = document.getElementById('autocomplete-suggestions'); if (ac) { ac.innerHTML = ''; ac.classList.add('hidden'); } } });
-        clearSearchBtn.addEventListener('click', () => { searchInputForClear.value = ''; clearSearchBtn.classList.add('hidden'); const ac = document.getElementById('autocomplete-suggestions'); if (ac) { ac.innerHTML = ''; ac.classList.add('hidden'); } const sf = document.getElementById('job-status-filter'); if (sf) sf.value = ''; loadInitialInvoices(); searchInputForClear.focus(); showMessage('Search cleared.', 'info'); });
-      }
-      console.log("Event listeners setup complete.");
+    async function checkAndRefreshTokens() {
+        const tokensJson = localStorage.getItem('xero_tokens');
+        if (!tokensJson) return null;
+        try {
+            const tokens = JSON.parse(tokensJson);
+            // Refresh if less than 5 minutes left
+            if ((tokens.expires_at - Date.now()) < 5 * 60 * 1000) {
+                console.log("Refreshing Xero token...");
+                return await refreshTokens(tokens.refresh_token);
+            }
+            return tokens; // Still valid
+        } catch (error) { console.error("Token check error:", error); return null; }
     }
 
-    async function checkAndRefreshTokens() { /* ... function code ... */ const tJson = localStorage.getItem('xero_tokens'); if (!tJson) return null; try { const t = JSON.parse(tJson); if (t.expires_at - Date.now() < 300000) return await refreshTokens(t.refresh_token); return t; } catch (e) { console.error("Check tokens error:", e); return null; } }
-    async function refreshTokens(refreshToken) { /* ... function code ... */ console.log("Refreshing..."); try { const r = await fetch('/api/xero-refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken }) }); if (!r.ok) { const ed = await r.json(); throw new Error(ed.message || `Server ${r.status}`); } const nt = await r.json(); localStorage.setItem('xero_tokens', JSON.stringify(nt)); window.xeroTokens = nt; return nt; } catch (e) { console.error("Refresh error:", e); showError('Auth expired. Reconnect.'); clearCookies(); updateUI(false); return null; } }
+    async function refreshTokens(refreshToken) {
+        try {
+            const response = await fetch('/api/xero-refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken }) });
+            if (!response.ok) { const err = await response.json(); throw new Error(err.message || `Server ${response.status}`); }
+            const newTokens = await response.json();
+            localStorage.setItem('xero_tokens', JSON.stringify(newTokens));
+            window.xeroTokens = newTokens;
+            console.log("Tokens refreshed.");
+            return newTokens;
+        } catch (error) { console.error("Token refresh error:", error); showError('Session expired. Reconnect.'); clearAuthData(); updateUI(false); return null; }
+    }
+
     async function getValidTokens() { return await checkAndRefreshTokens(); }
-    function clearCookies() { /* ... function code ... */ localStorage.removeItem('xero_authenticated'); localStorage.removeItem('xero_tenant_id'); localStorage.removeItem('xero_tenant_name'); localStorage.removeItem('xero_tenants'); localStorage.removeItem('xero_tokens'); window.tenantId = null; window.tenantName = null; window.xeroTenants = null; window.xeroTokens = null; const dd = document.getElementById('tenant-dropdown'); if (dd) { dd.innerHTML = ''; dd.dataset.listenerAttached = 'false'; } document.getElementById('tenant-selector')?.classList.add('hidden'); document.getElementById('results-list').innerHTML = ''; document.getElementById('results-count').textContent = '(0)'; document.getElementById('pagination').innerHTML = ''; document.getElementById('detail-section')?.classList.add('hidden'); document.getElementById('results-section')?.classList.add('hidden'); document.getElementById('search-section')?.classList.add('hidden'); console.log("Auth data cleared."); }
-    function extractSixDigitInvoiceNumber(text) { /* ... function code ... */ if (!text) return null; const m = text.match(/\d{6}/); return (m && m[0]) ? m[0] : null; }
-    function getCookie(name) { /* ... function code ... */ const v = `; ${document.cookie}`; const p = v.split(`; ${name}=`); if (p.length === 2) { const cv = p.pop().split(';').shift(); return cv === "undefined" ? null : cv; } return null; }
-    function toggleLoading(show) { document.getElementById('loading')?.classList.toggle('hidden', !show); }
-    function showError(message, autoHide = true) { /* ... function code ... */ const el = document.getElementById('error-message'); if (!el) return; el.textContent = message; el.className = 'message error'; el.classList.remove('hidden'); if (autoHide) setTimeout(() => { el.classList.add('hidden'); }, 8000); console.error("Error:", message); }
-    function showSuccess(message) { showMessage(message, 'success'); }
-    function showMessage(message, type = 'info') { /* ... function code ... */ const el = document.getElementById('error-message'); if (!el) return; el.textContent = message; el.className = `message ${type}`; el.classList.remove('hidden'); setTimeout(() => { el.classList.add('hidden'); }, 5000); }
-    function updateUI(isAuthenticated) { /* ... function code ... */ document.getElementById('login-btn')?.classList.toggle('hidden', isAuthenticated); document.getElementById('logout-btn')?.classList.toggle('hidden', !isAuthenticated); document.getElementById('auth-message')?.classList.toggle('hidden', isAuthenticated); document.getElementById('search-section')?.classList.toggle('hidden', !isAuthenticated); }
-    async function loadInitialInvoices() { /* ... function code ... */ currentResults = []; window.filteredResults = null; currentPage = 1; currentApiPage = 1; apiHasMorePages = true; isLoadingMoreApiData = false; cachedPages = {}; const sf = document.getElementById('job-status-filter'); const si = document.getElementById('search-input'); if (sf) sf.value = ''; if (si) si.value = ''; console.log("loadInitialInvoices..."); toggleLoading(true); try { const d = await fetchInvoicePageApi(1, 100); if (d && d.invoices.length > 0) { currentResults = d.invoices; updateAutocompleteSources(currentResults); apiHasMorePages = d.hasMore; document.getElementById('results-section')?.classList.remove('hidden'); document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`; const o = currentResults.filter(i => getJobStatus(i) === 'overdue').length; const a = currentResults.filter(i => getJobStatus(i) === 'approaching').length; showMessage(`Loaded ${currentResults.length} invoices (${o} deadline, ${a} borderline). More may load.`, 'info'); sortResults(); } else { console.log("No initial invoices."); document.getElementById('results-section')?.classList.add('hidden'); showMessage("No recent sales invoices found.", 'info'); apiHasMorePages = false; } } catch (e) { console.error("Initial load error:", e); showError("Error loading: " + e.message); document.getElementById('results-section')?.classList.add('hidden'); } finally { toggleLoading(false); } }
-    async function fetchInvoicePageApi(page, pageSize) { /* ... function code ... */ console.log(`Fetching API page ${page}, size ${pageSize}`); if (!window.tenantId) throw new Error("Tenant ID missing."); const tk = await getValidTokens(); if (!tk) throw new Error('No valid tokens.'); const url = new URL(`/api/xero-api/invoices`, window.location.origin); const da = new Date(); da.setDate(da.getDate() - 45); const fd = da.toISOString().split('T')[0]; const wc = `Date>=DateTime(${fd.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`; url.searchParams.set('where', wc); url.searchParams.set('order', 'Date DESC'); url.searchParams.set('page', page.toString()); url.searchParams.set('pageSize', pageSize.toString()); try { const rp = await fetch(url.toString(), { headers: { 'Authorization': `Bearer ${tk.access_token}`, 'Xero-Tenant-Id': window.tenantId } }); if (!rp.ok) { const et = await rp.text(); try { const ed = JSON.parse(et); throw new Error(ed.message || `API Error ${rp.status}: ${et}`); } catch (e) { throw new Error(`API Error ${rp.status}: ${et}`); } } const dt = await rp.json(); const inv = dt?.Invoices || []; const hm = inv.length === pageSize; console.log(`API page ${page} got ${inv.length}. HasMore: ${hm}`); return { invoices: inv, hasMore: hm }; } catch (e) { console.error(`API fetch page ${page} error:`, e); throw e; } }
-    function applyJobStatusFilter(statusFilter) { /* ... function code ... */ const fr = currentResults.filter(i => getJobStatus(i) === statusFilter); window.filteredResults = fr; currentPage = 1; displayFilteredResults(); }
-    function displayFilteredResults() { /* ... function code ... */ const rl = document.getElementById('results-list'); if (!rl) return; rl.innerHTML = ''; const rc = document.getElementById('results-count'); const fc = window.filteredResults ? window.filteredResults.length : 0; if (rc) rc.textContent = `(${fc})`; console.log(`Displaying filtered page ${currentPage}. Total: ${fc}`); if (!window.filteredResults || window.filteredResults.length === 0) { rl.innerHTML = `<div class="message info">No invoices match filter.</div>`; updatePagination(); return; } const tp = Math.ceil(fc / resultsPerPage); if (currentPage > tp && tp > 0) currentPage = tp; const si = (currentPage - 1) * resultsPerPage; const ei = Math.min(si + resultsPerPage, fc); const pr = window.filteredResults.slice(si, ei); const pc = document.createDocumentFragment(); pr.forEach(i => { try { pc.appendChild(createInvoiceItem(i)); } catch (e) { console.error("Error rendering filtered:", e, i); } }); rl.appendChild(pc); updatePagination(); }
-    async function loadInvoicesByStatus(status) { /* ... function code ... */ console.log(`Load by status: ${status}`); toggleLoading(true); window.filteredResults = null; currentResults = []; currentPage = 1; cachedPages = {}; try { const tk = await getValidTokens(); if (!tk) throw new Error('No valid tokens'); let dtlbc; let sn; if (status === 'overdue') { dtlbc = 60; sn = 'deadline'; } else if (status === 'approaching') { dtlbc = 30; sn = 'borderline'; } else { throw new Error(`Invalid status: ${status}`); } const lbd = new Date(); lbd.setDate(lbd.getDate() - dtlbc); const fd = lbd.toISOString().split('T')[0]; const url = new URL(`/api/xero-api/invoices`, window.location.origin); let wc = `Date>=DateTime(${fd.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`; url.searchParams.set('where', wc); url.searchParams.set('order', 'Date DESC'); console.log(`Fetching potential '${sn}' since ${fd}...`); const api = await fetchAllPages(url.toString(), tk.access_token); console.log(`Fetched ${api.length} potential. Filtering by business days...`); if (api.length > 0) { const afi = api.filter(i => getJobStatus(i) === status); console.log(`Filtered to ${afi.length} actual '${sn}'.`); window.filteredResults = afi; updateAutocompleteSources(window.filteredResults); if (window.filteredResults.length > 0) { document.getElementById('results-section')?.classList.remove('hidden'); document.getElementById('results-count').textContent = `(${window.filteredResults.length})`; showMessage(`Found ${window.filteredResults.length} ${sn} invoices.`, 'info'); displayFilteredResults(); } else { window.filteredResults = []; document.getElementById('results-section')?.classList.remove('hidden'); document.getElementById('results-list').innerHTML = `<div class="message info">No ${sn} invoices found.</div>`; document.getElementById('results-count').textContent = '(0)'; document.getElementById('pagination').innerHTML = ''; } } else { window.filteredResults = []; document.getElementById('results-section')?.classList.add('hidden'); showMessage(`No invoices found in last ${dtlbc} days to check for ${sn}.`, 'info'); document.getElementById('results-count').textContent = '(0)'; document.getElementById('pagination').innerHTML = ''; } } catch (e) { console.error(`Error loading by status (${status}):`, e); showError(`Error loading ${status}: ${e.message}`); document.getElementById('results-section')?.classList.add('hidden'); } finally { toggleLoading(false); } }
-    async function fetchAllPages(baseUrl, accessToken) { /* ... function code ... */ let p = 1; const ps = 100; let ar = []; let hmp = true; showMessage("Fetching invoices...", "info"); toggleLoading(true); while (hmp) { try { const u = new URL(baseUrl); u.searchParams.set('page', p.toString()); u.searchParams.set('pageSize', ps.toString()); const rp = await fetch(u.toString(), { headers: { 'Authorization': `Bearer ${accessToken}`, 'Xero-Tenant-Id': window.tenantId } }); if (!rp.ok) { const et = await rp.text(); throw new Error(`API Error ${rp.status}: ${et}`); } const d = await rp.json(); const inv = d?.Invoices || []; if (inv.length > 0) { ar = [...ar, ...inv]; if (ar.length % (ps * 2) === 0 || inv.length < ps) { showMessage(`Fetched ${ar.length} invoices...`, "info"); } hmp = inv.length === ps; p++; } else { hmp = false; } if (ar.length >= 1000) { showMessage(`Limiting to ${ar.length}. Refine search?`, "warning"); hmp = false; } } catch (e) { console.error(`Fetch page ${p} error:`, e); showError(`Error fetching (page ${p}): ${e.message}. Partial results shown.`); hmp = false; } } toggleLoading(false); setTimeout(() => { const me = document.getElementById('error-message'); if (me.textContent.includes("Fetching") || me.textContent.includes("Fetched")) { me.classList.add('hidden'); } }, 2000); console.log(`fetchAllPages finished. Total: ${ar.length}`); return ar; }
-    function updatePagination() { /* ... function code ... */ const pg = document.getElementById('pagination'); if (!pg) return; pg.innerHTML = ''; let rtu; let trc; let tp; const isf = !!document.getElementById('job-status-filter')?.value; const isfa = window.filteredResults !== null && window.filteredResults !== undefined; let hp = currentPage > 1; let hn = false; if (isf && isfa) { rtu = window.filteredResults; trc = rtu.length; tp = Math.ceil(trc / resultsPerPage); hn = currentPage < tp; } else { rtu = currentResults; trc = rtu.length; hn = (currentPage * resultsPerPage < trc) || apiHasMorePages; } let ba = false; if (currentPage > 1) { const fb = document.createElement('button'); fb.textContent = 'First'; fb.className = 'btn secondary'; fb.addEventListener('click', () => { if (currentPage !== 1) { window.lastScrollPosition = window.scrollY; currentPage = 1; if (isf && isfa) { displayFilteredResults(); } else { displayResultItems(); } } }); pg.appendChild(fb); ba = true; } if (hp) { const pb = document.createElement('button'); pb.textContent = 'Previous'; pb.className = 'btn secondary'; pb.addEventListener('click', () => { if (currentPage > 1) { window.lastScrollPosition = window.scrollY; currentPage--; if (isf && isfa) { displayFilteredResults(); } else { displayResultItems(); } } }); pg.appendChild(pb); ba = true; } if (hn) { const nb = document.createElement('button'); nb.textContent = 'Next'; nb.className = 'btn primary'; nb.addEventListener('click', () => { window.lastScrollPosition = window.scrollY; currentPage++; if (isf && isfa) { displayFilteredResults(); } else { displayResultItems(); } }); pg.appendChild(nb); ba = true; } pg.style.display = ba ? 'flex' : 'none'; }
-    function createInvoiceItem(invoice) { /* ... function code ... */ const item = document.createElement('div'); item.className = 'result-item'; const js = getJobStatus(invoice); if (js) item.classList.add(js); if (invoice.InvoiceID) item.dataset.id = invoice.InvoiceID; const d = formatDate(invoice.Date); const dd = formatDate(invoice.DueDate); const id = parseXeroDate(invoice.Date); const bd = id ? getBusinessDaysDifference(id, new Date()) : null; let jah = ''; if (bd !== null) { if (bd > 10) jah = `<div class="job-age job-overdue">Deadline: ${bd} biz days</div>`; else if (bd >= 7) jah = `<div class="job-age job-approaching">Borderline: ${bd} biz days</div>`; else jah = `<div class="job-age job-recent">${bd} biz days</div>`; } const lfn = invoice.InvoiceNumber || ''; const elfn = extractSixDigitInvoiceNumber(lfn); let lfdl = '#'; if (elfn) lfdl = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${elfn}.jpg?role=personal`; item.innerHTML = `<div class="result-header"><div class="invoice-number">Inv #${invoice.InvoiceNumber || 'N/A'}</div><div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'N/A'}</div></div><div class="result-details"><div><span>Customer</span><span>${invoice.Contact?.Name || 'N/A'}</span></div><div><span>Reference</span><span>${invoice.Reference || 'N/A'}</span>${elfn ? `<div style="margin-top:0.25rem;"><a href="${lfdl}" target="_blank" rel="noopener noreferrer" class="rx-link" style="font-size:0.8em;text-decoration:underline;color:var(--primary-color);">View Lab Form</a></div>` : ''}</div><div><span>Date</span><span>${d}</span>${jah}</div><div><span>Due Date</span><span>${dd}</span></div><div><span>Amount</span><span>${invoice.CurrencyCode || ''} ${invoice.Total ? invoice.Total.toFixed(2) : 'N/A'}</span></div></div>`; if (invoice.InvoiceID) item.addEventListener('click', () => { showInvoiceDetail(invoice.InvoiceID); }); const rl = item.querySelector('.rx-link'); if (rl) rl.addEventListener('click', (e) => { e.stopPropagation(); }); return item; }
-    function showInvoiceDetailById(event) { /* ... function code ... */ let te = event.target; while (te && !te.classList.contains('result-item')) { te = te.parentElement; } const iid = te ? te.dataset.id : null; if (iid) showInvoiceDetail(iid); else console.error("Could not find invoice ID."); }
-    async function showInvoiceDetail(invoiceId) { /* ... function code ... */ try { toggleLoading(true); const tk = await getValidTokens(); if (!tk) throw new Error('No valid tokens'); const u = `${window.location.origin}/api/xero-api/invoices/${invoiceId}`; const rp = await fetch(u, { headers: { 'Authorization': `Bearer ${tk.access_token}`, 'Xero-Tenant-Id': window.tenantId } }); if (!rp.ok) { const ed = await rp.json(); throw new Error(ed.message || `Server ${rp.status}`); } const d = await rp.json(); if (d && d.Invoices && d.Invoices.length > 0) { const inv = d.Invoices[0]; document.getElementById('results-section')?.classList.add('hidden'); document.getElementById('detail-section')?.classList.remove('hidden'); const de = document.getElementById('invoice-detail'); const dt = formatDate(inv.Date); const ddt = formatDate(inv.DueDate); const liHtml = (inv.LineItems || []).map(i => `<tr><td>${i.Description || 'N/A'}</td><td>${i.Quantity || 0}</td><td class="text-right">${inv.CurrencyCode || ''} ${i.UnitAmount ? i.UnitAmount.toFixed(2) : '0.00'}</td><td class="text-right">${inv.CurrencyCode || ''} ${i.LineAmount ? i.LineAmount.toFixed(2) : '0.00'}</td></tr>`).join(''); const lfn = inv.InvoiceNumber || ''; const elfn = extractSixDigitInvoiceNumber(lfn); let lfdl = '#'; if (elfn) lfdl = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${elfn}.jpg?role=personal`; const idHtml = `<div class="invoice-header"><h2>Inv #${inv.InvoiceNumber || 'N/A'}</h2><div class="invoice-status status-${(inv.Status || '').toLowerCase()}">${inv.Status || 'N/A'}</div></div><div class="invoice-meta"><div class="invoice-meta-group"><h3>Details</h3><div><strong>Date:</strong> ${dt}</div><div><strong>Due:</strong> ${ddt}</div><div><strong>Ref:</strong> ${inv.Reference || 'N/A'}</div><div><strong>Type:</strong> ${inv.Type || 'N/A'}</div></div><div class="invoice-meta-group"><h3>Customer</h3><div><strong>Name:</strong> ${inv.Contact?.Name || 'N/A'}</div><div><strong>Addr:</strong><div class="address-block">${inv.Contact?.Addresses?.[0] ? `<span>${inv.Contact.Addresses[0].AddressLine1 || ''}</span>${inv.Contact.Addresses[0].AddressLine2 ? `<span>${inv.Contact.Addresses[0].AddressLine2}</span>` : ''}<span>${inv.Contact.Addresses[0].City || ''}${inv.Contact.Addresses[0].City && inv.Contact.Addresses[0].Region ? ', ' : ''}${inv.Contact.Addresses[0].Region || ''} ${inv.Contact.Addresses[0].PostalCode || ''}</span>${inv.Contact.Addresses[0].Country ? `<span>${inv.Contact.Addresses[0].Country}</span>` : ''}` : '<span>N/A</span>'}</div></div></div>${elfn ? `<div><strong>Lab Form:</strong><div style="margin-top:0.2rem;"><a href="${lfdl}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;color:var(--primary-color);font-size:0.9rem;">View lab form</a></div></div>` : ''}</div><div class="invoice-items"><h3>Line Items</h3><table><thead><tr><th>Desc</th><th>Qty</th><th class="text-right">Unit Price</th><th class="text-right">Amount</th></tr></thead><tbody>${liHtml}</tbody><tfoot><tr><td colspan="3" class="text-right"><strong>Subtotal</strong></td><td class="text-right">${inv.CurrencyCode || ''} ${inv.SubTotal ? inv.SubTotal.toFixed(2) : '0.00'}</td></tr><tr><td colspan="3" class="text-right"><strong>Total Tax</strong></td><td class="text-right">${inv.CurrencyCode || ''} ${inv.TotalTax ? inv.TotalTax.toFixed(2) : '0.00'}</td></tr><tr class="total-row"><td colspan="3" class="text-right"><strong>Total</strong></td><td class="text-right">${inv.CurrencyCode || ''} ${inv.Total ? inv.Total.toFixed(2) : '0.00'}</td></tr></tfoot></table></div>`; de.innerHTML = `<div class="tabs-container"><div class="tabs-nav"><button id="tab-invoice-details" class="tab-button active" data-tab="tab-content-invoice">Invoice Details</button><button id="tab-notes" class="tab-button" data-tab="tab-content-notes">Notes</button><button id="tab-reminders" class="tab-button" data-tab="tab-content-reminders">Reminders</button><button id="tab-tracking" class="tab-button" data-tab="tab-content-tracking">Tracking</button></div><div id="tab-content-invoice" class="tab-content active">${idHtml}</div><div id="tab-content-notes" class="tab-content"><div id="notes-list" class="item-list"><div class="loading-indicator"><div class="spinner"></div><p>Loading notes...</p></div></div><div id="notes-form" class="add-item-form"><h3 class="form-title">Add Note</h3><form id="add-note-form"><div class="form-row"><label for="note-category">Category:</label><select id="note-category" name="category"><option value="general">General</option><option value="customer">Customer</option><option value="lab">Lab</option><option value="payment">Payment</option><option value="important">Important</option></select></div><div class="form-row"><label for="note-text">Note:</label><div class="textarea-container"><textarea id="note-text" name="text" required></textarea><button type="button" id="start-dictation-note" class="dictation-button" title="Start Dictation">🎤<span class="visually-hidden">Start Dictation</span></button></div></div><div class="form-actions"><button type="submit" class="btn primary">Add Note</button></div></form></div></div><div id="tab-content-reminders" class="tab-content"><div id="reminders-list" class="item-list"><div class="loading-indicator"><div class="spinner"></div><p>Loading reminders...</p></div></div><div id="reminders-form" class="add-item-form"><h3 class="form-title">Add Reminder</h3><form id="add-reminder-form"><div class="form-row"><label for="reminder-text">Desc:</label><div class="textarea-container"><textarea id="reminder-text" name="text" required></textarea><button type="button" id="start-dictation-reminder" class="dictation-button" title="Start Dictation">🎤<span class="visually-hidden">Start Dictation</span></button></div></div><div class="form-row"><label for="reminder-due-date">Due:</label><input type="date" id="reminder-due-date" name="dueDate" required></div><div class="form-row"><label for="reminder-recurring">Recurring:</label><select id="reminder-recurring" name="recurring"><option value="none">None</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div><div class="form-actions"><button type="submit" class="btn primary">Add Reminder</button></div></form></div></div><div id="tab-content-tracking" class="tab-content"><div class="empty-state"><p>Tracking info coming soon.</p></div></div></div>`; const tb = de.querySelectorAll('.tab-button'); tb.forEach(b => { b.addEventListener('click', () => { tb.forEach(btn => btn.classList.remove('active')); de.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); b.classList.add('active'); const tid = b.getAttribute('data-tab'); document.getElementById(tid)?.classList.add('active'); }); }); if (window.notesAndReminders) { window.notesAndReminders.init(inv); } else { console.warn('Notes/reminders func not loaded'); } } }else { showError('Inv not found'); } }catch (e) { console.error('Error getting details:', e); showError('Error loading details.'); } finally { toggleLoading(false); } }
-    function parseXeroDate(xeroDateString) { /* ... function code ... */ if (!xeroDateString) return null; const dr = /\/Date\((\d+)(?:[-+]\d+)?\)\//; const m = dr.exec(xeroDateString); if (m && m[1]) return new Date(parseInt(m[1], 10)); if (typeof xeroDateString === 'string' && xeroDateString.includes('T')) return new Date(xeroDateString); const dd = new Date(xeroDateString); if (!isNaN(dd.getTime())) return dd; return null; }
-    function debounce(func, delay) { /* ... function code ... */ return function (...a) { clearTimeout(autocompleteDebounceTimer); autocompleteDebounceTimer = setTimeout(() => { func.apply(this, a); }, delay); }; }
-    function updateAutocompleteSources(invoices) { /* ... function code ... */ if (!invoices || invoices.length === 0) return; invoices.forEach(i => { if (i.InvoiceNumber && !invoiceNumberSuggestions.includes(i.InvoiceNumber)) invoiceNumberSuggestions.push(i.InvoiceNumber); if (i.Reference) referenceSuggestions.add(i.Reference); if (i.Contact?.Name) contactNameSuggestions.add(i.Contact.Name); }); invoiceNumberSuggestions.sort(); }
-    function formatDate(dateValue) { /* ... function code ... */ if (!dateValue) return 'N/A'; const d = parseXeroDate(dateValue); if (!d || isNaN(d.getTime())) return 'N/A'; return d.toLocaleDateString(); } // Use default locale date format
-    function getBusinessDaysDifference(startDate, endDate) { /* ... function code ... */ if (!startDate || !endDate) return null; const s = startDate instanceof Date ? startDate : new Date(startDate); const e = endDate instanceof Date ? endDate : new Date(endDate); if (isNaN(s.getTime()) || isNaN(e.getTime())) return null; let c = 0; let cur = new Date(s); while (cur <= e) { const d = cur.getDay(); if (d !== 0 && d !== 6) c++; cur.setDate(cur.getDate() + 1); } return c; }
-    function handleAutocomplete() { /* ... function code ... */ const i = document.getElementById('search-input'); const sc = document.getElementById('autocomplete-suggestions'); const v = i.value.trim().toLowerCase(); if (v.length < 1) { sc.innerHTML = ''; sc.classList.add('hidden'); return; } const ms = 10; let s = []; if (Array.isArray(invoiceNumberSuggestions)) invoiceNumberSuggestions.forEach(n => { if (n && typeof n === 'string' && n.toLowerCase().startsWith(v)) s.push({ type: 'Inv #', text: n }); }); if (typeof referenceSuggestions[Symbol.iterator] === 'function') referenceSuggestions.forEach(r => { if (r && typeof r === 'string' && r.toLowerCase().startsWith(v) && s.length < ms && !s.some(x => x.text === r)) s.push({ type: 'Ref', text: r }); }); if (typeof contactNameSuggestions[Symbol.iterator] === 'function') contactNameSuggestions.forEach(n => { if (n && typeof n === 'string' && n.toLowerCase().startsWith(v) && s.length < ms && !s.some(x => x.text === n)) s.push({ type: 'Cust', text: n }); }); s = s.slice(0, ms); sc.innerHTML = ''; if (s.length > 0) { s.forEach(sg => { const d = document.createElement('div'); const mi = sg.text.toLowerCase().indexOf(v); const ht = mi === 0 ? `<strong>${sg.text.substring(0, v.length)}</strong>${sg.text.substring(v.length)}` : sg.text; d.innerHTML = `${ht} <span style="color:#888;font-size:0.8em;float:right;">(${sg.type})</span>`; d.addEventListener('click', () => { i.value = sg.text; sc.innerHTML = ''; sc.classList.add('hidden'); searchInvoices(); }); sc.appendChild(d); }); sc.classList.remove('hidden'); } else { sc.classList.add('hidden'); } }
-    function sortResults() { /* ... function code ... */ if (!currentResults || currentResults.length === 0) return; const sv = document.getElementById('sort-by')?.value; if (!sv) return; const [sb, so] = sv.split('-'); console.log(`Sorting by ${sb} ${so}`); currentResults.sort((a, b) => { let vA, vB; if (sb === 'Date' || sb === 'DueDate') { vA = parseXeroDate(a[sb])?.getTime() || 0; vB = parseXeroDate(b[sb])?.getTime() || 0; } else if (sb.includes('.')) { const p = sb.split('.'); vA = a; vB = b; for (const pt of p) { vA = vA && vA[pt]; vB = vB && vB[pt]; } } else { vA = a[sb]; vB = b[sb]; } if (vA === undefined || vA === null) return so === 'asc' ? -1 : 1; if (vB === undefined || vB === null) return so === 'asc' ? 1 : -1; if (typeof vA === 'string' && typeof vB === 'string') { return so === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA); } else { const nA = parseFloat(vA); const nB = parseFloat(vB); if (!isNaN(nA) && !isNaN(nB)) return so === 'asc' ? nA - nB : nB - nA; return so === 'asc' ? (vA < vB ? -1 : vA > vB ? 1 : 0) : (vB < vA ? -1 : vB > vA ? 1 : 0); } }); displayResultItems(); }
-    function sortSpecificResults(resultsArray) { /* ... Add sorting logic specifically for a given array if needed, similar to sortResults ... */ console.log("sortSpecificResults called - implement if needed"); }
-    function displayResultItems() { /* ... logic to display items for current page, handle API load etc... */ const rl = document.getElementById('results-list'); const jsf = document.getElementById('job-status-filter')?.value; const iafa = !jsf && !window.filteredResults; const ri = (currentPage - 1) * resultsPerPage; if (iafa && ri >= currentResults.length && apiHasMorePages && !isLoadingMoreApiData) { isLoadingMoreApiData = true; toggleLoading(true); showMessage("Loading more...", "info"); console.log(`Need data beyond ${currentResults.length}, fetch API page ${currentApiPage + 1}`); fetchInvoicePageApi(currentApiPage + 1, 100).then(d => { currentResults = [...currentResults, ...d.invoices]; updateAutocompleteSources(d.invoices); currentApiPage++; apiHasMorePages = d.hasMore; document.getElementById('results-count').textContent = `(${currentResults.length}${apiHasMorePages ? '+' : ''})`; }).catch(e => { showError(`Failed load more: ${e.message}`); apiHasMorePages = false; }).finally(() => { isLoadingMoreApiData = false; toggleLoading(false); setTimeout(() => { const me = document.getElementById('error-message'); if (me.textContent.includes("Loading more")) { me.classList.add('hidden'); } }, 1500); displayResultItems(); /* Re-render after load attempt */ }); return; /* Exit render while loading */ } rl.innerHTML = ''; const rtd = currentResults; let tlr = rtd.length; if (iafa) { document.getElementById('results-count').textContent = `(${tlr}${apiHasMorePages ? '+ loaded' : ''})`; } const si = (currentPage - 1) * resultsPerPage; const ei = Math.min(si + resultsPerPage, tlr); const pr = rtd.slice(si, ei); if (pr.length === 0 && tlr === 0) { rl.innerHTML = `<div class="message info">No invoices.</div>`; updatePagination(); return; } const pc = document.createDocumentFragment(); pr.forEach(i => { try { pc.appendChild(createInvoiceItem(i)); } catch (e) { console.error("Error rendering:", e, i); } }); rl.appendChild(pc); updatePagination(); }
-    function getJobStatus(invoice) { /* ... final correct version ... */ if (invoice.Status === 'PAID' || invoice.Type === 'ACCPAY') return null; const startDate = parseXeroDate(invoice.Date); if (!startDate) return null; const businessDays = getBusinessDaysDifference(startDate, new Date()); if (businessDays === null) return null; if (businessDays > 10) return 'overdue'; if (businessDays >= 7) return 'approaching'; return 'recent'; }
 
-    // This listener MUST be inside this script tag, after all function definitions
+    function clearAuthData() { // Renamed from clearCookies for clarity
+        localStorage.removeItem('xero_authenticated');
+        localStorage.removeItem('xero_tenant_id');
+        localStorage.removeItem('xero_tenant_name');
+        localStorage.removeItem('xero_tenants');
+        localStorage.removeItem('xero_tokens');
+        window.tenantId = null; window.tenantName = null; window.xeroTenants = null; window.xeroTokens = null;
+        const dropdown = document.getElementById('tenant-dropdown'); if (dropdown) { dropdown.innerHTML = ''; dropdown.dataset.listenerAttached = 'false'; }
+        document.getElementById('tenant-selector')?.classList.add('hidden');
+        console.log('Cleared Xero auth data from localStorage.');
+    }
+
+    function updateUI(isAuthenticated) {
+        document.getElementById('login-btn')?.classList.toggle('hidden', isAuthenticated);
+        document.getElementById('logout-btn')?.classList.toggle('hidden', !isAuthenticated);
+        document.getElementById('auth-message')?.classList.toggle('hidden', isAuthenticated);
+        document.getElementById('search-section')?.classList.toggle('hidden', !isAuthenticated);
+        // Results section visibility is handled by loading functions
+    }
+
+    // --- Event Listeners Setup ---
+    function setupEventListeners() {
+        console.log("Setting up event listeners...");
+        document.getElementById('login-btn')?.addEventListener('click', () => { window.location.href = '/.netlify/functions/xero-auth'; });
+        document.getElementById('logout-btn')?.addEventListener('click', () => { clearAuthData(); window.location.reload(); }); // Use clearAuthData
+        document.getElementById('search-btn')?.addEventListener('click', searchInvoices);
+
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', event => { if (event.key === 'Enter') searchInvoices(); });
+            const debouncedAutocomplete = debounce(handleAutocomplete, DEBOUNCE_DELAY);
+            searchInput.addEventListener('input', debouncedAutocomplete);
+            searchInput.addEventListener('blur', () => { setTimeout(() => { const ac = document.getElementById('autocomplete-suggestions'); if (ac && !ac.matches(':hover')) { ac.innerHTML = ''; ac.classList.add('hidden'); } }, 150); });
+            searchInput.addEventListener('focus', () => { if (searchInput.value.trim().length > 0) handleAutocomplete(); });
+        }
+
+        const jobStatusFilter = document.getElementById('job-status-filter');
+        if (jobStatusFilter) { jobStatusFilter.addEventListener('change', handleFilterChange); } // Use named handler
+
+        const sortBySelect = document.getElementById('sort-by');
+        if (sortBySelect) { sortBySelect.addEventListener('change', handleSortChange); } // Use named handler
+
+        const backBtn = document.getElementById('back-btn');
+        if (backBtn) { backBtn.addEventListener('click', handleBackButtonClick); } // Use named handler
+
+        const clearSearchBtn = document.getElementById('clear-search-btn');
+        if (searchInput && clearSearchBtn) {
+            searchInput.addEventListener('input', () => { clearSearchBtn.classList.toggle('hidden', searchInput.value.length === 0); if(searchInput.value.length === 0) { const ac = document.getElementById('autocomplete-suggestions'); if(ac){ ac.innerHTML = ''; ac.classList.add('hidden');}} });
+            clearSearchBtn.addEventListener('click', handleClearSearch); // Use named handler
+        }
+        console.log("Event listeners setup complete.");
+    }
+
+    // --- Event Handlers ---
+    async function handleFilterChange() {
+        const selectedStatus = this.value;
+        const term = document.getElementById('search-input')?.value.trim() || '';
+        console.log(`Filter change: ${selectedStatus}, Term: ${term}`);
+        toggleLoading(true);
+        const resultsSection = document.getElementById('results-section');
+        if (resultsSection) resultsSection.style.opacity = '0.5'; // Visual feedback
+        try {
+            if (!selectedStatus) { // "All Invoices" selected
+                window.filteredResults = null; currentApiPage = 1; apiHasMorePages = true; isLoadingMoreApiData = false; cachedPages = {}; currentResults = [];
+                await loadInitialInvoices(); // Reload initial view
+            } else if (term) { // Status selected + search term
+                await searchInvoices(); // Re-run search (it will apply filter client-side)
+            } else { // Status selected, no search term
+                await loadInvoicesByStatus(selectedStatus); // Load specifically by status
+            }
+        } catch (e) { console.error("Filter error:", e); showError("Error applying filter."); }
+        finally { toggleLoading(false); if (resultsSection) resultsSection.style.opacity = '1'; }
+    }
+
+    function handleSortChange() {
+        console.log('Sort changed');
+        if (window.filteredResults !== null && Array.isArray(window.filteredResults)) {
+            console.log('Sorting filtered results...');
+            sortSpecificResults(window.filteredResults); // Implement this if specific sort needed
+            displayFilteredResults();
+        } else {
+            console.log('Sorting main results...');
+            sortResults(); // Sorts currentResults and calls displayResultItems
+        }
+    }
+
+    function handleBackButtonClick() {
+        document.getElementById('detail-section')?.classList.add('hidden');
+        const resultsSection = document.getElementById('results-section');
+        if (resultsSection) {
+            resultsSection.classList.remove('hidden');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        // Maybe restore previous search state here if needed
+    }
+
+    function handleClearSearch() {
+        console.log('Clear search clicked');
+        const searchInput = document.getElementById('search-input');
+        const clearBtn = document.getElementById('clear-search-btn');
+        const suggestions = document.getElementById('autocomplete-suggestions');
+        const statusFilter = document.getElementById('job-status-filter');
+        if(searchInput) searchInput.value = '';
+        if(clearBtn) clearBtn.classList.add('hidden');
+        if(suggestions){ suggestions.innerHTML = ''; suggestions.classList.add('hidden'); }
+        if(statusFilter) statusFilter.value = '';
+        loadInitialInvoices(); // Reload "All"
+        if(searchInput) searchInput.focus();
+        showMessage('Search cleared.', 'info');
+    }
+
+    // --- Data Fetching & Processing ---
+    async function loadInitialInvoices() {
+        currentResults = []; window.filteredResults = null; currentPage = 1;
+        currentApiPage = 1; apiHasMorePages = true; isLoadingMoreApiData = false;
+        cachedPages = {}; window.currentFirebaseStatusMap = {}; // Clear status map
+        console.log("loadInitialInvoices: Fetching initial...");
+        toggleLoading(true);
+        try {
+            const initialData = await fetchInvoicePageApi(1, 100); // Fetch first 100
+            if (initialData?.invoices?.length > 0) {
+                currentResults = initialData.invoices;
+                updateAutocompleteSources(currentResults);
+                apiHasMorePages = initialData.hasMore;
+                const accountNumbers = currentResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean);
+                if (accountNumbers.length > 0) window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
+                document.getElementById('results-section')?.classList.remove('hidden');
+                document.getElementById('results-count').textContent = `(${currentResults.length} loaded)`;
+                const o = currentResults.filter(i => getJobStatus(i)==='overdue').length; const a = currentResults.filter(i => getJobStatus(i)==='approaching').length;
+                showMessage(`Loaded ${currentResults.length} invoices (${o} deadline, ${a} borderline).`, 'info');
+                sortResults(); // Sorts and displays first page
+            } else { /* Handle no initial results */ document.getElementById('results-section')?.classList.add('hidden'); showMessage("No recent invoices found.", 'info'); apiHasMorePages = false; displayResultItems();}
+        } catch (e) { /* Handle error */ console.error("Initial load error:", e); showError("Error: " + e.message); document.getElementById('results-section')?.classList.add('hidden'); }
+        finally { toggleLoading(false); }
+    }
+
+    async function fetchInvoicePageApi(page, pageSize) {
+        console.log(`Fetching API page ${page}, size ${pageSize}`);
+        if (!window.tenantId) throw new Error("Tenant ID missing.");
+        const tokens = await getValidTokens(); if (!tokens) throw new Error('No valid tokens.');
+        const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+        const daysAgo = new Date(); daysAgo.setDate(daysAgo.getDate() - 45);
+        const formattedDate = daysAgo.toISOString().split('T')[0];
+        const whereClause = `Date>=DateTime(${formattedDate.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`;
+        url.searchParams.set('where', whereClause); url.searchParams.set('order', 'Date DESC');
+        url.searchParams.set('page', page.toString()); url.searchParams.set('pageSize', pageSize.toString());
+        try {
+            const response = await fetch(url.toString(), { headers: { 'Authorization': `Bearer ${tokens.access_token}`, 'Xero-Tenant-Id': window.tenantId } });
+            if (!response.ok) { const et = await response.text(); try { const ed = JSON.parse(et); throw new Error(ed.message || `API Error ${response.status}: ${et}`); } catch (e) { throw new Error(`API Error ${response.status}: ${et}`); } }
+            const data = await response.json(); const invoices = data?.Invoices || []; const hasMore = invoices.length === pageSize;
+            console.log(`API page ${page} got ${invoices.length}. HasMore: ${hasMore}`);
+            return { invoices, hasMore };
+        } catch (e) { console.error(`API fetch page ${page} error:`, e); throw e; }
+    }
+
+    // --- NEW Function to Fetch Firebase Status ---
+    async function fetchFirebaseStatuses(accountNumbers) {
+        const uniqueAccountNumbers = [...new Set(accountNumbers)].filter(accNum => accNum && typeof accNum === 'string' && accNum.trim() !== '');
+        if (uniqueAccountNumbers.length === 0) return {};
+        console.log(`Fetching Firebase status for ${uniqueAccountNumbers.length} accounts...`);
+        try {
+            const response = await fetch('/api/firebase-api/batch-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountNumbers: uniqueAccountNumbers }) });
+            if (!response.ok) { const errorBody = await response.text(); console.error(`Error fetching statuses: ${response.status}`, errorBody); return {}; }
+            const statusMap = await response.json(); console.log('Received Firebase status map:', statusMap); return statusMap;
+        } catch (error) { console.error('Failed fetchFirebaseStatuses:', error); return {}; }
+    }
+    // --- End New Function ---
+
+    async function searchInvoices() {
+        const searchInput = document.getElementById('search-input');
+        const searchTerm = searchInput ? searchInput.value.trim() : '';
+        if (!searchTerm) { await loadInitialInvoices(); showMessage('Showing all recent invoices...', 'info'); return; }
+        console.log(`Searching for: "${searchTerm}"`);
+        const tokens = await getValidTokens(); if (!tokens) { showError('Auth token issue.'); return; }
+        toggleLoading(true); window.currentFirebaseStatusMap = {}; // Clear previous statuses
+        try {
+            const url = new URL(`/api/xero-api/invoices`, window.location.origin);
+            url.searchParams.set('order', 'Date DESC'); url.searchParams.set('page', '1'); url.searchParams.set('pageSize', '50');
+            const headers = { 'Authorization': `Bearer ${tokens.access_token}`, 'Xero-Tenant-Id': window.tenantId };
+            const whereConditions = [`Type=="ACCREC"`];
+            const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30); const fd=thirtyDaysAgo.toISOString().split('T')[0]; whereConditions.push(`Date>=DateTime(${fd.replace(/-/g, ',')})`);
+            const st=searchTerm.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "''").toLowerCase(); whereConditions.push(`((InvoiceNumber!=null AND InvoiceNumber.ToLower().Contains("${st}")) OR (Reference!=null AND Reference.ToLower().Contains("${st}")) OR (Contact.Name!=null AND Contact.Name.ToLower().Contains("${st}")))`);
+            const wc = whereConditions.join(' AND '); url.searchParams.append('where', wc);
+            const response = await fetch(url.toString(), { method: 'GET', headers });
+            if (!response.ok) { const et = await response.text(); try { const ed = JSON.parse(et); throw new Error(ed.Detail||ed.message||et||`Server ${response.status}`); } catch (pe) { throw new Error(et||`Server ${response.status}`); } }
+            const data = await response.json(); let fetchedInvoices = data?.Invoices || [];
+            const jobStatusFilterEl = document.getElementById('job-status-filter'); const ss = jobStatusFilterEl ? jobStatusFilterEl.value : ''; let finalResults = ss ? fetchedInvoices.filter(i => getJobStatus(i) === ss) : fetchedInvoices;
+            if (finalResults.length > 0) {
+                currentResults = finalResults; updateAutocompleteSources(currentResults); currentPage = 1; window.filteredResults = null; currentApiPage = 1; apiHasMorePages = fetchedInvoices.length === 50;
+                const accountNumbers = currentResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean);
+                if (accountNumbers.length > 0) window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers);
+                displayResults();
+            } else { /* Handle no search results */ currentResults = []; window.filteredResults = null; window.currentFirebaseStatusMap = {}; document.getElementById('results-list').innerHTML = ''; document.getElementById('results-count').textContent = '(0)'; document.getElementById('pagination').innerHTML = ''; document.getElementById('results-section').classList.remove('hidden'); showMessage('No invoices found matching criteria.', 'info'); }
+        } catch (e) { /* Handle search error */ console.error("Search error:", e); showError(`Search error: ${e?.message||e}`); currentResults=[]; window.filteredResults=null; window.currentFirebaseStatusMap={}; /* Clear UI */ }
+        finally { toggleLoading(false); }
+    }
+
+    async function loadInvoicesByStatus(status) { /* ... (Keep existing, ensure it clears window.currentFirebaseStatusMap initially and sets it before calling displayFilteredResults if results found) ... */
+        console.log(`Load by status: ${status}`);
+        toggleLoading(true); window.filteredResults = null; currentResults = []; currentPage = 1; cachedPages = {}; window.currentFirebaseStatusMap = {}; // Clear map
+        try {
+            const tokens = await getValidTokens(); if (!tokens) throw new Error('No valid tokens');
+            let daysToLookBack, statusName; if (status === 'overdue'){daysToLookBack=60; statusName='deadline';} else if (status === 'approaching'){daysToLookBack=30; statusName='borderline';} else {throw new Error(`Invalid status: ${status}`);}
+            const lookBackDate = new Date(); lookBackDate.setDate(lookBackDate.getDate() - daysToLookBack); const fd = lookBackDate.toISOString().split('T')[0];
+            const url = new URL(`/api/xero-api/invoices`, window.location.origin); let wc = `Date>=DateTime(${fd.replace(/-/g, ',')}) AND Type=="ACCREC" AND Status!="PAID"`; url.searchParams.set('where', wc); url.searchParams.set('order', 'Date DESC');
+            console.log(`Fetching potential '${statusName}' since ${fd}...`);
+            const allPotential = await fetchAllPages(url.toString(), tokens.access_token);
+            if (allPotential.length > 0) {
+                const filtered = allPotential.filter(i => getJobStatus(i) === status);
+                console.log(`Filtered to ${filtered.length} actual '${statusName}'.`);
+                window.filteredResults = filtered; updateAutocompleteSources(window.filteredResults);
+                if (window.filteredResults.length > 0) {
+                    const accountNumbers = window.filteredResults.map(inv => inv.Contact?.AccountNumber).filter(Boolean);
+                    if (accountNumbers.length > 0) window.currentFirebaseStatusMap = await fetchFirebaseStatuses(accountNumbers); // Fetch statuses for filtered results
+                    document.getElementById('results-section')?.classList.remove('hidden'); document.getElementById('results-count').textContent = `(${window.filteredResults.length})`; showMessage(`Found ${window.filteredResults.length} ${statusName} invoices.`, 'info');
+                    displayFilteredResults(); // This will now use window.currentFirebaseStatusMap
+                } else { /* Handle no matches after filtering */ window.filteredResults = []; document.getElementById('results-section')?.classList.remove('hidden'); document.getElementById('results-list').innerHTML = `<div class="message info">No ${statusName} found.</div>`; document.getElementById('results-count').textContent = '(0)'; document.getElementById('pagination').innerHTML = ''; }
+            } else { /* Handle no results from initial fetch */ window.filteredResults = []; document.getElementById('results-section')?.classList.add('hidden'); showMessage(`No invoices in last ${daysToLookBack} days.`, 'info'); document.getElementById('results-count').textContent = '(0)'; document.getElementById('pagination').innerHTML = ''; }
+        } catch (e) { console.error(`Error loading by status (${status}):`, e); showError(`Error: ${e.message}`); document.getElementById('results-section')?.classList.add('hidden'); }
+        finally { toggleLoading(false); }
+    }
+
+    async function fetchAllPages(baseUrl, accessToken) { /* ... (Keep existing fetchAllPages) ... */ let p=1; const ps=100; let ar=[]; let hmp=true; showMessage("Fetching...", "info"); toggleLoading(true); while(hmp){try{/*...fetch logic...*/ const d=await rp.json(); const inv=d?.Invoices||[]; if(inv.length>0){ar=[...ar,...inv]; if(ar.length%(ps*2)===0||inv.length<ps)showMessage(`Fetched ${ar.length}...`,"info"); hmp=inv.length===ps; p++;}else{hmp=false;} if(ar.length>=1000){showMessage(`Limit ${ar.length}. Refine?`,"warning");hmp=false;}}catch(e){/*...*/hmp=false;}} toggleLoading(false); setTimeout(()=>{/*...*/},2000); return ar;}
+
+    // --- UI Display and Rendering ---
+    function displayResults() { // This function is now simpler, mainly calls displayResultItems or displayFilteredResults
+        console.log("displayResults called");
+        const resultsSection = document.getElementById('results-section');
+        const resultsCount = document.getElementById('results-count');
+        if (!resultsSection || !resultsCount) { console.error("Results UI elements missing!"); return; }
+
+        // Decide which display function to use based on filter state
+        if (window.filteredResults !== null) {
+            displayFilteredResults(); // Display filtered results
+        } else {
+            displayResultItems(); // Display "All" (potentially paginated from API) results
+        }
+    }
+
+    function displayResultItems() { // Displays "All" results, handles API pagination
+        const resultsList = document.getElementById('results-list');
+        if (!resultsList) return;
+        const isAllFilterActive = !document.getElementById('job-status-filter')?.value && !window.filteredResults;
+        const requiredIndex = (currentPage - 1) * resultsPerPage;
+
+        // Fetch more API data if needed ONLY for the "All" view
+        if (isAllFilterActive && requiredIndex >= currentResults.length && apiHasMorePages && !isLoadingMoreApiData) {
+            isLoadingMoreApiData = true; toggleLoading(true); showMessage("Loading more...", "info");
+            fetchInvoicePageApi(currentApiPage + 1, 100).then(async nextPageData => { // Make async to await status fetch
+                currentResults = [...currentResults, ...nextPageData.invoices];
+                updateAutocompleteSources(nextPageData.invoices);
+                currentApiPage++; apiHasMorePages = nextPageData.hasMore;
+                // Fetch statuses for NEWLY loaded items and merge
+                const newAccountNumbers = nextPageData.invoices.map(inv => inv.Contact?.AccountNumber).filter(Boolean);
+                if (newAccountNumbers.length > 0) {
+                    const newStatuses = await fetchFirebaseStatuses(newAccountNumbers);
+                    window.currentFirebaseStatusMap = { ...window.currentFirebaseStatusMap, ...newStatuses }; // Merge maps
+                }
+            }).catch(e => { showError(`Failed load more: ${e.message}`); apiHasMorePages = false; })
+            .finally(() => { isLoadingMoreApiData = false; toggleLoading(false); setTimeout(/*...*/); displayResultItems(); /* Re-render */ });
+            return; // Exit while loading more
+        }
+
+        resultsList.innerHTML = ''; // Clear list
+        const resultsToDisplay = currentResults;
+        const totalLoadedResults = resultsToDisplay.length;
+        if(isAllFilterActive) document.getElementById('results-count').textContent = `(${totalLoadedResults}${apiHasMorePages ? '+ loaded' : ' total'})`;
+
+        const startIndex = (currentPage - 1) * resultsPerPage;
+        const endIndex = Math.min(startIndex + resultsPerPage, totalLoadedResults);
+        const pageResults = resultsToDisplay.slice(startIndex, endIndex);
+
+        if (pageResults.length === 0 && totalLoadedResults === 0) { resultsList.innerHTML = `<div class="message info">No invoices.</div>`; updatePagination(); return; }
+
+        const pageContent = document.createDocumentFragment();
+        pageResults.forEach(invoice => { try { pageContent.appendChild(createInvoiceItem(invoice)); } catch (e) { console.error("Error rendering:", e, invoice); } });
+        resultsList.appendChild(pageContent);
+        updatePagination(); // Update pagination based on currently loaded results
+    }
+
+    function displayFilteredResults() { // Displays filtered results (already loaded)
+        const resultsList = document.getElementById('results-list'); if (!resultsList) return;
+        const resultsCount = document.getElementById('results-count');
+        const filteredCount = window.filteredResults ? window.filteredResults.length : 0;
+        if(resultsCount) resultsCount.textContent = `(${filteredCount} matching filter)`;
+
+        if (!window.filteredResults || filteredCount === 0) { resultsList.innerHTML = `<div class="message info">No invoices match filter.</div>`; updatePagination(); return; }
+
+        const totalPages = Math.ceil(filteredCount / resultsPerPage);
+        if (currentPage > totalPages && totalPages > 0) currentPage = totalPages; // Adjust current page if needed
+        const startIndex = (currentPage - 1) * resultsPerPage;
+        const endIndex = Math.min(startIndex + resultsPerPage, filteredCount);
+        const pageResults = window.filteredResults.slice(startIndex, endIndex);
+
+        resultsList.innerHTML = ''; // Clear list
+        const pageContent = document.createDocumentFragment();
+        pageResults.forEach(invoice => { try { pageContent.appendChild(createInvoiceItem(invoice)); } catch (e) { console.error("Error rendering filtered:", e, invoice); } });
+        resultsList.appendChild(pageContent);
+        updatePagination(); // Update pagination based on filtered results
+    }
+
+    function createInvoiceItem(invoice) { // Adds icons using global map
+        const item = document.createElement('div'); item.className = 'result-item';
+        const jobStatus = getJobStatus(invoice); if (jobStatus) item.classList.add(jobStatus);
+        if (invoice.InvoiceID) item.dataset.id = invoice.InvoiceID;
+        const date = formatDate(invoice.Date); const dueDate = formatDate(invoice.DueDate);
+        const invoiceDate = parseXeroDate(invoice.Date); const businessDays = invoiceDate ? getBusinessDaysDifference(invoiceDate, new Date()) : null;
+        let jobAgeHtml = ''; if (businessDays !== null) { if (businessDays > 10) jobAgeHtml = `<div class="job-age job-overdue">Deadline: ${businessDays}d</div>`; else if (businessDays >= 7) jobAgeHtml = `<div class="job-age job-approaching">Borderline: ${businessDays}d</div>`; else jobAgeHtml = `<div class="job-age job-recent">${businessDays}d</div>`; }
+        const invNumLink = invoice.InvoiceNumber || ''; const labNum = extractSixDigitInvoiceNumber(invNumLink); let labLink = '#'; if (labNum) labLink = `https://www.dropbox.com/preview/TTL%20Prescription%20copies/${labNum}.jpg?role=personal`;
+
+        // Get status from global map
+        const accountNum = invoice.Contact?.AccountNumber;
+        const status = (accountNum && window.currentFirebaseStatusMap && window.currentFirebaseStatusMap[accountNum]) ? window.currentFirebaseStatusMap[accountNum] : { hasNote: false, hasReminder: false };
+
+        item.innerHTML = `
+          <div class="result-header">
+            <div class="invoice-number">
+              Inv #${invoice.InvoiceNumber || 'N/A'}
+              <span class="invoice-status-icons"></span> {/* Icons Added Here */}
+            </div>
+            <div class="invoice-status status-${(invoice.Status || '').toLowerCase()}">${invoice.Status || 'N/A'}</div>
+          </div>
+          <div class="result-details">
+            <div><span>Customer</span><span>${invoice.Contact?.Name || 'N/A'}</span></div>
+            <div><span>Reference</span><span>${invoice.Reference || 'N/A'}</span>${labNum ? `<div style="margin-top:0.25rem;"><a href="${labLink}" target="_blank" rel="noopener noreferrer" class="rx-link" style="font-size:0.8em;text-decoration:underline;color:var(--primary-color);">Lab Form</a></div>` : ''}</div>
+            <div><span>Date</span><span>${date}</span>${jobAgeHtml}</div>
+            <div><span>Due</span><span>${dueDate}</span></div>
+            <div><span>Amount</span><span>${invoice.CurrencyCode || ''} ${invoice.Total?.toFixed(2) || 'N/A'}</span></div>
+          </div>`;
+
+        const iconContainer = item.querySelector('.invoice-status-icons');
+        if (iconContainer) {
+            if (status.hasNote) { const icon = document.createElement('span'); icon.textContent = '📝'; icon.title = 'Has Notes'; icon.className = 'status-icon note-icon'; iconContainer.appendChild(icon); }
+            if (status.hasReminder) { const icon = document.createElement('span'); icon.textContent = '⏰'; icon.title = 'Has Reminders'; icon.className = 'status-icon reminder-icon'; iconContainer.appendChild(icon); }
+        }
+
+        if (invoice.InvoiceID) item.addEventListener('click', showInvoiceDetailById); // Use named handler
+        const rxLink = item.querySelector('.rx-link'); if (rxLink) rxLink.addEventListener('click', (e) => { e.stopPropagation(); });
+        return item;
+    }
+
+    function updatePagination() { /* ... (Keep existing updatePagination - it determines buttons based on state) ... */ const pg=document.getElementById('pagination'); if(!pg)return; pg.innerHTML=''; let rtu,trc,tp; const isf=!!document.getElementById('job-status-filter')?.value; const isfa=window.filteredResults!==null&&window.filteredResults!==undefined; let hp=currentPage>1; let hn=false; if(isf&&isfa){rtu=window.filteredResults; trc=rtu.length; tp=Math.ceil(trc/resultsPerPage); hn=currentPage<tp;}else{rtu=currentResults; trc=rtu.length; hn=(currentPage*resultsPerPage<trc)||apiHasMorePages;} let ba=false; if(currentPage>1){const fb=document.createElement('button'); fb.textContent='First'; fb.className='btn secondary'; fb.addEventListener('click',()=>{if(currentPage!==1){window.lastScrollPosition=window.scrollY; currentPage=1; if(isf&&isfa)displayFilteredResults(); else displayResultItems();}}); pg.appendChild(fb); ba=true;} if(hp){const pb=document.createElement('button'); pb.textContent='Previous'; pb.className='btn secondary'; pb.addEventListener('click',()=>{if(currentPage>1){window.lastScrollPosition=window.scrollY; currentPage--; if(isf&&isfa)displayFilteredResults(); else displayResultItems();}}); pg.appendChild(pb); ba=true;} if(hn){const nb=document.createElement('button'); nb.textContent='Next'; nb.className='btn primary'; nb.addEventListener('click',()=>{window.lastScrollPosition=window.scrollY; currentPage++; if(isf&&isfa)displayFilteredResults(); else displayResultItems();}); pg.appendChild(nb); ba=true;} pg.style.display=ba?'flex':'none'; }
+
+    async function showInvoiceDetail(invoiceId) { /* ... (Keep existing, including the window.notesAndReminders.init(invoice) call) ... */ try{toggleLoading(true); const tk=await getValidTokens(); if(!tk)throw new Error('No valid tokens'); const u=`${window.location.origin}/api/xero-api/invoices/${invoiceId}`; const rp=await fetch(u,{headers:{'Authorization':`Bearer ${tk.access_token}`,'Xero-Tenant-Id':window.tenantId}}); if(!rp.ok){const ed=await rp.json(); throw new Error(ed.message||`Server ${rp.status}`);} const d=await rp.json(); if(d?.Invoices?.length>0){const inv=d.Invoices[0]; document.getElementById('results-section')?.classList.add('hidden'); document.getElementById('detail-section')?.classList.remove('hidden'); const de=document.getElementById('invoice-detail'); /* ... build invoiceDetailsHtml ... */ const idHtml = `...`; /* ... build tabs HTML ... */ de.innerHTML = `<div class="tabs-container">...</div>`; /* ... init tabs ... */ const tb=de.querySelectorAll('.tab-button'); tb.forEach(b=>{/*...*/}); if(window.notesAndReminders){window.notesAndReminders.init(inv);}else{console.warn('Notes/reminders func not loaded');}}else{showError('Inv not found');}}catch(e){console.error('Error get details:',e);showError('Error loading details.');}finally{toggleLoading(false);} }
+    function showInvoiceDetailById(event) { let te = event.target; while (te && !te.classList.contains('result-item')) { te = te.parentElement; } const iid = te?.dataset.id; if (iid) showInvoiceDetail(iid); }
+
+    // --- Utility Functions ---
+    function parseXeroDate(xeroDateString) { if (!xeroDateString) return null; const m = /\/Date\((\d+).*\)\//.exec(xeroDateString); if (m && m[1]) return new Date(parseInt(m[1], 10)); if (typeof xeroDateString === 'string' && xeroDateString.includes('T')) return new Date(xeroDateString); const d = new Date(xeroDateString); return !isNaN(d.getTime()) ? d : null; }
+    function debounce(func, delay) { let timer; return function(...args){ clearTimeout(timer); timer = setTimeout(() => { func.apply(this, args); }, delay); }; }
+    function updateAutocompleteSources(invoices) { if (!invoices?.length) return; invoices.forEach(i => { if (i.InvoiceNumber && !invoiceNumberSuggestions.includes(i.InvoiceNumber)) invoiceNumberSuggestions.push(i.InvoiceNumber); if (i.Reference) referenceSuggestions.add(i.Reference); if (i.Contact?.Name) contactNameSuggestions.add(i.Contact.Name); }); invoiceNumberSuggestions.sort(); }
+    function handleAutocomplete() { /* ... (Keep existing handleAutocomplete) ... */ const i=document.getElementById('search-input'); const sc=document.getElementById('autocomplete-suggestions'); const v=i.value.trim().toLowerCase(); if(v.length<1){sc.innerHTML=''; sc.classList.add('hidden'); return;} const ms=10; let s=[]; if(Array.isArray(invoiceNumberSuggestions))invoiceNumberSuggestions.forEach(n=>{if(n?.toLowerCase().startsWith(v))s.push({type:'Inv #',text:n});}); if(typeof referenceSuggestions?.forEach==='function')referenceSuggestions.forEach(r=>{if(r?.toLowerCase().startsWith(v)&&s.length<ms&&!s.some(x=>x.text===r))s.push({type:'Ref',text:r});}); if(typeof contactNameSuggestions?.forEach==='function')contactNameSuggestions.forEach(n=>{if(n?.toLowerCase().startsWith(v)&&s.length<ms&&!s.some(x=>x.text===n))s.push({type:'Cust',text:n});}); s=s.slice(0,ms); sc.innerHTML=''; if(s.length>0){s.forEach(sg=>{const d=document.createElement('div'); const ht=sg.text.startsWith(i.value)?`<strong>${sg.text.substring(0,i.value.length)}</strong>${sg.text.substring(i.value.length)}`:sg.text; d.innerHTML=`${ht} <span style="color:#888;font-size:0.8em;float:right;">(${sg.type})</span>`; d.addEventListener('click',()=>{i.value=sg.text; sc.innerHTML=''; sc.classList.add('hidden'); searchInvoices();}); sc.appendChild(d);}); sc.classList.remove('hidden');}else{sc.classList.add('hidden');}}
+    function formatDate(dateValue) { const d = parseXeroDate(dateValue); return d ? d.toLocaleDateString() : 'N/A'; }
+    function getBusinessDaysDifference(startDate, endDate) { if (!startDate || !endDate) return null; const s = startDate instanceof Date ? startDate : new Date(startDate); const e = endDate instanceof Date ? endDate : new Date(endDate); if (isNaN(s.getTime()) || isNaN(e.getTime())) return null; let c = 0; let cur = new Date(s); while (cur <= e) { const d = cur.getDay(); if (d !== 0 && d !== 6) c++; cur.setDate(cur.getDate() + 1); } return c; }
+    function getJobStatus(invoice) { if (invoice.Status === 'PAID' || invoice.Type === 'ACCPAY') return null; const sd = parseXeroDate(invoice.Date); if (!sd) return null; const bd = getBusinessDaysDifference(sd, new Date()); if (bd === null) return null; if (bd > 10) return 'overdue'; if (bd >= 7) return 'approaching'; return 'recent'; }
+    function sortResults() { if (!currentResults?.length) return; const sv=document.getElementById('sort-by')?.value; if(!sv) return; const [sb,so]=sv.split('-'); currentResults.sort((a,b)=>{ /* ... sort logic ... */ let vA,vB; if(sb==='Date'||sb==='DueDate'){vA=parseXeroDate(a[sb])?.getTime()||0;vB=parseXeroDate(b[sb])?.getTime()||0;}else if(sb.includes('.')){const p=sb.split('.'); vA=a; vB=b; try{for(const pt of p){vA=vA?.[pt];vB=vB?.[pt];}}catch(e){vA=null;vB=null;}}else{vA=a?.[sb];vB=b?.[sb];} if(vA===undefined||vA===null)return so==='asc'?-1:1; if(vB===undefined||vB===null)return so==='asc'?1:-1; if(typeof vA==='string'&&typeof vB==='string')return so==='asc'?vA.localeCompare(vB):vB.localeCompare(vA); const nA=parseFloat(vA); const nB=parseFloat(vB); if(!isNaN(nA)&&!isNaN(nB))return so==='asc'?nA-nB:nB-nA; return so==='asc'?(vA<vB?-1:vA>vB?1:0):(vB<vA?-1:vB>vA?1:0);}); displayResultItems(); } // Re-render after sort
+    function sortSpecificResults(resultsArray) { if (!resultsArray?.length) return; const sv=document.getElementById('sort-by')?.value; if(!sv) return; const [sb,so]=sv.split('-'); resultsArray.sort((a,b)=>{/* ... same sort logic as sortResults ... */let vA,vB; if(sb==='Date'||sb==='DueDate'){vA=parseXeroDate(a[sb])?.getTime()||0;vB=parseXeroDate(b[sb])?.getTime()||0;}else if(sb.includes('.')){const p=sb.split('.'); vA=a; vB=b; try{for(const pt of p){vA=vA?.[pt];vB=vB?.[pt];}}catch(e){vA=null;vB=null;}}else{vA=a?.[sb];vB=b?.[sb];} if(vA===undefined||vA===null)return so==='asc'?-1:1; if(vB===undefined||vB===null)return so==='asc'?1:-1; if(typeof vA==='string'&&typeof vB==='string')return so==='asc'?vA.localeCompare(vB):vB.localeCompare(vA); const nA=parseFloat(vA); const nB=parseFloat(vB); if(!isNaN(nA)&&!isNaN(nB))return so==='asc'?nA-nB:nB-nA; return so==='asc'?(vA<vB?-1:vA>vB?1:0):(vB<vA?-1:vB>vA?1:0);}); } // Just sorts the passed array
+    function toggleLoading(show) { document.getElementById('loading')?.classList.toggle('hidden', !show); }
+    function showError(message, autoHide=true) { const el=document.getElementById('error-message'); if(!el)return; el.textContent=message; el.className='message error'; el.classList.remove('hidden'); if(autoHide) setTimeout(()=>{ el.classList.add('hidden'); }, 8000); console.error("Error:", message); }
+    function showSuccess(message) { showMessage(message, 'success'); }
+    function showMessage(message, type='info') { const el=document.getElementById('error-message'); if(!el)return; el.textContent=message; el.className=`message ${type}`; el.classList.remove('hidden'); setTimeout(()=>{ el.classList.add('hidden'); }, 5000); }
+    function extractSixDigitInvoiceNumber(text) { if (!text) return null; const m = text.match(/\d{6}/); return m ? m[0] : null; }
+
+
+    // --- Initialize the App ---
+    // Use DOMContentLoaded listener to ensure HTML is parsed before running initApp
     document.addEventListener('DOMContentLoaded', initApp);
 
   </script> <!-- End of the main application logic script -->
 
 </body>
-
 </html>
